@@ -9,12 +9,10 @@ from argparse import Namespace
 from abc import ABC, abstractmethod
 
 import pandas as pd
-import arviz as az
 import scipy as sp
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import emcee
 
 from scipy.stats import genpareto as gpdist
 from scipy.optimize import LinearConstraint, minimize
@@ -312,7 +310,7 @@ class GPTail(BaseDistribution):
   def logreg(cls, params: t.List[float]) -> float:
     """The regularisation terms are inspired in uninformative and zero-mean Gaussian priors for the scale and shape respectively, thus it is given by
 
-    $$r(\sigma, \xi) = 0.5 \cdot \log(\sigma) - 0.5 \xi^2$$
+    $$r(\\sigma, \\xi) = 0.5 \\cdot \\log(\\sigma) - 0.5 \\xi^2$$
     
     Args:
         params (t.List[float]): scale and shape parameters in that order
@@ -399,19 +397,20 @@ class GPTail(BaseDistribution):
     Returns:
         GPTail: Description
     """
-    x_max = max(data)
+    exceedances = data[data > threshold]
+    x_max = max(exceedances)
 
     constraints = LinearConstraint(
       A = np.array([[1/(x_max-threshold),1], [1, 0]]), 
       lb=np.zeros((2,)), 
       ub=np.Inf)
 
-    shape, _, scale = gpdist.fit(data, floc=threshold)
-    x0 = np.array([scale, shape])
+    shape, _, scale = gpdist.fit(exceedances, floc=threshold)
+    x0 = np.array([1, 0])
 
-    loss_func = lambda params: cls.loss(params, threshold, data)
-    loss_grad = lambda params: cls. loss_grad(params, threshold, data)
-    loss_hessian = lambda params: cls.loss_hessian(params, threshold, data)
+    loss_func = lambda params: GPTail.loss(params, threshold, exceedances)
+    loss_grad = lambda params: GPTail. loss_grad(params, threshold, exceedances)
+    loss_hessian = lambda params: GPTail.loss_hessian(params, threshold, exceedances)
 
     res = minimize(
       fun=loss_func, 
@@ -715,7 +714,7 @@ class Discrete(BaseDistribution):
 
     return Integer(
       support = integer_dist.support.astype(Integer._supported_types[0]),
-      pdf_values = integer_dist.pdf_vals,
+      pdf_values = integer_dist.pdf_values,
       data = integer_dist.data)
 
 
@@ -958,7 +957,7 @@ class DiscreteWithGPTail(Mixture):
     """Produces diagnostic plots for the fitted model
     
     """
-    if self.data is None:
+    if self.tail.data is None:
       raise ValueError("Exceedance data was not provided for this model.")
 
     fig, axs = plt.subplots(3, 2)
@@ -1050,7 +1049,7 @@ class DiscreteWithGPTail(Mixture):
 
     range_min, range_max = min(self.tail.data), max(self.tail.data)
     x_axis = np.linspace(range_min, range_max, 100)
-    pdf_vals = self.tail.self.pdf(x_axis)
+    pdf_vals = self.tail.pdf(x_axis)
     y_axis = hist_data[0][0] / pdf_vals[0] * pdf_vals
 
     axs[1,1].plot(x_axis, y_axis, color=self._figure_color_palette[1])
@@ -1063,7 +1062,7 @@ class DiscreteWithGPTail(Mixture):
     ############# Q-Q plot ################
     probability_range = np.linspace(0.01,0.99, 99)
     discrete_quantiles = np.quantile(self.tail.data, probability_range)
-    self_quantiles = self.tail.self.ppf(probability_range)
+    self_quantiles = self.tail.ppf(probability_range)
 
     axs[2,0].scatter(self_quantiles, discrete_quantiles, color = self._figure_color_palette[0])
     min_x, max_x = min(self_quantiles), max(self_quantiles)
@@ -1081,7 +1080,7 @@ class DiscreteWithGPTail(Mixture):
 
     exs_prob = self.exs_prob
     m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
-    return_levels = self.tail.self.ppf(1 - 1/(exs_prob*m))
+    return_levels = self.tail.ppf(1 - 1/(exs_prob*m))
 
     axs[2,1].plot(m,return_levels,color=self._figure_color_palette[0])
     axs[2,1].set_xscale("log")
@@ -1203,46 +1202,30 @@ class BayesianGPTail(BaseDistribution):
     Returns:
         BayesianGPTail: Fitted model
     """
-    def gpdist_loglikelihood(x,scale,shape):
-      #returns the sum of loglikelihoods
-      if shape != 0:
-        return tt.sum(-tt.log(scale) - (1.0/shape+1)*tt.log(1+shape/scale*x))
+    x_max = max(data - threshold)
+
+    def log_likelihood(theta, data):
+      scale, shape = theta
+      return np.sum(gpdist.logpdf(data, c=shape, scale=scale, loc=threshold))
+
+    def log_prior(theta):
+      scale, shape = theta
+      # if shape > -scale/(x_max) and shape > -0.5:
+      #   return -np.log(scale) - np.log(1 + shape) - 0.5*np.log(1+2*shape)
+      # else:
+      #   return -np.Inf
+      if shape > -scale/(x_max):
+        return 0.0
       else:
-        return tt.sum(-tt.log(scale) - x/scale)
-    
-    # def scale_log_jeffreys(scale):
-    #   return - tt.tensor.log(scale)
+        return -np.Inf
 
-    # def shape_log_jeffreys(shape):
-    #   return - tt.tensor.log(1+shape) - 0.5 * tt.tensor.log(1+2*shape)
-    
-    x_max = np.max(data)
+    def log_probability(theta, data):
+      prior = log_prior(theta)
+      if np.isfinite(prior):
+        return prior + log_likelihood(theta, data)
+      else:
+        return -np.Inf
 
-    #Bayesian specification and inference
-    gp_model = pm.Model()
-
-    with gp_model:
-      shape = pm.Flat('shape')
-      scale = pm.HalfFlat('scale')
-
-      # shape = pymc3.DensityDist("shape", shape_log_jeffreys)
-      # scale = pymc3.DensityDist("scale", scale_log_jeffreys)
-
-
-      #scale is remapped to values that prevent the loglikelihood to be -Inf; this happens if scale is such that
-      # the theoretical upper bound of the data distribution is lower than their observed values.
-      X = pm.DensityDist(
-        "gpdist_loglikelihood",
-        gpdist_loglikelihood,
-        observed={"shape":shape,"scale":(-shape*x_max).clip(0,np.Inf) + scale,"x":data})
-
-      trace = pm.sample(n_samples,random_seed = seed, return_inferencedata=True)
-
-    #get sampled posteriors
-    shape_samples = trace.get_values("shape")
-    scale_samples = trace.get_values("scale") + (-shape_samples*x_max).clip(0,np.Inf)
-
-    return scale_samples, shape_samples
 
 
   @classmethod

@@ -24,8 +24,12 @@ setuptools.setup(
      license = "MIT",
 
      install_requires=[
-        'pymc3>=3.11',
-        'pydantic>=1.6'
+        'pydantic>=1.8.2',
+        'emcee>=3.1.0',
+        'scipy>=1.7.1',
+        'numpy>=1.21.2',
+        'matplotlib>=3.4.3',
+        'pandas'
     ],
 
      #long_description=long_description,
