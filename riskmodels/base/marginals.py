@@ -7,6 +7,7 @@ import traceback
 import warnings
 from argparse import Namespace
 from abc import ABC, abstractmethod
+from multiprocessing import Pool
 
 import pandas as pd
 import scipy as sp
@@ -107,6 +108,23 @@ class BaseDistribution(BaseModel):
     plt.hist(samples, bins=25, edgecolor="white", color=self._figure_color_palette[0])
     plt.title("Histogram from 1K simulated samples")
     plt.show()
+
+  def cvar(self, p: float):
+    """Calculates conditional value at risk for a probability level p, defined as the mean conditioned to an exceedance above the p-quantile.
+    
+    Args:
+        p (float): Description
+    
+    Returns:
+        TYPE: Description
+    
+    Raises:
+        ValueError: Description
+    """
+    if p < 0 or p >= 1:
+      raise ValueError("p must be in the open interval (0,1)")
+
+    return (self >= self.ppf(p)).mean()
 
 
 
@@ -242,12 +260,22 @@ class GPTail(BaseDistribution):
       raise ValueError("exceedance data not provided for this instance of GPTail; covariance matrix can't be estimated")
     else:
       hess = self.loglik_hessian([self.scale,self.shape], threshold=self.threshold, data=self.data)
-      return np.linalg.inv(hess/len(self.data))
+      return np.linalg.inv(-hess/len(self.data))
 
   @classmethod
-  def loglik(cls, params: t.List[float], threshold: float, data: np.ndarray) -> np.ndarray:
+  def loglik(cls, params: t.List[float], threshold: float, data: np.ndarray) -> float:
+    """Returns the negative log-likelihood for a Generalised Pareto model
+    
+    Args:
+        *params (t.List[float]): Vector parameter with scale and shape values, in that order
+        threshold (float): model threshold
+        data (np.ndarray): exceedance data
+    
+    Returns:
+        float
+    """
     scale, shape = params
-    return -np.sum(gpdist.logpdf(data, loc=threshold, c=shape, scale=scale))
+    return np.sum(gpdist.logpdf(data, loc=threshold, c=shape, scale=scale))
 
   @classmethod
   def loglik_grad(cls, params: t.List[float], threshold: float, data: np.ndarray) -> np.ndarray:
@@ -271,7 +299,7 @@ class GPTail(BaseDistribution):
       grad_scale = np.sum((y-scale)/scale**2)
       grad_shape = np.sum(y*(y-2*scale)/(2*scale**2))
 
-    return -np.array([grad_scale,grad_shape])
+    return np.array([grad_scale,grad_shape])
 
 
   @classmethod
@@ -304,7 +332,7 @@ class GPTail(BaseDistribution):
 
     hessian = np.array([[d2scale,dscale_dshape],[dscale_dshape,d2shape]])
 
-    return -hessian
+    return hessian
 
   @classmethod
   def logreg(cls, params: t.List[float]) -> float:
@@ -320,7 +348,7 @@ class GPTail(BaseDistribution):
     """
     scale, shape = params
 
-    return -0.5*(np.log(scale) + shape**2)
+    return 0.5*(np.log(scale) + shape**2)
 
   @classmethod
   def logreg_grad(cls, params: t.List[float]) -> float:
@@ -331,7 +359,7 @@ class GPTail(BaseDistribution):
 
     """
     scale, shape = params
-    return -0.5*np.array([1.0/scale, 2*shape])
+    return 0.5*np.array([1.0/scale, 2*shape])
 
   @classmethod
   def logreg_hessian(cls, params: t.List[float]) -> float:
@@ -342,7 +370,7 @@ class GPTail(BaseDistribution):
 
     """
     scale, shape = params
-    return -0.5*np.array([-1.0/scale**2,0,0,2]).reshape((2,2))
+    return 0.5*np.array([-1.0/scale**2,0,0,2]).reshape((2,2))
 
   @classmethod
   def loss(cls, params: t.List[float], threshold: float, data: np.ndarray) -> np.ndarray:
@@ -357,7 +385,7 @@ class GPTail(BaseDistribution):
     scale, shape = params
     n = len(data)
     unnorm = cls.loglik(params, threshold, data) + cls.logreg(params)
-    return unnorm/n
+    return -unnorm/n
 
   @classmethod
   def loss_grad(cls, params: t.List[float], threshold: float, data: np.ndarray) -> np.ndarray:
@@ -370,7 +398,7 @@ class GPTail(BaseDistribution):
     
     """
     n = len(data)
-    return (cls.loglik_grad(params, threshold, data) + cls.logreg_grad(params))/n
+    return -(cls.loglik_grad(params, threshold, data) + cls.logreg_grad(params))/n
 
   @classmethod
   def loss_hessian(cls, params: t.List[float], threshold: float, data: np.ndarray) -> np.ndarray:
@@ -383,19 +411,25 @@ class GPTail(BaseDistribution):
     
     """
     n = len(data)
-    return (cls.loglik_hessian(params, threshold, data) + cls.logreg_hessian(params))/n
+    return -(cls.loglik_hessian(params, threshold, data) + cls.logreg_hessian(params))/n
 
   @classmethod
-  def fit(cls, data: np.ndarray, threshold: float, return_opt_result=False) -> GPTail:
-    """Fits a tail Generalised Pareto model
+  def fit(
+    cls, 
+    data: np.ndarray, 
+    threshold: float, 
+    x0: np.ndarray = None,
+    return_opt_results=False) -> t.Union[GPTail, sp.optimize.OptimizeResult]:
+    """Fits a tail Generalised Pareto model using a constrained trust region method
     
     Args:
         data (np.ndarray): exceedance data above threshold
         threshold (float): Model threshold
-        return_opt_result (bool, optional): If True, the OptimizeResult object; otherwise return found argmin
+        x0 (np.ndarray, optional): Initial guess for optimization; if None, the result of scipy.stats.genpareto.fit is used as a starting point.
+        return_opt_results (bool, optional): If True, return the OptimizeResult object; otherwise return fitted instance of GPTail
     
     Returns:
-        GPTail: Description
+        t.Union[GPTail, sp.optimize.OptimizeResult]: Description
     """
     exceedances = data[data > threshold]
     x_max = max(exceedances)
@@ -405,8 +439,11 @@ class GPTail(BaseDistribution):
       lb=np.zeros((2,)), 
       ub=np.Inf)
 
-    shape, _, scale = gpdist.fit(exceedances, floc=threshold)
-    x0 = np.array([1, 0])
+    if x0 is None:
+      # use default scipy fitter to get initial estimate
+      # this is almost always good enough
+      shape, _, scale = gpdist.fit(exceedances, floc=threshold)
+      x0 = np.array([scale, shape])
 
     loss_func = lambda params: GPTail.loss(params, threshold, exceedances)
     loss_grad = lambda params: GPTail. loss_grad(params, threshold, exceedances)
@@ -419,7 +456,7 @@ class GPTail(BaseDistribution):
       jac = loss_grad,
       hess = loss_hessian)
 
-    if return_opt_result:
+    if return_opt_results:
       return res
     else:
       scale, shape = list(res.x)
@@ -666,30 +703,31 @@ class Discrete(BaseDistribution):
     plt.ylabel("Mean exceedance")
     plt.show()
 
-  def fit_tail_model(self, threshold: float, bayesian=False, bayesian_posterior_size=None) -> t.Union[DiscreteWithGPTail, DiscreteWithBayesianGPTail]:
+  def fit_tail_model(self, threshold: float, bayesian=False, **kwargs) -> t.Union[DiscreteWithGPTail, DiscreteWithBayesianGPTail]:
     """Fits a tail GP model above a specified threshold and return the fitted semiparametric model
     
     Args:
         threshold (float): Threshold above which a Generalised Pareto distribution will be fitted
         bayesian (bool, optional): If True, fit model through Bayesian inference 
-        bayesian_posterior_size (None, optional): If `bayesian` is `True`, specifies the number of samples to use from the posterior distributions
+        **kwargs: Additional parameters passed to BayesianGPTail.fit or to GPTail.fit
     
     Returns:
         t.Union[DiscreteWithGPTail, DiscreteWithBayesianGPTail]
+    
     """
 
     if threshold >= self.max:
       raise ValueError("Discrete pdf is 0 above the provided threshold. Select a lower threshold for estimation.")
 
     if self.data is None:
-      raise ValueError("Data is not set for this distribution, so a tail model cannot be fitted. You can simulate from it and use it as a data sample")
+      raise ValueError("Data is not set for this distribution, so a tail model cannot be fitted. You can simulate from it and use the sampled data instead")
     else:
       data = self.data
 
     if bayesian:
-      return DiscreteWithBayesianGPTail.from_data(data, threshold, bayesian_posterior_size)
+      return DiscreteWithBayesianGPTail.from_data(data, threshold, **kwargs)
     else:
-      return DiscreteWithGPTail.from_data(data, threshold)
+      return DiscreteWithGPTail.from_data(data, threshold, **kwargs)
 
   def map(self, f: t.Callable) -> Discrete:
     """Returns the distribution resulting from an arbitrary transformation
@@ -928,15 +966,16 @@ class DiscreteWithGPTail(Mixture):
     if q <= 1 - self.exs_prob:
       return self.discrete.ppf(q/(1-self.exs_prob))
     else:
-      return self.tail.model.ppf((q - (1-self.exs_prob))/self.exs_prob)
+      return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob)
 
   @classmethod
-  def from_data(cls, data: np.ndarray, threshold: float) -> discreteWithGPTail:
+  def from_data(cls, data: np.ndarray, threshold: float, **kwargs) -> discreteWithGPTail:
     """Fits a model from a given data array and threshold value
     
     Args:
         data (np.ndarray): Data 
         threshold (float): Threshold value to use for the tail model
+        **kwargs: Additional arguments passed to GPTail.fit
     
     Returns:
         discreteWithGPTail: Fitted model
@@ -947,7 +986,7 @@ class DiscreteWithGPTail(Mixture):
     
     discrete = Discrete.from_data(data[data <= threshold])
 
-    tail = GPTail.fit(data=exceedances, threshold=threshold)
+    tail = GPTail.fit(data=exceedances, threshold=threshold, **kwargs)
 
     return cls(
       distributions = [discrete, tail],
@@ -975,8 +1014,8 @@ class DiscreteWithGPTail(Mixture):
 
 
     #declare profile functions
-    scale_profile_func = lambda x: self.tail.loss([x, self.tail.shape], self.tail.threshold, self.tail.data)
-    shape_profile_func = lambda x: self.tail.loss([self.tail.scale, x], self.tail.threshold, self.tail.data)
+    scale_profile_func = lambda x: self.tail.loglik([x, self.tail.shape], self.tail.threshold, self.tail.data)
+    shape_profile_func = lambda x: self.tail.loglik([self.tail.scale, x], self.tail.threshold, self.tail.data)
 
     loss_value = scale_profile_func(self.tail.scale)
 
@@ -1032,9 +1071,9 @@ class DiscreteWithGPTail(Mixture):
         if shape < 0 and self.tail.threshold - scale/shape < max_x:
           z[i,j] = np.nan
         else:
-          z[i,j] = self.tail.loss([scale, shape], self.tail.threshold, self.tail.data)
+          z[i,j] = self.tail.loglik([scale, shape], self.tail.threshold, self.tail.data)
 
-
+    # negate z to recover true loglikelihood
     axs[1,0].contourf(scale_mesh, shape_mesh, z, levels = 15)
     axs[1,0].scatter([self.tail.scale], [self.tail.shape], color="darkorange", s=2)
     axs[1,0].annotate(text="MLE", xy = (self.tail.scale, self.tail.shape), color="darkorange")
@@ -1054,7 +1093,7 @@ class DiscreteWithGPTail(Mixture):
 
     axs[1,1].plot(x_axis, y_axis, color=self._figure_color_palette[1])
     axs[1,1].title.set_text("Data vs fitted density")
-    axs[1,0].set_xlabel('Exceedance data')
+    axs[1,1].set_xlabel('Exceedance data')
     axs[1,1].yaxis.set_visible(False) # Hide only x axis
     #axs[0, 0].set_aspect('equal', 'box')
 
@@ -1185,35 +1224,45 @@ class BayesianGPTail(BaseDistribution):
   #_self.posterior_trace = None
 
   @classmethod
-  def compute_posteriors(
-    cls,
-    data: np.array,
-    threshold: float,
-    n_samples: int,
-    seed: int = 1) -> t.Tuple[np.array, np.array]:
-    """Performs Bayesian inference on exceedance data and samples from posterior shape and scale parameter distributions, using flat, uninformative priors.
+  def fit(
+    cls, 
+    data: np.ndarray, 
+    threshold: float, 
+    max_posterior_samples: int = 1000,
+    chain_length: int = 2000,
+    plot_diagnostics: bool = True,
+    n_walkers: int = 32,
+    n_cores: int = 4,
+    burn_in: int = 100,
+    thinning: int = None) -> BayesianGPTail:
+    """Fits a Generalised Pareto model through Bayesian inference using exceedance data, starting with flat, uninformative priors for both and sampling from posterior shape and scale parameter distributions.
     
     Args:
-        data (np.array): exceedance data
-        threshold (float): lower threshold for exceedance; equivalently, location parameter for GP model.
-        n_samples (int): Number of samples from posterior distribution
-        seed (int, optional): random seed
+        data (np.ndarray): observational data
+        threshold (float): modeling threshold; location parameter for Generalised Pareto model
+        max_posterior_samples (int, optional): Maximum number of posterior samples to keep
+        chain_length (int, optional): timesteps in each chain
+        plot_diagnostics (bool, optional): If True, plots MCMC diagnostics
+        n_walkers (int, optional): Number of concurrent paths to use
+        n_cores (int, optional): Number of cores to use in parallelization
+        burn_in (int, optional): Number of initial samples to discard
+        thinning (int, optional): Thinning factor to reduce autocorrelation; if None, an automatic estimate from emcee's get_autocorr_time is used.
     
     Returns:
-        BayesianGPTail: Fitted model
+        BayesianGPTail: fitted model
+    
+    Deleted Parameters:
+        parallel (bool, optional): If True, uses all cores in the machine to sample from posterior.
     """
+    exceedances = data[data > threshold]
     x_max = max(data - threshold)
 
-    def log_likelihood(theta, data):
-      scale, shape = theta
-      return np.sum(gpdist.logpdf(data, c=shape, scale=scale, loc=threshold))
+    # def log_likelihood(theta, data):
+    #   scale, shape = theta
+    #   return np.sum(gpdist.logpdf(data, c=shape, scale=scale, loc=threshold))
 
     def log_prior(theta):
       scale, shape = theta
-      # if shape > -scale/(x_max) and shape > -0.5:
-      #   return -np.log(scale) - np.log(1 + shape) - 0.5*np.log(1+2*shape)
-      # else:
-      #   return -np.Inf
       if shape > -scale/(x_max):
         return 0.0
       else:
@@ -1222,28 +1271,54 @@ class BayesianGPTail(BaseDistribution):
     def log_probability(theta, data):
       prior = log_prior(theta)
       if np.isfinite(prior):
-        return prior + log_likelihood(theta, data)
+        return prior + GPTail.loglik(theta, threshold, data)#log_likelihood(theta, data)
       else:
         return -np.Inf
 
-
-
-  @classmethod
-  def fit(cls, data: np.array, threshold: float, n_samples: int) -> BayesianGPTail:
-    """Fits a Bayesian Generalised Pareto model.
-    
-    Args:
-        data (np.array): observational data
-        threshold (float): modeling threshold; location parameter for Generalised Pareto model
-        n_samples (int): number of points to sample from posterior distribution
-    
-    Returns:
-        BayesianGPTail: fitted model
-    """
     exceedances = data[data > threshold]
-    scale_posterior, shape_posterior = cls.compute_posteriors(exceedances, threshold, n_samples)
+    ndim = 2
+    # make initial guess
+    shape, _, scale = gpdist.fit(exceedances, floc=threshold)
+    x0 = np.array([scale, shape])
 
-    return BayesianGPTail(
+    # create random walkers
+    pos =  x0 + 1e-4 * np.random.randn(n_walkers, ndim)
+
+    with Pool(n_cores) as pool:
+      sampler = emcee.EnsembleSampler(nwalkers=n_walkers, ndim=ndim, log_prob_fn=log_probability, args=(exceedances, ))
+      sampler.run_mcmc(pos, chain_length, progress=True)
+
+    samples = sampler.get_chain()
+
+    tau = sampler.get_autocorr_time()
+    thinning = int(np.round(np.mean(tau)))
+    print(f"Using a thinning factor of {thinning} (from emcee.EnsembleSampler.get_autocorr_time)")
+    flat_samples = sampler.get_chain(discard=burn_in, thin=thinning, flat=True)
+
+    if flat_samples.shape[0] > max_posterior_samples:
+      np.random.shuffle(flat_samples)
+      flat_samples = flat_samples[0:max_posterior_samples,:]
+
+    print(f"Got {flat_samples.shape[0]} posterior samples.")
+
+    if plot_diagnostics:
+      fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
+      labels = ["scale", "shape"]
+      for i in range(ndim):
+          ax = axes[i]
+          ax.plot(samples[:, :, i], alpha=0.3, color=cls._figure_color_palette[0])
+          ax.set_xlim(0, len(samples))
+          ax.set_ylabel(labels[i])
+          if i == 0:
+            ax.set_title("Chain mixing")
+          ax.yaxis.set_label_coords(-0.1, 0.5)
+      plt.show()
+
+
+    scale_posterior = flat_samples[:,0]
+    shape_posterior = flat_samples[:,1]
+
+    return cls(
       threshold = threshold,
       data = exceedances,
       shape_posterior = shape_posterior,
@@ -1317,7 +1392,7 @@ class BayesianGPTail(BaseDistribution):
 
   def simulate(self, size: int) -> np.ndarray:
     scales, shapes = self.sample_posterior(size=size)
-    return gpdist.rvs(size=size, c=shapes, scale=scale, loc=self.threshold)
+    return gpdist.rvs(size=size, c=shapes, scale=scales, loc=self.threshold)
 
   def ppf(self, q: float, return_samples=False) -> t.Union[float, np.array]:
     vals = gpdist.ppf(q, c=self.shape_posterior, scale=self.scale_posterior, loc=self.threshold)
@@ -1375,24 +1450,29 @@ class DiscreteWithBayesianGPTail(DiscreteWithGPTail):
   """
   
   @classmethod
-  def from_data(cls, data: np.ndarray, threshold: float, n_posterior_samples: int) -> DiscreteWithBayesianGPTail:
+  def from_data(
+    cls, 
+    data: np.ndarray, 
+    threshold: float, 
+    **kwargs) -> DiscreteWithBayesianGPTail:
     """Fits a Generalied Pareto tail model from a given data array and threshold value, using Jeffrey's priors 
     
     Args:
         data (np.ndarray): data array 
         threshold (float): Threshold value to use for the tail model
-        n_posterior_samples (t.Callable): Number of samples from posterior distribution
+        n_posterior_samples (int): Number of samples from posterior distribution
+        **kwargs: Additional arguments to be passed to BayesianGPTail.fit
     
     Returns:
         DiscreteWithBayesianGPTail: Fitted model
     """
-    exceedance_prob = 1 - Discrete.from_data(data).cdf(threshold)
+    exs_prob = 1 - Discrete.from_data(data).cdf(threshold)
 
     exceedances = data[data > threshold]
 
     discrete = Discrete.from_data(data[data <= threshold])
 
-    tail = BayesianGPTail.fit(exceedances, threshold, n_posterior_samples)
+    tail = BayesianGPTail.fit(data = exceedances, threshold = threshold, **kwargs)
 
     return cls(
       weights = np.array([1 -exs_prob, exs_prob]),
