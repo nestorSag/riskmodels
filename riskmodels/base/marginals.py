@@ -19,7 +19,7 @@ from scipy.stats import genpareto as gpdist
 from scipy.optimize import LinearConstraint, minimize
 
 from pydantic import BaseModel, ValidationError, validator, PositiveFloat
-
+from functools import reduce
 
 # class BaseWrapper(BaseModel):
 
@@ -246,11 +246,6 @@ class Mixture(BaseDistribution):
     samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
     return np.concatenate(samples, axis=0)
 
-  def moment(self, n: int, **kwargs) -> float:
-    
-    moments = [w*dist.moment(n, **kwargs) for w, dist in zip(self.weights, self.distributions)]
-    return reduce(lambda x,y: x + y, pdfs)
-
   def ppf(self, q: float) -> float:
 
     def target_function(x):
@@ -262,13 +257,18 @@ class Mixture(BaseDistribution):
     return opt.root_scalar(target_function, x0 = x0, method="secant").root
     
   def cdf(self, x:float, **kwargs) -> float:
-    cdfs = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
-    return reduce(lambda x,y: x + y, pdfs)
+    vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
 
   def pdf(self, x:float, **kwargs) -> float:
     
-    pdfs = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
-    return reduce(lambda x,y: x + y, pdfs)
+    vals = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
+
+  def moment(self, n: int, **kwargs) -> float:
+    
+    vals = [w*dist.moment(n, **kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
 
 
 
