@@ -65,7 +65,7 @@ class BaseDistribution(BaseModel):
     """
     pass
 
-  def mean(self) -> float:
+  def mean(self, **kwargs) -> float:
     """Calculates the expected value
     
     """
@@ -109,7 +109,7 @@ class BaseDistribution(BaseModel):
     plt.title("Histogram from 1K simulated samples")
     plt.show()
 
-  def cvar(self, p: float):
+  def cvar(self, p: float, **kwargs):
     """Calculates conditional value at risk for a probability level p, defined as the mean conditioned to an exceedance above the p-quantile.
     
     Args:
@@ -124,7 +124,7 @@ class BaseDistribution(BaseModel):
     if p < 0 or p >= 1:
       raise ValueError("p must be in the open interval (0,1)")
 
-    return (self >= self.ppf(p)).mean()
+    return (self >= self.ppf(p)).mean(**kwargs)
 
   @abstractmethod
   def __gt__(self, other: float) -> BaseDistribution:
@@ -149,11 +149,126 @@ class BaseDistribution(BaseModel):
 
     return self.__add__(-other)
 
-  __radd__ = __add__
+  def __rmul__(self, other):
+    return self.__mul__(other)
 
-  __rmul__ = __mul__
+  def __radd__(self, other):
+    return self.__add__(other)
 
-  __rsub__ = __sub__
+  def __rsub__(self, other):
+    return self.__sub__(other)
+
+  #__radd__ = __add__
+
+  #__rmul__ = __mul__
+
+  #__rsub__ = __sub__
+
+
+class Mixture(BaseDistribution):
+
+  """This class represents a probability distribution given by a mixture of weighted continuous and empirical densities; as the base continuous densities can only be of class GPTail, this class is intended to represent either a semiparametric model with a Generalised Pareto tail, or the convolution of such a model with an integer distribution, as is the case for the power surplus distribution in power system reliability modeling.
+
+  Args:
+      distributions (t.List[BaseDistribution]): list of distributions that make up the mixture
+      weights (np.ndarray): weights for each of the distribution. The weights must be a distribution themselves
+  """
+  
+  distributions: t.List[BaseDistribution]
+  weights: np.ndarray
+
+  @validator("weights", allow_reuse=True)
+  def check_weigths(cls, weights):
+    if not np.isclose(np.sum(weights),1, atol=cls._error_tol):
+      raise ValidationError(f"Weights don't sum 1 (sum = {np.sum(weights)})")
+    elif np.any(weights <= 0):
+      raise ValidationError("Negative or null weights are present")
+    else:
+      return weights
+
+
+  def __mul__(self, factor: float):
+
+    return Mixture(
+      weights=self.weights, 
+      distributions = [factor*dist for dist in self.distributions])
+
+  def __add__(self, factor: float):
+
+    return Mixture(
+      weights=self.weights, 
+      distributions = [factor + dist for dist in self.distributions])
+
+  def __ge__(self, other:float):
+
+    if not isinstance(other, self._allowed_scalar_types):
+      raise TypeError(f">= is implemented for instances of types : {self._allowed_scalar_types}")
+
+    cond_weights = np.array([1 - dist.cdf(other) + (isinstance(dist,Empirical))*dist.pdf(other) for dist in self.distributions])
+    new_weights = cond_weights*self.weights
+
+    indices = (new_weights > 0).nonzero()[0]
+
+    nz_weights = new_weights[indices]
+    
+    return Mixture(
+      weights = nz_weights/np.sum(nz_weights), 
+      distributions = [dist >= other for dist in self.distributions[nz_weights]])
+
+  def __gt__(self, other:float):
+
+    if not isinstance(other, self._allowed_scalar_types):
+      raise TypeError(f"> is implemented for instances of types : {self._allowed_scalar_types}")
+
+    cond_weights = np.array([1 - dist.cdf(other) for dist in self.distributions])
+    new_weights = cond_weights*self.weights
+
+    indices = (new_weights > 0).nonzero()[0]
+
+    nz_weights = new_weights[indices]
+    
+    return Mixture(
+      weights = nz_weights/np.sum(nz_weights), 
+      distributions = [dist > other for dist in self.distributions[nz_weights]])
+
+    index = self.support > other
+
+    return type(self)(
+      self.support[index],
+      self.pdf_values[index]/np.sum(self.pdf_values[index]), 
+      self.data[self.data > other])
+
+
+  def simulate(self, size: int) -> np.ndarray:
+    
+    n_samples = np.random.multinomial(n=size, pvals = self.weights, size=1)[0]
+    indices = (n_samples > 0).nonzero()[0]
+    samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
+    return np.concatenate(samples, axis=0)
+
+  def moment(self, n: int, **kwargs) -> float:
+    
+    moments = [w*dist.moment(n, **kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, pdfs)
+
+  def ppf(self, q: float) -> float:
+
+    def target_function(x):
+      return self.cdf(x) - q
+
+    ppfs =[w*dist.ppf(q) for w, dist in zip(self.weights, self.distributions)]
+    x0 = np.dot(self.weights, ppfs)
+
+    return opt.root_scalar(target_function, x0 = x0, method="secant").root
+    
+  def cdf(self, x:float, **kwargs) -> float:
+    cdfs = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, pdfs)
+
+  def pdf(self, x:float, **kwargs) -> float:
+    
+    pdfs = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, pdfs)
 
 
 
@@ -515,7 +630,7 @@ class GPTailMixture(BaseDistribution):
     else:
       return np.dot(self.weights, vals)
 
-    def mean(self, return_all=False) -> float:
+  def mean(self, return_all=False) -> float:
     vals = gpdist.mean(
       loc=self.thresholds, 
       c=self.shapes, 
@@ -559,6 +674,7 @@ class GPTailMixture(BaseDistribution):
       c=self.shapes, 
       scale=self.scales)
 
+
     if return_all:
       return vals
     else:
@@ -582,7 +698,7 @@ class GPTailMixture(BaseDistribution):
 
 
   def __gt__(self, other: float) -> GPTailMixture:
-    prob_cond_exceedance = 1 - gpdist.cdf(other, c=self.scales, c=self.shapes, loc=self.thresholds)
+    prob_cond_exceedance = 1 - gpdist.cdf(other, scale=self.scales, c=self.shapes, loc=self.thresholds)
     prob_exceedance = 1 - self.cdf(other)
     if prob_exceedance == 0:
       raise ValueError(f"There is no probability mass above {other}; conditional distribution does not exist.")
@@ -631,9 +747,9 @@ class GPTailMixture(BaseDistribution):
 
 
 
-class Discrete(BaseDistribution):
+class Empirical(BaseDistribution):
 
-  """Model for an discrete (empirical) probability distribution, induced by a sample of data.
+  """Model for an empirical (empirical) probability distribution, induced by a sample of data.
 
   Args:
       support (np.ndarray): distribution support
@@ -700,12 +816,12 @@ class Discrete(BaseDistribution):
     if not isinstance(factor, self._allowed_scalar_types) or factor == 0:
       raise TypeError(f"multiplication is supported only for nonzero instances of type:{self._allowed_scalar_types}")
 
-    return Discrete(support = factor*self.support, pdf_values = self.pdf_values, data = factor*self.data)
+    return Empirical(support = factor*self.support, pdf_values = self.pdf_values, data = factor*self.data)
 
   def __add__(self, other: t.Union[int, float, GPTail, Mixture, GPTailMixture]):
 
     if isinstance(other, self._allowed_scalar_types):
-      return Discrete(support = self.support + other, pdf_values = self.pdf_values, data = self.data + other)
+      return Empirical(support = self.support + other, pdf_values = self.pdf_values, data = self.data + other)
 
     elif isinstance(other, GPTail):
 
@@ -741,14 +857,14 @@ class Discrete(BaseDistribution):
 
     return self.map(lambda x: -x)
 
-  def __sub__(self, other: Discrete):
+  def __sub__(self, other: Empirical):
 
-    if isinstance(other, [Discrete, float]):
+    if isinstance(other, (Empirical,)+ self._allowed_scalar_types):
 
       return self + (-other)
 
     else:
-      raise TypeError("Subtraction is only defined for instances of Discrete or float ")
+      raise TypeError("Subtraction is only defined for instances of Empirical or float ")
 
   def __ge__(self, other:float):
 
@@ -802,11 +918,11 @@ class Discrete(BaseDistribution):
   def simulate(self, size: int):
     return np.random.choice(self.support, size=size, p=self.pdf_values)
 
-  def moment(self, n: int):
+  def moment(self, n: int, **kwargs):
 
     return np.sum(self.pdf_values * self.support**n)
 
-  def ppf(self, q: float):
+  def ppf(self, q: float, **kwargs):
 
     if q < 0 or q > 1:
       raise ValueError(f"q needs to be in (0,1)")
@@ -817,7 +933,7 @@ class Discrete(BaseDistribution):
     else:
       return self.support[np.argmax(self.cdf_values >=q)]
 
-  def cdf(self, x: int):
+  def cdf(self, x: int, **kwargs):
 
     if x < self.min:
       return 0.0
@@ -828,7 +944,7 @@ class Discrete(BaseDistribution):
       return self.cdf_values[first_nonlower]
 
 
-  def pdf(self, x: float):
+  def pdf(self, x: float, **kwargs):
 
     try:
       pdf_val = self.pdf_lookup[x]
@@ -836,7 +952,7 @@ class Discrete(BaseDistribution):
     except KeyError as e:
       return 0.0
 
-  def std(self):
+  def std(self, **kwargs):
     return np.sqrt(self.map(lambda x: x - self.mean()).moment(2))
 
   @classmethod
@@ -870,7 +986,7 @@ class Discrete(BaseDistribution):
     plt.ylabel("Mean exceedance")
     plt.show()
 
-  def fit_tail_model(self, threshold: float, bayesian=False, **kwargs) -> t.Union[DiscreteWithGPTail, DiscreteWithBayesianGPTail]:
+  def fit_tail_model(self, threshold: float, bayesian=False, **kwargs) -> t.Union[EmpiricalWithGPTail, EmpiricalWithBayesianGPTail]:
     """Fits a tail GP model above a specified threshold and return the fitted semiparametric model
     
     Args:
@@ -879,12 +995,12 @@ class Discrete(BaseDistribution):
         **kwargs: Additional parameters passed to BayesianGPTail.fit or to GPTail.fit
     
     Returns:
-        t.Union[DiscreteWithGPTail, DiscreteWithBayesianGPTail]
+        t.Union[EmpiricalWithGPTail, EmpiricalWithBayesianGPTail]
     
     """
 
     if threshold >= self.max:
-      raise ValueError("Discrete pdf is 0 above the provided threshold. Select a lower threshold for estimation.")
+      raise ValueError("Empirical pdf is 0 above the provided threshold. Select a lower threshold for estimation.")
 
     if self.data is None:
       raise ValueError("Data is not set for this distribution, so a tail model cannot be fitted. You can simulate from it and use the sampled data instead")
@@ -892,11 +1008,11 @@ class Discrete(BaseDistribution):
       data = self.data
 
     if bayesian:
-      return DiscreteWithBayesianGPTail.from_data(data, threshold, **kwargs)
+      return EmpiricalWithBayesianGPTail.from_data(data, threshold, **kwargs)
     else:
-      return DiscreteWithGPTail.from_data(data, threshold, **kwargs)
+      return EmpiricalWithGPTail.from_data(data, threshold, **kwargs)
 
-  def map(self, f: t.Callable) -> Discrete:
+  def map(self, f: t.Callable) -> Empirical:
     """Returns the distribution resulting from an arbitrary transformation
     
     Args:
@@ -906,28 +1022,30 @@ class Discrete(BaseDistribution):
     dist_df = pd.DataFrame({"pdf": self.pdf_values, "support": f(self.support)})
     mapped_dist_df = dist_df.groupby("support").sum().reset_index().sort_values("support")
 
-    return Discrete(
+    return Empirical(
       support = np.array(mapped_dist_df["support"]),
       pdf_values = np.array(mapped_dist_df["pdf"]),
       data = f(self.data) if self.data is not None else None)
 
   def to_integer(self):
-    """Convert to Integer distribution
+    """Convert to Binned distribution
     
     """
     integer_dist = self.map(lambda x: np.round(x))
 
-    return Integer(
-      support = integer_dist.support.astype(Integer._supported_types[0]),
+    return Binned(
+      support = integer_dist.support.astype(Binned._supported_types[0]),
       pdf_values = integer_dist.pdf_values,
       data = integer_dist.data)
 
 
 
 
-class Integer(Discrete):
 
-  """Discrete distribution with an integer support. This allows it to be convolved with other integer distribution to obtain the distribution of a sum of random variables, assuming independence between the summands. 
+
+class Binned(Empirical):
+
+  """Empirical distribution with an integer support. This allows it to be convolved with other integer distribution to obtain the distribution of a sum of random variables, assuming independence between the summands. 
   """
   
   _supported_types = [np.int64, int]
@@ -941,18 +1059,18 @@ class Integer(Discrete):
       raise ValidationError(f"Support entry types must be one of {self._supported_types}")
 
   
-  def __add__(self, other: t.Union[float, int, Integer, GPTail, Mixture]):
+  def __add__(self, other: t.Union[float, int, Binned, GPTail, Mixture]):
 
     if isinstance(other, int):
       new_support = np.arange(min(self.support) + other, max(self.support) + other + 1)
-      return Integer(
+      return Binned(
         support = new_support, 
         pdf_values = self.pdf_values, 
         data = self.data)
 
-    if isinstance(other, Integer):
+    if isinstance(other, Binned):
       new_support = np.arange(min(self.support) + min(other.support), max(self.support) + max(other.support) + 1)
-      return Integer(
+      return Binned(
         support = new_support, 
         pdf_values = sp.signal.fftconvolve(self.pdf_values, other.pdf_values))
 
@@ -969,7 +1087,7 @@ class Integer(Discrete):
 
     return super().from_data(data).to_integer()
 
-  def cdf(self, x: float):
+  def cdf(self, x: float, **kwargs):
 
     if x < self.min:
       return 0.0
@@ -978,7 +1096,7 @@ class Integer(Discrete):
     else:
       return self.cdf_values[int(x) - self.min]
 
-  def pdf(self, x: float):
+  def pdf(self, x: float, **kwargs):
 
     if not isinstance(x, (int, np.int32, np.int64)) or x > self.max or x < self.min:
       return 0.0
@@ -991,126 +1109,16 @@ class Integer(Discrete):
 
 
 
-class Mixture(BaseDistribution):
-
-  """This class represents a probability distribution given by a mixture of weighted continuous and discrete densities; as the base continuous densities can only be of class GPTail, this class is intended to represent either a semiparametric model with a Generalised Pareto tail, or the convolution of such a model with an integer distribution, as is the case for the power surplus distribution in power system reliability modeling.
-
-  Args:
-      distributions (t.List[BaseDistribution]): list of distributions that make up the mixture
-      weights (np.ndarray): weights for each of the distribution. The weights must be a distribution themselves
-  """
-  
-  distributions: t.List[BaseDistribution]
-  weights: np.ndarray
-
-  @validator("weights", allow_reuse=True)
-  def check_weigths(cls, weights):
-    if not np.isclose(np.sum(weights),1, atol=cls._error_tol):
-      raise ValidationError(f"Weights don't sum 1 (sum = {np.sum(weights)})")
-    elif np.any(weights <= 0):
-      raise ValidationError("Negative or null weights are present")
-    else:
-      return weights
 
 
-  def __mul__(self, factor: float):
+class EmpiricalWithGPTail(Mixture):
 
-    return Mixture(
-      weights=self.weights, 
-      distributions = [factor*dist for dist in self.distributions])
-
-  def __add__(self, factor: float):
-
-    return Mixture(
-      weights=self.weights, 
-      distributions = [factor + dist for dist in self.distributions])
-
-  def __ge__(self, other:float):
-
-    if not isinstance(other, self._allowed_scalar_types):
-      raise TypeError(f">= is implemented for instances of types : {self._allowed_scalar_types}")
-
-    cond_weights = np.array([1 - dist.cdf(other) + (isinstance(dist,Discrete))*dist.pdf(other) for dist in self.distributions])
-    new_weights = cond_weights*self.weights
-
-    indices = (new_weights > 0).nonzero()[0]
-
-    nz_weights = new_weights[indices]
-    
-    return Mixture(
-      weights = nz_weights/np.sum(nz_weights), 
-      distributions = [dist >= other for dist in self.distributions[nz_weights]])
-
-  def __gt__(self, other:float):
-
-    if not isinstance(other, self._allowed_scalar_types):
-      raise TypeError(f"> is implemented for instances of types : {self._allowed_scalar_types}")
-
-    cond_weights = np.array([1 - dist.cdf(other) for dist in self.distributions])
-    new_weights = cond_weights*self.weights
-
-    indices = (new_weights > 0).nonzero()[0]
-
-    nz_weights = new_weights[indices]
-    
-    return Mixture(
-      weights = nz_weights/np.sum(nz_weights), 
-      distributions = [dist > other for dist in self.distributions[nz_weights]])
-
-    index = self.support > other
-
-    return type(self)(
-      self.support[index],
-      self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      self.data[self.data > other])
-
-
-  def simulate(self, size: int) -> np.ndarray:
-    
-    n_samples = np.random.multinomial(n=size, pvals = self.weights, size=1)[0]
-    indices = (n_samples > 0).nonzero()[0]
-    samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
-    return np.concatenate(samples, axis=0)
-
-  def moment(self, n: int) -> float:
-    
-    moments = [dist.moment(n) for dist in self.distributions]
-    return np.dot(moments,self.weights)
-
-  def ppf(self, q: float) -> float:
-
-    def target_function(x):
-      return self.cdf(x) - q
-
-    ppfs =[dist.ppf(q) for dist in self.distributions]
-    x0 = np.dot(self.weights, ppfs)
-
-    return opt.root_scalar(target_function, x0 = x0, method="secant").root
-    
-  def cdf(self, x:float) -> float:
-    cdfs = [dist.cdf(x) for dist in self.distributions]
-    return np.dot(cdfs,self.weights)
-
-  def pdf(self, x:float) -> float:
-    
-    pdfs = [dist.pdf(x) for w, dist in self.distributions]
-    return np.dot(pdfs,self.weights)
-
-
-
-
-
-
-
-
-class DiscreteWithGPTail(Mixture):
-
-  """Represents a semiparametric extreme value model with a fitted Generalized Pareto distribution above a certain threshold, and an discrete empirical distribution below it
+  """Represents a semiparametric extreme value model with a fitted Generalized Pareto distribution above a certain threshold, and an empirical distribution below it
 
   """
 
   @property
-  def discrete(self):
+  def empirical(self):
     return self.distributions[0]
 
   @property
@@ -1127,12 +1135,12 @@ class DiscreteWithGPTail(Mixture):
 
   def ppf(self, q: float):
     if q <= 1 - self.exs_prob:
-      return self.discrete.ppf(q/(1-self.exs_prob))
+      return self.empirical.ppf(q/(1-self.exs_prob))
     else:
       return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob)
 
   @classmethod
-  def from_data(cls, data: np.ndarray, threshold: float, **kwargs) -> discreteWithGPTail:
+  def from_data(cls, data: np.ndarray, threshold: float, **kwargs) -> EmpiricalWithGPTail:
     """Fits a model from a given data array and threshold value
     
     Args:
@@ -1141,18 +1149,18 @@ class DiscreteWithGPTail(Mixture):
         **kwargs: Additional arguments passed to GPTail.fit
     
     Returns:
-        discreteWithGPTail: Fitted model
+        EmpiricalWithGPTail: Fitted model
     """
-    exs_prob = 1 - Discrete.from_data(data).cdf(threshold)
+    exs_prob = 1 - Empirical.from_data(data).cdf(threshold)
 
     exceedances = data[data > threshold]
     
-    discrete = Discrete.from_data(data[data <= threshold])
+    empirical = Empirical.from_data(data[data <= threshold])
 
     tail = GPTail.fit(data=exceedances, threshold=threshold, **kwargs)
 
     return cls(
-      distributions = [discrete, tail],
+      distributions = [empirical, tail],
       weights = np.array([1 - exs_prob, exs_prob]))
 
   def plot_diagnostics(self) -> None:
@@ -1263,10 +1271,10 @@ class DiscreteWithGPTail(Mixture):
 
     ############# Q-Q plot ################
     probability_range = np.linspace(0.01,0.99, 99)
-    discrete_quantiles = np.quantile(self.tail.data, probability_range)
+    empirical_quantiles = np.quantile(self.tail.data, probability_range)
     self_quantiles = self.tail.ppf(probability_range)
 
-    axs[2,0].scatter(self_quantiles, discrete_quantiles, color = self._figure_color_palette[0])
+    axs[2,0].scatter(self_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
     min_x, max_x = min(self_quantiles), max(self_quantiles)
     #axs[0,1].set_aspect('equal', 'box')
     axs[2,0].title.set_text('Q-Q plot')
@@ -1278,7 +1286,7 @@ class DiscreteWithGPTail(Mixture):
     ############ Mean return plot ###############
     scale, shape = self.tail.scale, self.tail.shape
 
-    n_obs = len(self.discrete.data)+len(self.tail.data)
+    n_obs = len(self.empirical.data)+len(self.tail.data)
 
     exs_prob = self.exs_prob
     m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
@@ -1493,7 +1501,7 @@ class BayesianGPTail(GPTailMixture):
 
 
 
-class DiscreteWithBayesianGPTail(DiscreteWithGPTail):
+class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
 
   """Semiparametric Bayesian model with an empirical data distribution below a specified threshold and a Generalised Pareto exceedance model above it, fitted through Bayesian inference.
   """
@@ -1503,7 +1511,7 @@ class DiscreteWithBayesianGPTail(DiscreteWithGPTail):
     cls, 
     data: np.ndarray, 
     threshold: float, 
-    **kwargs) -> DiscreteWithBayesianGPTail:
+    **kwargs) -> EmpiricalWithBayesianGPTail:
     """Fits a Generalied Pareto tail model from a given data array and threshold value, using Jeffrey's priors 
     
     Args:
@@ -1513,16 +1521,22 @@ class DiscreteWithBayesianGPTail(DiscreteWithGPTail):
         **kwargs: Additional arguments to be passed to BayesianGPTail.fit
     
     Returns:
-        DiscreteWithBayesianGPTail: Fitted model
+        EmpiricalWithBayesianGPTail: Fitted model
     """
-    exs_prob = 1 - Discrete.from_data(data).cdf(threshold)
+    exs_prob = 1 - Empirical.from_data(data).cdf(threshold)
 
     exceedances = data[data > threshold]
 
-    discrete = Discrete.from_data(data[data <= threshold])
+    empirical = Empirical.from_data(data[data <= threshold])
 
     tail = BayesianGPTail.fit(data = exceedances, threshold = threshold, **kwargs)
 
     return cls(
       weights = np.array([1 -exs_prob, exs_prob]),
-      distributions = [discrete, tail])
+      distributions = [empirical, tail])
+
+  def ppf(self, q: float, **kwargs):
+    if q <= 1 - self.exs_prob:
+      return self.empirical.ppf(q/(1-self.exs_prob), **kwargs)
+    else:
+      return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob, **kwargs)
