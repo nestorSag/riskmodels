@@ -126,6 +126,35 @@ class BaseDistribution(BaseModel):
 
     return (self >= self.ppf(p)).mean()
 
+  @abstractmethod
+  def __gt__(self, other: float) -> BaseDistribution:
+    pass
+
+  @abstractmethod
+  def __ge__(self, other: float) -> BaseDistribution:
+    pass
+
+  @abstractmethod
+  def __add__(self, other: self._allowed_scalar_types): 
+    pass
+
+  @abstractmethod
+  def __mul__(self, other: self._allowed_scalar_types):
+    pass
+
+  def __sub__(self, other: float):
+
+    if not isinstance(other, self._allowed_scalar_types):
+      raise TypeError(f"- is implemented for instances of types: {self._allowed_scalar_types}")
+
+    return self.__add__(-other)
+
+  __radd__ = __add__
+
+  __rmul__ = __mul__
+
+  __rsub__ = __sub__
+
 
 
 
@@ -175,17 +204,6 @@ class GPTail(BaseDistribution):
       scale = self.scale,
       data = self.data + other if self.data is not None else None)
 
-  __radd__ = __add__
-
-  def __sub__(self, other: float):
-
-    if not isinstance(other, self._allowed_scalar_types):
-      raise TypeError(f"- is implemented for instances of types: {self._allowed_scalar_types}")
-
-    return self.__add__(-other)
-
-  __rsub__ = __sub__
-
   def __ge__(self, other: float):
 
     if not isinstance(other, self._allowed_scalar_types):
@@ -220,16 +238,12 @@ class GPTail(BaseDistribution):
       raise TypeError(f"* is implemented for positive instances of: {self._allowed_scalar_types}")
 
     new_data = other*self.data if self.data is not None else None
-    if new_data is None:
-      warnings.warn(f"No observed data above {other}; setting data to None in conditional model.")
 
     return GPTail(
       threshold= other*self.threshold,
       shape = self.shape,
       scale = other*self.scale,
       data = new_data)
-
-  __rmul__ = __mul__
 
   def simulate(self, size: int) -> np.ndarray:
     return self.model.rvs(size=size)
@@ -472,6 +486,149 @@ class GPTail(BaseDistribution):
 
 
 
+class GPTailMixture(BaseDistribution):
+
+  data: np.ndarray
+  weights: np.ndarray
+  thresholds: np.ndarray
+  scales: np.ndarray
+  shapes: np.ndarray
+
+  @validator("weights", allow_reuse=True)
+  def check_weigths(cls, weights):
+    if not np.isclose(np.sum(weights),1, atol=cls._error_tol):
+      raise ValidationError(f"Weights don't sum 1 (sum = {np.sum(weights)})")
+    elif np.any(weights <= 0):
+      raise ValidationError("Negative or null weights are present")
+    else:
+      return weights
+
+  def moment(self, n: int, return_all=False) -> float:
+    vals = np.array([gpdist.moment(
+      n,
+      loc=threshold, 
+      c=self.scales, 
+      scale=self.scales) for threshold in self.thresholds])
+
+    if return_all:
+      return vals
+    else:
+      return np.dot(self.weights, vals)
+
+    def mean(self, return_all=False) -> float:
+    vals = gpdist.mean(
+      loc=self.thresholds, 
+      c=self.shapes, 
+      scale=self.scales)
+
+    if return_all:
+      return vals
+    else:
+      return np.dot(self.weights, vals)
+
+
+  def cdf(self, x:float, return_all=False) -> float:
+    vals = gpdist.cdf(
+      x,
+      loc=self.thresholds, 
+      c=self.shapes, 
+      scale=self.scales)
+
+    if return_all:
+      return vals
+    else:
+      return np.dot(self.weights, vals)
+
+  def pdf(self, x:float, return_all: False) -> float:
+    
+    vals = gpdist.pdf(
+      x,
+      loc=self.thresholds, 
+      c=self.shapes, 
+      scale=self.scales)
+
+    if return_all:
+      return vals
+    else:
+      return np.dot(self.weights, vals)
+
+  def ppf(self, q: float, return_all=False) -> float:
+    vals = gpdist.ppf(
+      q,
+      loc=self.thresholds, 
+      c=self.shapes, 
+      scale=self.scales)
+
+    if return_all:
+      return vals
+    else:
+      def target_function(x):
+        return self.cdf(x) - q
+      x0 = np.mean(vals)
+      return opt.root_scalar(target_function, x0 = x0, method="secant").root
+
+  def cvar(self, p:float, return_all: False) -> float:
+    
+    if p < 0 or p >= 1:
+      raise ValueError("p must be in the open interval (0,1)")
+
+    return (self >= self.ppf(p)).mean(return_all)
+
+  def simulate(self, size: int) -> np.ndarray:
+    n_samples = np.random.multinomial(n=size, pvals = self.weights, size=1)[0]
+    indices = (n_samples > 0).nonzero()[0]
+    samples = [gpdist.rvs(size=n_samples[i], c=self.shapes[i], scale=self.scales[i], loc=self.thresholds[i]) for i in indices]
+    return np.concatenate(samples, axis=0)
+
+
+  def __gt__(self, other: float) -> GPTailMixture:
+    prob_cond_exceedance = 1 - gpdist.cdf(other, c=self.scales, c=self.shapes, loc=self.thresholds)
+    prob_exceedance = 1 - self.cdf(other)
+    if prob_exceedance == 0:
+      raise ValueError(f"There is no probability mass above {other}; conditional distribution does not exist.")
+
+    new_weights = self.weights * prob_cond_exceedance / prob_exceedance
+    indices = (new_weights > 0).nonzero()[0]
+
+    new_weights = new_weights[indices]
+    new_thresholds = np.clip(self.thresholds[indices], a_min=other, a_max = np.Inf)
+    new_shapes = self.shapes[indices]
+    new_scales = self.scales[indices] + new_shapes*np.clip(other - new_thresholds, a_min = 0.0, a_max=np.Inf)
+
+    return type(self)(
+      weights = new_weights/np.sum(new_weights),
+      thresholds = new_thresholds,
+      shapes = new_shapes,
+      scales = new_scales)
+
+  def __ge__(self, other: float) -> BaseDistribution:
+    return self.__gt__(other)
+
+  def __add__(self, other: self._allowed_scalar_types):
+
+    if type(other) not in self._allowed_scalar_types:
+      raise TypeError(f"+ is implemented for types {self._allowed_scalar_types}")
+
+    return type(self)(
+      weights = self.weights,
+      thresholds = self.thresholds + other,
+      shapes = self.shapes,
+      scales = self.scales)
+
+  def __mul__(self, other: self._allowed_scalar_types):
+
+    if type(other) not in self._allowed_scalar_types:
+      raise TypeError(f"* is implemented for types {self._allowed_scalar_types}")
+
+    return type(self)(
+      weights = self.weights,
+      thresholds = other*self.thresholds,
+      shapes = self.shapes,
+      scales = other*self.scales)
+
+
+
+
 
 
 class Discrete(BaseDistribution):
@@ -483,6 +640,7 @@ class Discrete(BaseDistribution):
       pdf_values (np.ndarray): pdf array
       data (np.array, optional): data
   """
+  _sum_compatible = (GPTail, Mixture, GPTailMixture)
 
   support: np.ndarray
   pdf_values: np.ndarray
@@ -544,29 +702,40 @@ class Discrete(BaseDistribution):
 
     return Discrete(support = factor*self.support, pdf_values = self.pdf_values, data = factor*self.data)
 
-  __rmul__ = __mul__
+  def __add__(self, other: t.Union[int, float, GPTail, Mixture, GPTailMixture]):
 
-  def __add__(self, other: t.Union[float, GPTail, Mixture]):
-
-    if not isinstance(other, self._allowed_scalar_types + (GPTail, Mixture)):
-      raise TypeError(f"+ is supported only for scalar, GPTail or Mixture instances")
-
-    elif isinstance(other, self._allowed_scalar_types):
+    if isinstance(other, self._allowed_scalar_types):
       return Discrete(support = self.support + other, pdf_values = self.pdf_values, data = self.data + other)
 
     elif isinstance(other, GPTail):
 
       indices = (self.pdf_values > 0).nonzero()[0]
-      nn_support = self.pdf_values[indices]
+      nz_pdf = self.pdf_values[indices]
+      nz_support = self.support[indices]
       # mixed GPTails don't carry over exceedance data for efficient memory use
-      dists = [GPTail(threshold=other.threshold + x, scale=other.scale, shape=other.shape) for x in nn_support]
+      dists = [GPTail(threshold=other.threshold + x, scale=other.scale, shape=other.shape) for x in nz_support]
 
-      return Mixture(weights = nn_support, distributions = dists)
+      return GPTailMixture(
+        data = other.data,
+        weights = nz_pdf,
+        thresholds = other.threshold + nz_support,
+        scales = np.array([other.scale]),
+        shapes = np.array([other.shape])
+        )
 
-    else:
+    elif isinstance(other, Mixture):
       return Mixture(weights=other.weights, distributions = [self + dist for dist in other.distributions])
 
-  __radd__ = __add__
+    elif isinstance(other, GPTailMixture):
+      return GPTailMixture(
+        data = other.data,
+        weights = np.concatenate([w*self.pdf_values for w in other.weights], axis = 0),
+        threshold = np.concatenate([self.support + t for t in other.thresholds], axis = 0),
+        scales = other.scales,
+        shapes = other.shapes)
+
+    else:
+      raise TypeError(f"+ is supported only for types: {self._sum_compatible}")
 
   def __neg__(self):
 
@@ -580,8 +749,6 @@ class Discrete(BaseDistribution):
 
     else:
       raise TypeError("Subtraction is only defined for instances of Discrete or float ")
-
-  __rsub__ = __sub__
 
   def __ge__(self, other:float):
 
@@ -792,8 +959,6 @@ class Integer(Discrete):
     else:
       return super().__add__(other)
 
-  __radd__ = __add__
-
   @classmethod
   def from_data(cls, data: np.ndarray):
 
@@ -860,8 +1025,6 @@ class Mixture(BaseDistribution):
       weights=self.weights, 
       distributions = [factor + dist for dist in self.distributions])
 
-  __rmul__ = __mul__
-
   def __ge__(self, other:float):
 
     if not isinstance(other, self._allowed_scalar_types):
@@ -922,7 +1085,7 @@ class Mixture(BaseDistribution):
     ppfs =[dist.ppf(q) for dist in self.distributions]
     x0 = np.dot(self.weights, ppfs)
 
-    return opt.root_scalar(target_function, x0 = x0, method="bisect").root
+    return opt.root_scalar(target_function, x0 = x0, method="secant").root
     
   def cdf(self, x:float) -> float:
     cdfs = [dist.cdf(x) for dist in self.distributions]
@@ -930,7 +1093,7 @@ class Mixture(BaseDistribution):
 
   def pdf(self, x:float) -> float:
     
-    pdfs = [dist.pdf(x) for dist in self.distributions]
+    pdfs = [dist.pdf(x) for w, dist in self.distributions]
     return np.dot(pdfs,self.weights)
 
 
@@ -1204,8 +1367,7 @@ class DiscreteWithGPTail(Mixture):
 
 
 
-
-class BayesianGPTail(BaseDistribution):
+class BayesianGPTail(GPTailMixture):
 
   """Generalised Pareto tail model which is fitted through Bayesian inference.
 
@@ -1299,7 +1461,8 @@ class BayesianGPTail(BaseDistribution):
       np.random.shuffle(flat_samples)
       flat_samples = flat_samples[0:max_posterior_samples,:]
 
-    print(f"Got {flat_samples.shape[0]} posterior samples.")
+    n_samples = flat_samples.shape[0]
+    print(f"Got {n_samples} posterior samples.")
 
     if plot_diagnostics:
       fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
@@ -1319,128 +1482,14 @@ class BayesianGPTail(BaseDistribution):
     shape_posterior = flat_samples[:,1]
 
     return cls(
-      threshold = threshold,
+      weights = 1/n_samples*np.ones((n_samples,), dtype=np.float64),
+      thresholds = np.array([threshold]),
       data = exceedances,
-      shape_posterior = shape_posterior,
-      scale_posterior = scale_posterior)
+      shapes = shape_posterior,
+      scales = scale_posterior)
 
 
-  def __add__(self, other: float) -> BayesianGPTail:
 
-    if not isinstance(other, self._allowed_scalar_types):
-      raise TypeError(f"+ is implemented for instances of types: {self._allowed_scalar_types}")
-
-    return BayesianGPTail(
-      threshold = self.threshold + other,
-      shape_posterior = self.shape,
-      scale_posterior = self.scale,
-      data = self.data + other if self.data is not None else None)
-
-  __radd__ = __add__
-
-  def __ge__(self, other: float) -> BayesianGPTail:
-
-    if not isinstance(other, self._allowed_scalar_types):
-      raise TypeError(f">= and > are implemented for instances of types: {self._allowed_scalar_types}")
-
-    if other >= self.endpoint:
-      raise ValueError(f"No probability mass above endpoint ({self.endpoint}); conditional distribution X >= {other} does not exist")
-
-    if other <= threshold:
-      return self
-    else:
-      # condition on empirical data if applicable
-      new_data = self.data[self.data >= other] if self.data is not None else None
-      # if no observed data is above threshold, discard
-      new_data = None if len(new_data) == 0 else new_data
-
-      if new_data is None:
-        warnings.warn(f"No observed data above {other}; setting data to None in conditional model.")
-
-      return BayesianGPTail(
-        threshold=other,
-        shape_posterior = self.shape,
-        scale_posterior = self.scale_posterior + self.shape_posterior*(other - self.threshold),
-        data = new_data)
-
-  def __gt__(self, other: float) -> BayesianGPTail:
-
-    return self.__ge__(other)
-
-  def __mul__(self, other: float) -> BayesianGPTail:
-
-    if not isinstance(other, self._allowed_scalar_types) or other <= 0:
-      raise TypeError(f"* is implemented for positive instances of: {self._allowed_scalar_types}")
-
-    new_data = other*self.data if self.data is not None else None
-    if new_data is None:
-      warnings.warn(f"No observed data above {other}; setting data to None in conditional model.")
-
-    return BayesianGPTail(
-      threshold= other*self.threshold,
-      shape_posterior= self.shape_posterior,
-      scale_posterior = other*self.scale_posterior,
-      data = new_data)
-
-  def sample_posterior(self, size: int) -> t.Tuple[np.array, np.array]:
-    indices = np.random.choice(a = np.arange(len(self.shape_posterior)),size=size)
-
-    shapes = self.shape_posterior[indices]
-    scales = self.scale_posterior[indices]
-
-    return scales, shapes
-
-  def simulate(self, size: int) -> np.ndarray:
-    scales, shapes = self.sample_posterior(size=size)
-    return gpdist.rvs(size=size, c=shapes, scale=scales, loc=self.threshold)
-
-  def ppf(self, q: float, return_samples=False) -> t.Union[float, np.array]:
-    vals = gpdist.ppf(q, c=self.shape_posterior, scale=self.scale_posterior, loc=self.threshold)
-    if return_samples:
-      return vals
-    else:
-      return np.mean(vals)
-
-  def cdf(self, x:float, return_samples=False) -> t.Union[float, np.array]:
-    vals = gpdist.cdf(x, c=self.shape_posterior, scale=self.scale_posterior, loc=self.threshold)
-    if return_samples:
-      return vals
-    else:
-      return np.mean(vals)
-
-  def pdf(self, x:float, return_samples=False) -> t.Union[float, np.array]:
-    vals = gpdist.pdf(x, c=self.shape_posterior, scale=self.scale_posterior, loc=self.threshold)
-    if return_samples:
-      return vals
-    else:
-      return np.mean(vals)
-
-  def std(self, return_samples=False) -> t.Union[float, np.array]:
-    if np.any(self.shape_posterior >= 0.5):
-      raise ValueError("Some samples from the posterior shape parameter are larger than 0.5; the variance is infinite.")
-    vals = gpdist.std(c=self.shape_posterior, scale=self.scale_posterior, loc=self.threshold)
-    if return_samples:
-      return vals
-    else:
-      return np.mean(vals)
-
-  def mean(self, return_samples=False) -> t.Union[float, np.array]:
-    if np.any(self.shape_posterior >= 1):
-      raise ValueError("Some samples from the posterior shape parameter are larger than 1; the mean is infinite.")
-    vals = gpdist.mean(c=self.shape_posterior, scale=self.scale_posterior, loc=self.threshold)
-    if return_samples:
-      return vals
-    else:
-      return np.mean(vals)
-
-  def moment(self, n: int, return_samples=False) -> t.Union[float, np.array]:
-    if np.any(self.shape_posterior >= 1/n):
-      raise ValueError(f"Some samples from the posterior shape parameter are larger than 1/{n}; the {n}-moment is infinite.")
-    vals = np.array([gpdist.moment(c=shape, scale=scale, loc=self.threshold) for scale, shape in zip(self.scale_posterior, shape_posterior)])
-    if return_samples:
-      return vals
-    else:
-      return np.mean(vals)
 
 
 
@@ -1477,66 +1526,3 @@ class DiscreteWithBayesianGPTail(DiscreteWithGPTail):
     return cls(
       weights = np.array([1 -exs_prob, exs_prob]),
       distributions = [discrete, tail])
-
-    
-# class GPTailMixture(BaseDistribution):
-
-#   weights: np.ndarray
-#   offsets: np.ndarray
-#   base_distribution: GPTail
-
-#   # @abstractmethod
-#   # def simulate(self, size: int) -> np.ndarray:
-#   #   """Produces simulated values from model
-    
-#   #   Args:
-#   #       n (int): Number of samples
-#   #   """
-#   #   pass
-
-#   def moment(self, n: int) -> float:
-#     vals = np.array([gpdist.moment(
-#       n,
-#       loc=self.base_distribution.threshold + x, 
-#       c=self.base_distribution.shape, 
-#       scale=self.base_distribution.scale) for x in self,offsets])
-
-#     return np.dot(self.weights, vals)
-
-#   @abstractmethod
-#   def ppf(self, q: float) -> float:
-#     x0 = gpdist.ppf(
-#       q,
-#       loc=self.base_distribution.threshold + self.offsets, 
-#       c=self.base_distribution.shape, 
-#       scale=self.base_distribution.scale)
-
-#     return np.dot(self.weights, vals)
-
-#   def mean(self) -> float:
-#     vals = gpdist.mean(
-#       loc=self.base_distribution.threshold + self.offsets, 
-#       c=self.base_distribution.shape, 
-#       scale=self.base_distribution.scale)
-
-#     return np.dot(self.weights, vals)
-
-
-#   def cdf(self, x:float) -> float:
-#     vals = gpdist.cdf(
-#       x,
-#       loc=self.base_distribution.threshold + self.offsets, 
-#       c=self.base_distribution.shape, 
-#       scale=self.base_distribution.scale)
-
-#     return np.dot(self.weights, vals)
-
-#   def pdf(self, x:float) -> float:
-    
-#     vals = gpdist.pdf(
-#       x,
-#       loc=self.base_distribution.threshold + self.offsets, 
-#       c=self.base_distribution.shape, 
-#       scale=self.base_distribution.scale)
-
-#     return np.dot(self.weights, vals)
