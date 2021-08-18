@@ -8,6 +8,7 @@ import warnings
 from argparse import Namespace
 from abc import ABC, abstractmethod
 from multiprocessing import Pool
+import copy
 
 import pandas as pd
 import scipy as sp
@@ -325,10 +326,10 @@ class GPTail(BaseDistribution):
       raise TypeError(f">= and > are implemented for instances of types: {self._allowed_scalar_types}")
 
     if other >= self.endpoint:
-      raise ValueError(f"No probability mass above endpoint ({self.endpoint}); conditional distribution X >= {other} does not exist")
+      raise ValueError(f"No probability mass above endpoint ({self.endpoint}); conditional distribution X | X >= {other} does not exist")
 
     if other <= self.threshold:
-      return self
+      return copy.deepcopy(self)
     else:
       # condition on empirical data if applicable
       new_data = self.data[self.data >= other] if self.data is not None else None
@@ -1058,7 +1059,17 @@ class Binned(Empirical):
     else:
       raise ValidationError(f"Support entry types must be one of {self._supported_types}")
 
-  
+  def __mul__(self, factor: self._allowed_scalar_types):
+
+    if not isinstance(factor, self._allowed_scalar_types) or factor == 0:
+      raise TypeError(f"multiplication is supported only for nonzero instances of type:{self._allowed_scalar_types}")
+
+    if isinstance(factor, int):
+      return Binned(support = factor*self.support, pdf_values = self.pdf_values, data = factor*self.data)
+
+    else:
+      return super().__mul__(factor)
+
   def __add__(self, other: t.Union[float, int, Binned, GPTail, Mixture]):
 
     if isinstance(other, int):
@@ -1076,6 +1087,17 @@ class Binned(Empirical):
 
     else:
       return super().__add__(other)
+
+  def __sub__(self, other: float):
+
+    if isinstance(other, int):
+      return self + (-other)
+    else:
+      super().__sub__(other)
+
+  def __neg__(self):
+
+    return super().__neg__().to_integer() 
 
   @classmethod
   def from_data(cls, data: np.ndarray):
@@ -1448,7 +1470,8 @@ class BayesianGPTail(GPTailMixture):
     exceedances = data[data > threshold]
     ndim = 2
     # make initial guess
-    shape, _, scale = gpdist.fit(exceedances, floc=threshold)
+    mle_model = GPTail.fit(data=exceedances, threshold=threshold)
+    shape, scale = mle_model.shape, mle_model.scale
     x0 = np.array([scale, shape])
 
     # create random walkers
