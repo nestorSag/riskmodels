@@ -12,12 +12,18 @@ import copy
 
 import pandas as pd
 import scipy as sp
+
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
+from matplotlib import cm
+
 import numpy as np
 import emcee
 
 from scipy.stats import genpareto as gpdist
-from scipy.optimize import LinearConstraint, minimize
+from scipy.optimize import LinearConstraint, minimize, root_scalar
+from scipy.stats import gaussian_kde as kde
+
 
 from pydantic import BaseModel, ValidationError, validator, PositiveFloat
 from functools import reduce
@@ -255,7 +261,7 @@ class Mixture(BaseDistribution):
     ppfs =[w*dist.ppf(q) for w, dist in zip(self.weights, self.distributions)]
     x0 = np.dot(self.weights, ppfs)
 
-    return opt.root_scalar(target_function, x0 = x0, method="secant").root
+    return root_scalar(target_function, x0 = x0, x1 = x0 + 1, method="secant").root
     
   def cdf(self, x:float, **kwargs) -> float:
     vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
@@ -282,7 +288,7 @@ class GPTail(BaseDistribution):
       threshold (float): modeling threshold
       shape (float): fitted shape parameter
       scale (float): fitted scale parameter
-      data (np.array, optional): exceedance
+      data (np.array, optional): exceedance data
   """
 
   threshold: float
@@ -562,22 +568,29 @@ class GPTail(BaseDistribution):
         t.Union[GPTail, sp.optimize.OptimizeResult]: Description
     """
     exceedances = data[data > threshold]
-    x_max = max(exceedances)
+
+    #rescale exceedances and threshold so that both parameters are in roughly the same scale, improving numerical conditioning
+    sdev = np.std(exceedances)
+    
+    norm_exceedances = exceedances/sdev
+    norm_threshold = threshold/sdev
+
+    norm_max = max(norm_exceedances)
 
     constraints = LinearConstraint(
-      A = np.array([[1/(x_max-threshold),1], [1, 0]]), 
+      A = np.array([[1/(norm_max-norm_threshold),1], [1, 0]]), 
       lb=np.zeros((2,)), 
       ub=np.Inf)
 
     if x0 is None:
       # use default scipy fitter to get initial estimate
       # this is almost always good enough
-      shape, _, scale = gpdist.fit(exceedances, floc=threshold)
+      shape, _, scale = gpdist.fit(norm_exceedances, floc=norm_threshold)
       x0 = np.array([scale, shape])
 
-    loss_func = lambda params: GPTail.loss(params, threshold, exceedances)
-    loss_grad = lambda params: GPTail. loss_grad(params, threshold, exceedances)
-    loss_hessian = lambda params: GPTail.loss_hessian(params, threshold, exceedances)
+    loss_func = lambda params: GPTail.loss(params, norm_threshold, norm_exceedances)
+    loss_grad = lambda params: GPTail. loss_grad(params, norm_threshold, norm_exceedances)
+    loss_hessian = lambda params: GPTail.loss_hessian(params, norm_threshold, norm_exceedances)
 
     res = minimize(
       fun=loss_func, 
@@ -587,15 +600,181 @@ class GPTail(BaseDistribution):
       hess = loss_hessian)
 
     if return_opt_results:
+      warn.warnings("Returning raw results for rescaled exceedance data (sdev ~ 1).")
       return res
     else:
       scale, shape = list(res.x)
 
       return cls(
-        threshold = threshold,
-        scale = scale,
+        threshold = sdev*norm_threshold,
+        scale = sdev*scale,
         shape = shape,
-        data = data)
+        data = sdev*norm_exceedances)
+
+  def plot_diagnostics(self) -> None:
+    """Produces fit diagnostic plots for the GP model
+    
+    """
+    if self.data is None:
+      raise ValueError("Exceedance data was not provided for this model.")
+
+    fig, axs = plt.subplots(3, 2)
+
+
+    #################### Profile log-likelihood
+
+    # set profile intervals based on MLE variance
+    mle_cov = self.mle_cov()
+    scale_bounds, shape_bounds = (self.scale - np.sqrt(mle_cov[0,0]), self.scale + np.sqrt(mle_cov[0,0])), (self.shape - np.sqrt(mle_cov[1,1]), self.shape + np.sqrt(mle_cov[1,1]))
+
+    #set profile grids
+    scale_grid = np.linspace(scale_bounds[0], scale_bounds[1], 50)
+    shape_grid = np.linspace(shape_bounds[0], shape_bounds[1], 50)
+
+
+    #declare profile functions
+    scale_profile_func = lambda x: self.loglik([x, self.shape], self.threshold, self.data)
+    shape_profile_func = lambda x: self.loglik([self.scale, x], self.threshold, self.data)
+
+    loss_value = scale_profile_func(self.scale)
+
+    scale_profile = np.array([scale_profile_func(x) for x in scale_grid])
+    shape_profile = np.array([shape_profile_func(x) for x in shape_grid])
+
+    alpha = 2 if loss_value > 0 else 0.5
+
+    # filter to almost-optimal values
+
+    def filter_grid(grid, optimum):
+      radius = 2*np.abs(optimum)
+      return np.logical_and(np.logical_not(np.isnan(grid)), np.isfinite(grid), np.abs(grid - optimum) < radius)
+
+    scale_filter = filter_grid(scale_profile, loss_value)
+    shape_filter = filter_grid(shape_profile, loss_value)
+
+
+    valid_scales = scale_grid[scale_filter]
+    valid_scale_profile = scale_profile[scale_filter]
+
+    axs[0,0].plot(valid_scales, valid_scale_profile, color=self._figure_color_palette[0])
+    axs[0,0].vlines(x=self.scale, ymin=min(valid_scale_profile), ymax = max(valid_scale_profile), linestyle="dashed", colors = self._figure_color_palette[1])
+    axs[0,0].title.set_text('Profile scale log-likelihood')
+    axs[0,0].set_xlabel('Scale')
+    axs[0,0].set_ylabel('log-likelihood')
+
+    valid_shapes = shape_grid[shape_filter]
+    valid_shape_profile = shape_profile[shape_filter]
+
+    axs[0,1].plot(valid_shapes, valid_shape_profile, color=self._figure_color_palette[0])
+    axs[0,1].vlines(x=self.shape, ymin=min(valid_shape_profile), ymax = max(valid_shape_profile), linestyle="dashed", colors = self._figure_color_palette[1])
+    axs[0,1].title.set_text('Profile shape log-likelihood')
+    axs[0,1].set_xlabel('Shape')
+    axs[0,1].set_ylabel('log-likelihood')
+
+    ######################## Log-likelihood surface ###############
+    scale_grid, shape_grid = np.mgrid[
+    min(valid_scales):max(valid_scales):2*np.sqrt(mle_cov[0,0])/50,
+    shape_bounds[0]:shape_bounds[1]:2*np.sqrt(mle_cov[0,0])/50]
+
+    scale_mesh, shape_mesh = np.meshgrid(
+      np.linspace(min(valid_scales), max(valid_scales), 50), 
+      np.linspace(min(valid_shapes), max(valid_shapes), 50))
+
+    max_x = max(self.data)
+
+    z = np.empty(scale_mesh.shape)
+    for i in range(scale_mesh.shape[0]):
+      for j in range(scale_mesh.shape[1]):
+        shape = shape_mesh[i,j]
+        scale = scale_mesh[i,j]
+        if shape < 0 and self.threshold - scale/shape < max_x:
+          z[i,j] = np.nan
+        else:
+          z[i,j] = self.loglik([scale, shape], self.threshold, self.data)
+
+    # negate z to recover true loglikelihood
+    axs[1,0].contourf(scale_mesh, shape_mesh, z, levels = 15)
+    axs[1,0].scatter([self.scale], [self.shape], color="darkorange", s=2)
+    axs[1,0].annotate(text="MLE", xy = (self.scale, self.shape), color="darkorange")
+    axs[1,0].title.set_text('Log-likelihood surface')
+    axs[1,0].set_xlabel('Scale')
+    axs[1,0].set_ylabel('Shape')
+
+
+
+    ############## histogram vs density ################
+    hist_data = axs[1,1].hist(self.data, bins=25, edgecolor="white", color=self._figure_color_palette[0])
+
+    range_min, range_max = min(self.data), max(self.data)
+    x_axis = np.linspace(range_min, range_max, 100)
+    pdf_vals = self.pdf(x_axis)
+    y_axis = hist_data[0][0] / pdf_vals[0] * pdf_vals
+
+    axs[1,1].plot(x_axis, y_axis, color=self._figure_color_palette[1])
+    axs[1,1].title.set_text("Data vs fitted density")
+    axs[1,1].set_xlabel('Exceedance data')
+    axs[1,1].yaxis.set_visible(False) # Hide only x axis
+    #axs[0, 0].set_aspect('equal', 'box')
+
+
+    ############# Q-Q plot ################
+    probability_range = np.linspace(0.01,0.99, 99)
+    empirical_quantiles = np.quantile(self.data, probability_range)
+    tail_quantiles = self.ppf(probability_range)
+
+    axs[2,0].scatter(tail_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
+    min_x, max_x = min(tail_quantiles), max(tail_quantiles)
+    #axs[0,1].set_aspect('equal', 'box')
+    axs[2,0].title.set_text('Q-Q plot')
+    axs[2,0].set_xlabel('self quantiles')
+    axs[2,0].set_ylabel('Data quantiles')
+    axs[2,0].grid()
+    axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
+
+    ############ Mean return plot ###############
+    scale, shape = self.scale, self.shape
+
+    n_obs = len(self.data)
+    exs_prob = 1 #carried over from older code
+
+    m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
+    return_levels = self.ppf(1 - 1/(exs_prob*m))
+
+    axs[2,1].plot(m,return_levels,color=self._figure_color_palette[0])
+    axs[2,1].set_xscale("log")
+    axs[2,1].title.set_text('Exceedance return levels')
+    axs[2,1].set_xlabel('1/frequency')
+    axs[2,1].set_ylabel('Return level')
+    axs[2,1].grid()
+
+    try:
+      #for this bit, look at An Introduction to Statistical selfing of Extreme Values, p.82
+      mle_cov = self.mle_cov()
+      eigenvals, eigenvecs = np.linalg.eig(mle_cov)
+      if np.all(eigenvals > 0):
+        covariance = np.eye(3)
+        covariance[1::,1::] = mle_cov
+        covariance[0,0] = exs_prob*(1-exs_prob)/n_obs
+        #
+        return_stdevs = []
+        for m_ in m:
+          quantile_grad = np.array([
+            scale*m_**(shape)*exs_prob**(shape-1),
+            shape**(-1)*((exs_prob*m_)**shape-1),
+            -scale*shape**(-2)*((exs_prob*m_)**shape-1)+scale*shape**(-1)*(exs_prob*m_)**shape*np.log(exs_prob*m_)
+            ])
+          #
+          sdev = np.sqrt(quantile_grad.T.dot(covariance).dot(quantile_grad))
+          return_stdevs.append(sdev)
+        #
+        axs[2,1].fill_between(m, return_levels - return_stdevs, return_levels + return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
+      else:
+        warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned")
+    except Exception as e:
+      warnings.warn(f"Confidence bands for return level could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}")
+
+    plt.tight_layout()
+    plt.show()
 
 
 
@@ -619,19 +798,19 @@ class GPTailMixture(BaseDistribution):
     else:
       return weights
 
-  def moment(self, n: int, return_all=False) -> float:
+  def moment(self, n: int, return_all: bool = False) -> float:
     vals = np.array([gpdist.moment(
       n,
       loc=threshold, 
-      c=self.scales, 
-      scale=self.scales) for threshold in self.thresholds])
+      c=shape, 
+      scale=scale) for threshold, shape, scale in zip(self.thresholds, self.shapes, self.scales)])
 
     if return_all:
       return vals
     else:
       return np.dot(self.weights, vals)
 
-  def mean(self, return_all=False) -> float:
+  def mean(self, return_all: bool = False) -> float:
     vals = gpdist.mean(
       loc=self.thresholds, 
       c=self.shapes, 
@@ -643,7 +822,7 @@ class GPTailMixture(BaseDistribution):
       return np.dot(self.weights, vals)
 
 
-  def cdf(self, x:float, return_all=False) -> float:
+  def cdf(self, x:float, return_all: bool = False) -> float:
     vals = gpdist.cdf(
       x,
       loc=self.thresholds, 
@@ -655,7 +834,7 @@ class GPTailMixture(BaseDistribution):
     else:
       return np.dot(self.weights, vals)
 
-  def pdf(self, x:float, return_all: False) -> float:
+  def pdf(self, x:float, return_all: bool = False) -> float:
     
     vals = gpdist.pdf(
       x,
@@ -668,7 +847,7 @@ class GPTailMixture(BaseDistribution):
     else:
       return np.dot(self.weights, vals)
 
-  def ppf(self, q: float, return_all=False) -> float:
+  def ppf(self, q: float, return_all: bool = False) -> float:
     vals = gpdist.ppf(
       q,
       loc=self.thresholds, 
@@ -682,9 +861,9 @@ class GPTailMixture(BaseDistribution):
       def target_function(x):
         return self.cdf(x) - q
       x0 = np.mean(vals)
-      return opt.root_scalar(target_function, x0 = x0, method="secant").root
+      return root_scalar(target_function, x0 = x0, x1 = x0 + 1, method="secant").root
 
-  def cvar(self, p:float, return_all: False) -> float:
+  def cvar(self, p:float, return_all: bool = False) -> float:
     
     if p < 0 or p >= 1:
       raise ValueError("p must be in the open interval (0,1)")
@@ -700,7 +879,7 @@ class GPTailMixture(BaseDistribution):
 
   def __gt__(self, other: float) -> GPTailMixture:
     prob_cond_exceedance = 1 - gpdist.cdf(other, scale=self.scales, c=self.shapes, loc=self.thresholds)
-    prob_exceedance = 1 - self.cdf(other)
+    prob_exceedance = np.dot(self.weights, prob_cond_exceedance)
     if prob_exceedance == 0:
       raise ValueError(f"There is no probability mass above {other}; conditional distribution does not exist.")
 
@@ -1149,7 +1328,7 @@ class EmpiricalWithGPTail(Mixture):
   
   @property
   def threshold(self):
-    return self.distributions[1].params.threshold
+    return self.distributions[1].threshold
 
   @property
   def exs_prob(self):
@@ -1185,214 +1364,8 @@ class EmpiricalWithGPTail(Mixture):
       distributions = [empirical, tail],
       weights = np.array([1 - exs_prob, exs_prob]))
 
-  def plot_diagnostics(self) -> None:
-    """Produces diagnostic plots for the fitted model
-    
-    """
-    if self.tail.data is None:
-      raise ValueError("Exceedance data was not provided for this model.")
-
-    fig, axs = plt.subplots(3, 2)
-
-
-    #################### Profile log-likelihood
-
-    # set profile intervals based on MLE variance
-    mle_cov = self.tail.mle_cov()
-    scale_bounds, shape_bounds = (self.tail.scale - np.sqrt(mle_cov[0,0]), self.tail.scale + np.sqrt(mle_cov[0,0])), (self.tail.shape - np.sqrt(mle_cov[1,1]), self.tail.shape + np.sqrt(mle_cov[1,1]))
-
-    #set profile grids
-    scale_grid = np.linspace(scale_bounds[0], scale_bounds[1], 50)
-    shape_grid = np.linspace(shape_bounds[0], shape_bounds[1], 50)
-
-
-    #declare profile functions
-    scale_profile_func = lambda x: self.tail.loglik([x, self.tail.shape], self.tail.threshold, self.tail.data)
-    shape_profile_func = lambda x: self.tail.loglik([self.tail.scale, x], self.tail.threshold, self.tail.data)
-
-    loss_value = scale_profile_func(self.tail.scale)
-
-    scale_profile = np.array([scale_profile_func(x) for x in scale_grid])
-    shape_profile = np.array([shape_profile_func(x) for x in shape_grid])
-
-    alpha = 2 if loss_value > 0 else 0.5
-
-    # filter to almost-optimal values
-
-    def filter_grid(grid, optimum):
-      radius = 2*np.abs(optimum)
-      return np.logical_and(np.logical_not(np.isnan(grid)), np.isfinite(grid), np.abs(grid - optimum) < radius)
-
-    scale_filter = filter_grid(scale_profile, loss_value)
-    shape_filter = filter_grid(shape_profile, loss_value)
-
-
-    valid_scales = scale_grid[scale_filter]
-    valid_scale_profile = scale_profile[scale_filter]
-
-    axs[0,0].plot(valid_scales, valid_scale_profile, color=self._figure_color_palette[0])
-    axs[0,0].vlines(x=self.tail.scale, ymin=min(valid_scale_profile), ymax = max(valid_scale_profile), linestyle="dashed", colors = self._figure_color_palette[1])
-    axs[0,0].title.set_text('Profile scale log-likelihood')
-    axs[0,0].set_xlabel('Scale')
-    axs[0,0].set_ylabel('log-likelihood')
-
-    valid_shapes = shape_grid[shape_filter]
-    valid_shape_profile = shape_profile[shape_filter]
-
-    axs[0,1].plot(valid_shapes, valid_shape_profile, color=self._figure_color_palette[0])
-    axs[0,1].vlines(x=self.tail.shape, ymin=min(valid_shape_profile), ymax = max(valid_shape_profile), linestyle="dashed", colors = self._figure_color_palette[1])
-    axs[0,1].title.set_text('Profile shape log-likelihood')
-    axs[0,1].set_xlabel('Shape')
-    axs[0,1].set_ylabel('log-likelihood')
-
-    ######################## Log-likelihood surface ###############
-    scale_grid, shape_grid = np.mgrid[
-    min(valid_scales):max(valid_scales):2*np.sqrt(mle_cov[0,0])/50,
-    shape_bounds[0]:shape_bounds[1]:2*np.sqrt(mle_cov[0,0])/50]
-
-    scale_mesh, shape_mesh = np.meshgrid(
-      np.linspace(min(valid_scales), max(valid_scales), 50), 
-      np.linspace(min(valid_shapes), max(valid_shapes), 50))
-
-    max_x = max(self.tail.data)
-
-    z = np.empty(scale_mesh.shape)
-    for i in range(scale_mesh.shape[0]):
-      for j in range(scale_mesh.shape[1]):
-        shape = shape_mesh[i,j]
-        scale = scale_mesh[i,j]
-        if shape < 0 and self.tail.threshold - scale/shape < max_x:
-          z[i,j] = np.nan
-        else:
-          z[i,j] = self.tail.loglik([scale, shape], self.tail.threshold, self.tail.data)
-
-    # negate z to recover true loglikelihood
-    axs[1,0].contourf(scale_mesh, shape_mesh, z, levels = 15)
-    axs[1,0].scatter([self.tail.scale], [self.tail.shape], color="darkorange", s=2)
-    axs[1,0].annotate(text="MLE", xy = (self.tail.scale, self.tail.shape), color="darkorange")
-    axs[1,0].title.set_text('Log-likelihood surface')
-    axs[1,0].set_xlabel('Scale')
-    axs[1,0].set_ylabel('Shape')
-
-
-
-    ############## histogram vs density ################
-    hist_data = axs[1,1].hist(self.tail.data, bins=25, edgecolor="white", color=self._figure_color_palette[0])
-
-    range_min, range_max = min(self.tail.data), max(self.tail.data)
-    x_axis = np.linspace(range_min, range_max, 100)
-    pdf_vals = self.tail.pdf(x_axis)
-    y_axis = hist_data[0][0] / pdf_vals[0] * pdf_vals
-
-    axs[1,1].plot(x_axis, y_axis, color=self._figure_color_palette[1])
-    axs[1,1].title.set_text("Data vs fitted density")
-    axs[1,1].set_xlabel('Exceedance data')
-    axs[1,1].yaxis.set_visible(False) # Hide only x axis
-    #axs[0, 0].set_aspect('equal', 'box')
-
-
-    ############# Q-Q plot ################
-    probability_range = np.linspace(0.01,0.99, 99)
-    empirical_quantiles = np.quantile(self.tail.data, probability_range)
-    self_quantiles = self.tail.ppf(probability_range)
-
-    axs[2,0].scatter(self_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
-    min_x, max_x = min(self_quantiles), max(self_quantiles)
-    #axs[0,1].set_aspect('equal', 'box')
-    axs[2,0].title.set_text('Q-Q plot')
-    axs[2,0].set_xlabel('self quantiles')
-    axs[2,0].set_ylabel('Data quantiles')
-    axs[2,0].grid()
-    axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
-
-    ############ Mean return plot ###############
-    scale, shape = self.tail.scale, self.tail.shape
-
-    n_obs = len(self.empirical.data)+len(self.tail.data)
-
-    exs_prob = self.exs_prob
-    m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
-    return_levels = self.tail.ppf(1 - 1/(exs_prob*m))
-
-    axs[2,1].plot(m,return_levels,color=self._figure_color_palette[0])
-    axs[2,1].set_xscale("log")
-    axs[2,1].title.set_text('Return levels')
-    axs[2,1].set_xlabel('1/frequency')
-    axs[2,1].set_ylabel('Return level')
-    axs[2,1].grid()
-
-    try:
-      #for this bit, look at An Introduction to Statistical selfing of Extreme Values, p.82
-      mle_cov = self.tail.mle_cov()
-      eigenvals, eigenvecs = np.linalg.eig(mle_cov)
-      if np.all(eigenvals > 0):
-        covariance = np.eye(3)
-        covariance[1::,1::] = mle_cov
-        covariance[0,0] = exs_prob*(1-exs_prob)/n_obs
-        #
-        return_stdevs = []
-        for m_ in m:
-          quantile_grad = np.array([
-            scale*m_**(shape)*exs_prob**(shape-1),
-            shape**(-1)*((exs_prob*m_)**shape-1),
-            -scale*shape**(-2)*((exs_prob*m_)**shape-1)+scale*shape**(-1)*(exs_prob*m_)**shape*np.log(exs_prob*m_)
-            ])
-          #
-          sdev = np.sqrt(quantile_grad.T.dot(covariance).dot(quantile_grad))
-          return_stdevs.append(sdev)
-        #
-        axs[2,1].fill_between(m, return_levels - return_stdevs, return_levels + return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
-      else:
-        warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned")
-    except Exception as e:
-      warnings.warn(f"Confidence bands for return level could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}")
-
-
-    ############# MLE confidence regions #####################
-    # try:
-    #   mle_cov = self.tail.mle_cov()
-    #   eigenvals, eigenvecs = np.linalg.eig(mle_cov)
-    #   if np.all(eigenvals > 0):
-    #     mean = np.array([self.tail.scale, self.tail.shape])
-    #     #
-    #     # bounds = [(
-    #     #   sp.stats.norm.ppf(0.025, loc = mean[k], scale = mle_cov[k,k]),
-    #     #   sp.stats.norm.ppf(0.975, loc = mean[k], scale = mle_cov[k,k])) for k in range(2)]
-    #     #
-    #     rayleigh_95ci = sp.stats.rayleigh.ppf(0.95)
-    #     cov_sqrt = eigenvecs @ np.diag(np.sqrt(eigenvals)) @ np.linalg.inv(eigenvecs)
-    #     norm_sqrt = max(np.linalg.eig(cov_sqrt)[0])
-    #     bound = norm_sqrt*rayleigh_95ci
-    #     #
-    #     bounds = [bound * np.array([-1,1]) for k in range(2)]
-    #     grids = [np.linspace(b[0],b[1],50) for b in bounds]
-    #     x, y = np.mgrid[
-    #     bounds[0][0]:bounds[0][1]:(bounds[0][1]-bounds[0][0])/50, 
-    #     bounds[1][0]:bounds[1][1]:(bounds[1][1]-bounds[1][0])/50]
-    #     pos = np.dstack((x,y))
-    #     #
-    #     #find contour corresponding to 95% cumulative probability from the center
-    #     rv = sp.stats.multivariate_normal(mean=mean, cov = mle_cov)
-    #     ctr = axs[1,0].contour(x, y, rv.pdf(pos))
-    #     fmt = {}
-    #     for lvl in ctr.levels:
-    #       if lvl > 0:
-    #         mapped_norm = -np.log(lvl/(2*np.math.pi)**(-1)*np.linalg.det(mle_cov)**(0.5))
-    #         fmt[lvl] = np.round(sp.stats.rayleigh.cdf(mapped_norm),2)
-    #     #
-    #     axs[1,0].clabel(ctr, ctr.levels[::2], inline=True, fmt=fmt, fontsize=10)
-    #     axs[1,0].title.set_text('Approximate 95% MLE confidence region')
-    #     axs[1,0].set_xlabel('Scale')
-    #     axs[1,0].set_ylabel('Shape')
-    #   else:
-    #     warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned")
-    # except Exception as e:
-    #   warnings.warn(f"MLE central confidence region could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}")
-
-    #plt.show()
-
-    plt.tight_layout()
-    plt.show()
+  def plot_diagnostics(self):
+    self.tail.plot_diagnostics()
 
 
 
@@ -1407,11 +1380,6 @@ class BayesianGPTail(GPTailMixture):
       shape (np.ndarray): sample from posterior shape distribution
       scale (np.ndarray): sample from posterior scale distribution
   """
-  
-  threshold: float
-  data: t.Optional[np.ndarray]
-  shape_posterior: np.ndarray
-  scale_posterior: np.ndarray
 
   #_self.posterior_trace = None
 
@@ -1443,8 +1411,6 @@ class BayesianGPTail(GPTailMixture):
     Returns:
         BayesianGPTail: fitted model
     
-    Deleted Parameters:
-        parallel (bool, optional): If True, uses all cores in the machine to sample from posterior.
     """
     exceedances = data[data > threshold]
     x_max = max(data - threshold)
@@ -1514,10 +1480,91 @@ class BayesianGPTail(GPTailMixture):
 
     return cls(
       weights = 1/n_samples*np.ones((n_samples,), dtype=np.float64),
-      thresholds = np.array([threshold]),
+      thresholds = threshold*np.ones((n_samples,)),
       data = exceedances,
       shapes = shape_posterior,
       scales = scale_posterior)
+
+  def plot_diagnostics(self) -> None:
+    """Produces fit diagnostic plots for the GP model
+    
+    """
+    if self.data is None:
+      raise ValueError("Exceedance data was not provided for this model.")
+
+    def map_to_colors( vals ):
+      colours = np.zeros( (len(vals),3) )
+      norm = Normalize( vmin=vals.min(), vmax=vals.max() )
+      #Can put any colormap you like here.
+      colours = [cm.ScalarMappable( norm=norm, cmap='cool').to_rgba( val ) for val in vals]
+      return colours
+
+    fig, axs = plt.subplots(3, 2)
+
+
+    #################### Bayesian inference diagnostics: posterior histograms and scatterplot
+
+    # set profile intervals based on MLE variance
+    axs[0,0].hist(self.scales, bins=25, edgecolor="white", color=self._figure_color_palette[0])
+    axs[0,0].title.set_text("Posterior scale histogram")
+
+    axs[0,1].hist(self.shapes, bins=25, edgecolor="white", color=self._figure_color_palette[0])
+    axs[0,1].title.set_text("Posterior shape histogram")
+
+    posterior = np.concatenate([self.scales.reshape((-1,1)), self.shapes.reshape((-1,1))], axis = 1)
+    kernel = kde(posterior.T)
+
+    colours = map_to_colors(kernel.evaluate(posterior.T))
+
+    axs[1,0].scatter(self.scales, self.shapes, color=colours )
+    axs[1,0].title.set_text("Posterior sample")
+
+    ############## histogram vs density ################
+    hist_data = axs[1,1].hist(self.data, bins=25, edgecolor="white", color=self._figure_color_palette[0])
+
+    range_min, range_max = min(self.data), max(self.data)
+    x_axis = np.linspace(range_min, range_max, 100)
+    pdf_vals = np.array( [self.pdf(x) for x in x_axis])
+    y_axis = hist_data[0][0] / pdf_vals[0] * pdf_vals
+
+    axs[1,1].plot(x_axis, y_axis, color=self._figure_color_palette[1])
+    axs[1,1].title.set_text("Data vs fitted density")
+    axs[1,1].set_xlabel('Exceedance data')
+    axs[1,1].yaxis.set_visible(False) # Hide only x axis
+    #axs[0, 0].set_aspect('equal', 'box')
+
+
+    ############# Q-Q plot ################
+    probability_range = np.linspace(0.01,0.99, 99)
+    empirical_quantiles = np.quantile(self.data, probability_range)
+    tail_quantiles = np.array([self.ppf(p) for p in probability_range])
+
+    axs[2,0].scatter(tail_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
+    min_x, max_x = min(tail_quantiles), max(tail_quantiles)
+    #axs[0,1].set_aspect('equal', 'box')
+    axs[2,0].title.set_text('Q-Q plot')
+    axs[2,0].set_xlabel('self quantiles')
+    axs[2,0].set_ylabel('Data quantiles')
+    axs[2,0].grid()
+    axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
+
+    ############ Mean return plot ###############
+
+    n_obs = len(self.data)
+    exs_prob = 1 #carried over from an older code version
+
+    m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
+    return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
+
+    axs[2,1].plot(m,return_levels,color=self._figure_color_palette[0])
+    axs[2,1].set_xscale("log")
+    axs[2,1].title.set_text('Exceedance return levels')
+    axs[2,1].set_xlabel('1/frequency')
+    axs[2,1].set_ylabel('Return level')
+    axs[2,1].grid()
+
+    plt.tight_layout()
+    plt.show()
 
 
 

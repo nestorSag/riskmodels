@@ -4,6 +4,7 @@ import scipy as sp
 from riskmodels.base.marginals import *
 
 tol = 1e-6
+
 def test_empirical():
   n = 16
   data = np.arange(1,n+1)
@@ -125,13 +126,13 @@ def test_binned():
   assert dist2.min == min(data)
 
 
-def test_gp_tail():
+# def test_gp_tail():
 
-  np.random.seed(1)
-  data = sp.stats.genpareto.rvs(size = 5000, loc=0, scale=1, c = 0)
+#   np.random.seed(1)
+#   data = sp.stats.genpareto.rvs(size = 5000, loc=0, scale=100, c = 0)
 
-  threshold = 0
-  dist = GPTail.fit(data, threshold)
+#   threshold = 0
+#   dist = GPTail.fit(data, threshold)
 
   
 # def test_tail_fitting():
