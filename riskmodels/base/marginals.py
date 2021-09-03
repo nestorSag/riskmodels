@@ -1504,7 +1504,6 @@ class BayesianGPTail(GPTailMixture):
 
     #################### Bayesian inference diagnostics: posterior histograms and scatterplot
 
-    # set profile intervals based on MLE variance
     axs[0,0].hist(self.scales, bins=25, edgecolor="white", color=self._figure_color_palette[0])
     axs[0,0].title.set_text("Posterior scale histogram")
 
@@ -1518,16 +1517,23 @@ class BayesianGPTail(GPTailMixture):
 
     axs[1,0].scatter(self.scales, self.shapes, color=colours )
     axs[1,0].title.set_text("Posterior sample")
+    axs[1,0].set_xlabel("Scale")
+    axs[1,0].set_ylabel("Shape")
 
     ############## histogram vs density ################
     hist_data = axs[1,1].hist(self.data, bins=25, edgecolor="white", color=self._figure_color_palette[0])
 
     range_min, range_max = min(self.data), max(self.data)
     x_axis = np.linspace(range_min, range_max, 100)
-    pdf_vals = np.array( [self.pdf(x) for x in x_axis])
-    y_axis = hist_data[0][0] / pdf_vals[0] * pdf_vals
+    
+    mean_pdf_vals = np.array( [self.pdf(x) for x in x_axis])
+    # q025_pdf_vals = np.array( [np.quantile(self.pdf(x, return_all=True),0.025) for x in x_axis])
+    # q975_pdf_vals = np.array( [np.quantile(self.pdf(x, return_all=True),0.975) for x in x_axis])
+
+    y_axis = hist_data[0][0] / mean_pdf_vals[0] * mean_pdf_vals
 
     axs[1,1].plot(x_axis, y_axis, color=self._figure_color_palette[1])
+    #axs[1,1].fill_between(x_axis, q025_pdf_vals, q975_pdf_vals, alpha=0.2, color=self._figure_color_palette[1])
     axs[1,1].title.set_text("Data vs fitted density")
     axs[1,1].set_xlabel('Exceedance data')
     axs[1,1].yaxis.set_visible(False) # Hide only x axis
@@ -1537,16 +1543,24 @@ class BayesianGPTail(GPTailMixture):
     ############# Q-Q plot ################
     probability_range = np.linspace(0.01,0.99, 99)
     empirical_quantiles = np.quantile(self.data, probability_range)
-    tail_quantiles = np.array([self.ppf(p) for p in probability_range])
+    
+    posterior_quantiles = [self.ppf(p, return_all=True) for p in probability_range]
 
-    axs[2,0].scatter(tail_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
-    min_x, max_x = min(tail_quantiles), max(tail_quantiles)
+    #hat_return_levels are not the mean of posterior return level samples, as the mean is not an unbiased estimator
+    hat_tail_quantiles = np.array([self.ppf(p) for p in probability_range])
+
+    #q025_tail_quantiles = np.array([np.quantile(q, 0.025) for q in posterior_quantiles])
+    #q975_tail_quantiles = np.array([np.quantile(q, 0.975) for q in posterior_quantiles])
+
+    axs[2,0].scatter(hat_tail_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
+    min_x, max_x = min(hat_tail_quantiles), max(hat_tail_quantiles)
     #axs[0,1].set_aspect('equal', 'box')
     axs[2,0].title.set_text('Q-Q plot')
     axs[2,0].set_xlabel('self quantiles')
-    axs[2,0].set_ylabel('Data quantiles')
+    axs[2,0].set_ylabel('Exceedance quantiles')
     axs[2,0].grid()
     axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
+    #axs[2,0].fill_between(hat_tail_quantiles, q025_tail_quantiles, q975_tail_quantiles, alpha=0.2, color=self._figure_color_palette[1])
 
     ############ Mean return plot ###############
 
@@ -1554,9 +1568,20 @@ class BayesianGPTail(GPTailMixture):
     exs_prob = 1 #carried over from an older code version
 
     m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
-    return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
+    
+    return_levels = [self.ppf(1-1/x, return_all=True) for x in exs_prob*m]
 
-    axs[2,1].plot(m,return_levels,color=self._figure_color_palette[0])
+    #hat_return_levels are not the mean of posterior return level samples, as the mean is not an unbiased estimator
+    hat_return_levels = np.array([self.ppf(1-1/x) for x in exs_prob*m])
+    q025_return_levels = np.array([np.quantile(r, 0.025) for r in return_levels])
+    q975_return_levels = np.array([np.quantile(r, 0.975) for r in return_levels])
+
+    # hat_return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
+    # q025_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.025) for x in exs_prob*m])
+    # q975_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.975) for x in exs_prob*m])
+
+    axs[2,1].plot(m,hat_return_levels,color=self._figure_color_palette[0])
+    axs[2,1].fill_between(m, q025_return_levels, q975_return_levels, alpha=0.2, color=self._figure_color_palette[1])
     axs[2,1].set_xscale("log")
     axs[2,1].title.set_text('Exceedance return levels')
     axs[2,1].set_xlabel('1/frequency')
