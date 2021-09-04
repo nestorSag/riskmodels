@@ -23,17 +23,17 @@ def test_empirical():
   assert np.allclose(dist2.support,dist1.support + 1)
   assert np.allclose(dist2.data, dist1.data + 1)
 
-  dist2 = 1 + dist
+  dist2 = 1 + dist1
   assert np.allclose(dist2.pdf_values, dist1.pdf_values)
   assert np.allclose(dist2.support,dist1.support + 1)
   assert np.allclose(dist2.data, dist1.data + 1)
 
-  dist2 = dist - 1
+  dist2 = dist1 - 1
   assert np.allclose(dist2.pdf_values, dist1.pdf_values)
   assert np.allclose(dist2.support,dist1.support -1)
   assert np.allclose(dist2.data, dist1.data -1)
 
-  dist2 = -dist
+  dist2 = -dist1
   assert np.allclose(dist2.pdf_values, np.flip(dist1.pdf_values))
   assert np.allclose(dist2.support,np.flip(-dist1.support))
   assert np.allclose(dist2.data, -dist1.data)
@@ -74,8 +74,11 @@ def test_binned():
   assert np.isclose(z.mean(), binom_z.mean(), tol)
   assert np.isclose(z.std(), binom_z.std(), tol)
 
-
+  dummy_data = np.arange(10)
+  z.data = dummy_data # add dummy data
+  dist1 = z
   dist2 = z + 1
+
   assert np.allclose(dist2.pdf_values, dist1.pdf_values)
   assert np.allclose(dist2.support,dist1.support + 1)
   assert np.allclose(dist2.data, dist1.data + 1)
@@ -119,11 +122,9 @@ def test_binned():
 
   dist2 = z >= 8
   assert dist2.min == 8
-  assert dist2.max == max(data)
 
   dist2 = z <= 8
   assert dist2.max == 8
-  assert dist2.min == min(data)
 
 
 # def test_gp_tail():

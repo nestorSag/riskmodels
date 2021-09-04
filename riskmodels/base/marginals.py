@@ -23,6 +23,7 @@ import emcee
 from scipy.stats import genpareto as gpdist
 from scipy.optimize import LinearConstraint, minimize, root_scalar
 from scipy.stats import gaussian_kde as kde
+from scipy.signal import fftconvolve
 
 
 from pydantic import BaseModel, ValidationError, validator, PositiveFloat
@@ -783,7 +784,7 @@ class GPTail(BaseDistribution):
 
 class GPTailMixture(BaseDistribution):
 
-  data: np.ndarray
+  data: t.Optional[np.ndarray]
   weights: np.ndarray
   thresholds: np.ndarray
   scales: np.ndarray
@@ -891,11 +892,20 @@ class GPTailMixture(BaseDistribution):
     new_shapes = self.shapes[indices]
     new_scales = self.scales[indices] + new_shapes*np.clip(other - new_thresholds, a_min = 0.0, a_max=np.Inf)
 
+    if self.data is not None and np.all(self.data <= other):
+      warnings.warn(f"No observed data above {other}; setting data to None in conditioned model")
+      new_data = None
+    elif self.data is None:
+      new_data = None
+    else:
+      new_data = self.data[self.data > other]
+
     return type(self)(
       weights = new_weights/np.sum(new_weights),
       thresholds = new_thresholds,
       shapes = new_shapes,
-      scales = new_scales)
+      scales = new_scales,
+      data = new_data)
 
   def __ge__(self, other: float) -> BaseDistribution:
     return self.__gt__(other)
@@ -905,22 +915,31 @@ class GPTailMixture(BaseDistribution):
     if type(other) not in self._allowed_scalar_types:
       raise TypeError(f"+ is implemented for types {self._allowed_scalar_types}")
 
+    new_data = None if self.data is None else self.data + other
+
     return type(self)(
       weights = self.weights,
       thresholds = self.thresholds + other,
       shapes = self.shapes,
-      scales = self.scales)
+      scales = self.scales,
+      data = new_data)
 
   def __mul__(self, other: self._allowed_scalar_types):
 
     if type(other) not in self._allowed_scalar_types:
       raise TypeError(f"* is implemented for types {self._allowed_scalar_types}")
 
+    if other <= 0:
+      raise ValueError(f"product supported for positive scalars only")
+
+    new_data = None if self.data is None else other*self.data
+
     return type(self)(
       weights = self.weights,
       thresholds = other*self.thresholds,
       shapes = self.shapes,
-      scales = other*self.scales)
+      scales = other*self.scales,
+      data = new_data)
 
 
 
@@ -996,12 +1015,14 @@ class Empirical(BaseDistribution):
     if not isinstance(factor, self._allowed_scalar_types) or factor == 0:
       raise TypeError(f"multiplication is supported only for nonzero instances of type:{self._allowed_scalar_types}")
 
-    return Empirical(support = factor*self.support, pdf_values = self.pdf_values, data = factor*self.data)
+    new_data = None if self.data is None else self.data*factor
+    return Empirical(support = factor*self.support, pdf_values = self.pdf_values, data = new_data)
 
   def __add__(self, other: t.Union[int, float, GPTail, Mixture, GPTailMixture]):
 
     if isinstance(other, self._allowed_scalar_types):
-      return Empirical(support = self.support + other, pdf_values = self.pdf_values, data = self.data + other)
+      new_data = None if self.data is None else self.data + other
+      return Empirical(support = self.support + other, pdf_values = self.pdf_values, data = new_data)
 
     elif isinstance(other, GPTail):
 
@@ -1015,20 +1036,21 @@ class Empirical(BaseDistribution):
         data = other.data,
         weights = nz_pdf,
         thresholds = other.threshold + nz_support,
-        scales = np.array([other.scale]),
-        shapes = np.array([other.shape])
+        scales = np.array([other.scale for w in nz_support]),
+        shapes = np.array([other.shape for w in nz_support])
         )
 
     elif isinstance(other, Mixture):
       return Mixture(weights=other.weights, distributions = [self + dist for dist in other.distributions])
 
     elif isinstance(other, GPTailMixture):
+      # Return a new mixture where the old mixture is replicated for each point in the discrete support
       return GPTailMixture(
         data = other.data,
-        weights = np.concatenate([w*self.pdf_values for w in other.weights], axis = 0),
-        threshold = np.concatenate([self.support + t for t in other.thresholds], axis = 0),
-        scales = other.scales,
-        shapes = other.shapes)
+        weights = np.concatenate([w*other.weights for w in self.pdf_values], axis = 0),
+        threshold = np.concatenate([other.thresholds + t for t in self.support], axis = 0),
+        scales = np.tile(other.scales, len(self.support)),
+        shapes = np.tile(other.shapes, len(self.support)))
 
     else:
       raise TypeError(f"+ is supported only for types: {self._sum_compatible}")
@@ -1053,10 +1075,11 @@ class Empirical(BaseDistribution):
 
     index = self.support >= other
 
+    new_data = None if self.data is None else self.data[self.data >= other]
     return type(self)(
       support = self.support[index],
       pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      data = self.data[self.data >= other])
+      data = new_data)
 
   def __gt__(self, other:float):
 
@@ -1065,10 +1088,12 @@ class Empirical(BaseDistribution):
 
     index = self.support > other
 
+    new_data = None if self.data is None else self.data[self.data > other]
+
     return type(self)(
       support = self.support[index],
       pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      data = self.data[self.data > other])
+      data = new_data)
 
   def __le__(self, other:float):
 
@@ -1076,11 +1101,12 @@ class Empirical(BaseDistribution):
       raise TypeError(f"<= is implemented for instances of type float: {self._allowed_scalar_types}")
 
     index = self.support <= other
+    new_data = None if self.data is None else self.data[self.data <= other]
 
     return type(self)(
       support = self.support[index],
       pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      data = self.data[self.data <= other])
+      data = new_data)
 
   def __lt__(self, other:float):
 
@@ -1088,11 +1114,12 @@ class Empirical(BaseDistribution):
       raise TypeError(f"< is implemented for instances of type float: {self._allowed_scalar_types}")
 
     index = self.support < other
+    new_data = None if self.data is None else self.data[self.data < other]
 
     return type(self)(
       support = self.support[index],
       pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      data = self.data[self.data < other])
+      data = new_data)
 
 
   def simulate(self, size: int):
@@ -1244,7 +1271,8 @@ class Binned(Empirical):
       raise TypeError(f"multiplication is supported only for nonzero instances of type:{self._allowed_scalar_types}")
 
     if isinstance(factor, int):
-      return Binned(support = factor*self.support, pdf_values = self.pdf_values, data = factor*self.data)
+      new_data = None if self.data is None else self.data*factor
+      return Binned(support = factor*self.support, pdf_values = self.pdf_values, data = new_data)
 
     else:
       return super().__mul__(factor)
@@ -1253,16 +1281,17 @@ class Binned(Empirical):
 
     if isinstance(other, int):
       new_support = np.arange(min(self.support) + other, max(self.support) + other + 1)
+      new_data = None if self.data is None else self.data + other
       return Binned(
         support = new_support, 
         pdf_values = self.pdf_values, 
-        data = self.data)
+        data = new_data)
 
     if isinstance(other, Binned):
       new_support = np.arange(min(self.support) + min(other.support), max(self.support) + max(other.support) + 1)
       return Binned(
         support = new_support, 
-        pdf_values = sp.signal.fftconvolve(self.pdf_values, other.pdf_values))
+        pdf_values = fftconvolve(self.pdf_values, other.pdf_values))
 
     else:
       return super().__add__(other)
