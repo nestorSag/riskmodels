@@ -1,9 +1,12 @@
-from riskmodels.base.models import Integer
+from __future__ import annotations
+import warnings
+
+from riskmodels.base.marginals import Binned
 
 import numpy as np
-import pndas as pd
+import pandas as pd
 
-class IndependentFleetModel(Integer):
+class IndependentFleetModel(Binned):
 
   """Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time.
   """
@@ -19,13 +22,13 @@ class IndependentFleetModel(Integer):
         IndependentFleetModel: fitted model
     
     """
-    logger.info("Coercing capacity values to integers")
+    warnings.warn("Coercing capacity values to integers")
     
-    capacity_values = np.array(data["capacity"], dtype=np.int32)
-    availability_values = np.array(data["availability"])
+    capacity_values = np.array(df["capacity"], dtype=np.int32)
+    availability_values = np.array(df["availability"])
 
-    if np.any(availabilities < 0) or np.any(availabilities > 1):
-      raise Exception("Availabilities ,ust between 0 and 1")
+    if np.any(availability_values < 0) or np.any(availability_values > 1):
+      raise Exception(f"Availabilities must be in the interval [0,1]; found interval[{min(availability_values)},{max(availability_values)}]")
 
     max_gen = int(np.sum(capacity_values[capacity_values>=0]))
     min_gen = int(np.sum(capacity_values[capacity_values<0]))
@@ -47,7 +50,7 @@ class IndependentFleetModel(Integer):
       i += 1
 
     support = np.arange(min_gen, max_gen+1)
-    return cls.from_data(support, f)
+    return Binned(support=support, pdf_values=f, data=None)
 
   @classmethod
   def from_generator_csv_file(cls, file_path: str, **kwargs) -> IndependentFleetModel:

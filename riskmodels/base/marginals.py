@@ -39,7 +39,7 @@ class BaseDistribution(BaseModel):
 
   """Base interface for available data model types
   """
-  _allowed_scalar_types = (int, float)
+  _allowed_scalar_types = (int, float, np.int64, np.int32, np.float32, np.float64)
   _figure_color_palette = ["tab:cyan", "deeppink"]
   _error_tol = 1e-6
 
@@ -114,7 +114,7 @@ class BaseDistribution(BaseModel):
     #show histogram from 1k samples
     samples = self.simulate(size=size)
     plt.hist(samples, bins=25, edgecolor="white", color=self._figure_color_palette[0])
-    plt.title("Histogram from 1K simulated samples")
+    plt.title(f"Histogram from {np.round(size/1000,1)}K simulated samples")
     plt.show()
 
   def cvar(self, p: float, **kwargs):
@@ -963,10 +963,11 @@ class Empirical(BaseDistribution):
 
   @validator("pdf_values", allow_reuse=True)
   def check_pdf_values(cls, pdf_values):
-    if np.any(pdf_values < 0):
+    if np.any(pdf_values < -cls._error_tol):
       raise ValidationError("There are negative pdf values")
     if not np.isclose(np.sum(pdf_values), 1, atol=cls._error_tol):
       raise ValidationError("pdf values don't sum 1")
+    pdf_values = np.clip(pdf_values, a_min = 0.0, a_max = 1.0)
     return pdf_values/np.sum(pdf_values)
 
   @property
@@ -977,7 +978,7 @@ class Empirical(BaseDistribution):
     if n != m:
       raise ValueError("Lengths of support and pdf arrays don't match")
 
-    if not np.all(np.roll(self.support, -1)[0:(n-1)] - self.support[0:(n-1)] > 0):
+    if not np.all(np.diff(self.support) > 0):
       raise ValueError("Support array must be in increasing order")
     return True 
   
@@ -1019,7 +1020,7 @@ class Empirical(BaseDistribution):
     return Empirical(support = factor*self.support, pdf_values = self.pdf_values, data = new_data)
 
   def __add__(self, other: t.Union[int, float, GPTail, Mixture, GPTailMixture]):
-
+    
     if isinstance(other, self._allowed_scalar_types):
       new_data = None if self.data is None else self.data + other
       return Empirical(support = self.support + other, pdf_values = self.pdf_values, data = new_data)
@@ -1030,7 +1031,7 @@ class Empirical(BaseDistribution):
       nz_pdf = self.pdf_values[indices]
       nz_support = self.support[indices]
       # mixed GPTails don't carry over exceedance data for efficient memory use
-      dists = [GPTail(threshold=other.threshold + x, scale=other.scale, shape=other.shape) for x in nz_support]
+      #dists = [GPTail(threshold=other.threshold + x, scale=other.scale, shape=other.shape) for x in nz_support]
 
       return GPTailMixture(
         data = other.data,
@@ -1185,7 +1186,8 @@ class Empirical(BaseDistribution):
     x_vals = np.linspace(threshold, max(self.data))
     if shape >= 1:
       raise ValueError(f"Expectation is not finite: fitted shape parameter is {params.c}")
-    y_vals = (scale + shape*x_vals)/(1-shape)
+    #y_vals = (scale + shape*x_vals)/(1-shape)
+    y_vals = np.array([np.mean(fitted.tail.data[fitted.tail.data >= x]) for x in x_vals])
     plt.plot(x_vals,y_vals, color=self._figure_color_palette[0])
     plt.scatter(x_vals, y_vals, color=self._figure_color_palette[0])
     plt.title("Mean residual life plot")
@@ -1215,9 +1217,9 @@ class Empirical(BaseDistribution):
       data = self.data
 
     if bayesian:
-      return EmpiricalWithBayesianGPTail.from_data(data, threshold, **kwargs)
+      return EmpiricalWithBayesianGPTail.from_data(data, threshold, bin_empirical=isinstance(self, Binned), **kwargs)
     else:
-      return EmpiricalWithGPTail.from_data(data, threshold, **kwargs)
+      return EmpiricalWithGPTail.from_data(data, threshold, bin_empirical=isinstance(self, Binned), **kwargs)
 
   def map(self, f: t.Callable) -> Empirical:
     """Returns the distribution resulting from an arbitrary transformation
@@ -1240,10 +1242,24 @@ class Empirical(BaseDistribution):
     """
     integer_dist = self.map(lambda x: np.round(x))
 
+    # unroll to [min,max] integer range (possibly sparse)
+    base_support = integer_dist.support.astype(Binned._supported_types[0])
+    full_support = np.arange(min(integer_dist.support), max(integer_dist.support) + 1)
+
+    # create (possibly sparse) pdf vector
+    int_pdf = np.zeros((len(full_support,)), dtype=np.float64)
+    indices = base_support - min(base_support)
+    int_pdf[indices] = integer_dist.pdf_values
+
     return Binned(
-      support = integer_dist.support.astype(Binned._supported_types[0]),
-      pdf_values = integer_dist.pdf_values,
+      support = full_support.astype(Binned._supported_types[0]),
+      pdf_values = int_pdf,
       data = integer_dist.data)
+
+    # return Binned(
+    #   support = integer_dist.support.astype(Binned._supported_types[0]),
+    #   pdf_values = integer_dist.pdf_values,
+    #   data = integer_dist.data)
 
 
 
@@ -1259,11 +1275,13 @@ class Binned(Empirical):
 
   @validator("support", allow_reuse=True)
   def integer_support(cls, support):
-
-    if support.dtype in cls._supported_types:
-      return support
-    else:
+    n = len(support)
+    if not np.all(np.diff(support) == 1):
+      raise ValidationError("The support vector must contain every integer between its minimum and maximum value")
+    elif support.dtype not in cls._supported_types:
       raise ValidationError(f"Support entry types must be one of {self._supported_types}")
+    else:
+      return support
 
   def __mul__(self, factor: self._allowed_scalar_types):
 
@@ -1291,7 +1309,8 @@ class Binned(Empirical):
       new_support = np.arange(min(self.support) + min(other.support), max(self.support) + max(other.support) + 1)
       return Binned(
         support = new_support, 
-        pdf_values = fftconvolve(self.pdf_values, other.pdf_values))
+        pdf_values = fftconvolve(self.pdf_values, other.pdf_values),
+        data = None)
 
     else:
       return super().__add__(other)
@@ -1370,13 +1389,15 @@ class EmpiricalWithGPTail(Mixture):
       return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob)
 
   @classmethod
-  def from_data(cls, data: np.ndarray, threshold: float, **kwargs) -> EmpiricalWithGPTail:
+  def from_data(cls, data: np.ndarray, threshold: float, bin_empirical: bool = False, **kwargs) -> EmpiricalWithGPTail:
     """Fits a model from a given data array and threshold value
     
     Args:
         data (np.ndarray): Data 
         threshold (float): Threshold value to use for the tail model
+        bin_empirical (bool, optional): Whether to cast empirical mixture component to an integer distribution by rounding
         **kwargs: Additional arguments passed to GPTail.fit
+    
     
     Returns:
         EmpiricalWithGPTail: Fitted model
@@ -1386,6 +1407,8 @@ class EmpiricalWithGPTail(Mixture):
     exceedances = data[data > threshold]
     
     empirical = Empirical.from_data(data[data <= threshold])
+    if bin_empirical:
+      empirical = empirical.to_integer()
 
     tail = GPTail.fit(data=exceedances, threshold=threshold, **kwargs)
 
@@ -1635,23 +1658,30 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
     cls, 
     data: np.ndarray, 
     threshold: float, 
+    bin_empirical: bool = False,
     **kwargs) -> EmpiricalWithBayesianGPTail:
     """Fits a Generalied Pareto tail model from a given data array and threshold value, using Jeffrey's priors 
     
     Args:
         data (np.ndarray): data array 
         threshold (float): Threshold value to use for the tail model
-        n_posterior_samples (int): Number of samples from posterior distribution
+        bin_empirical (bool, optional): Whether to cast empirical mixture component to an integer distribution by rounding
         **kwargs: Additional arguments to be passed to BayesianGPTail.fit
     
     Returns:
         EmpiricalWithBayesianGPTail: Fitted model
+    
+    Deleted Parameters:
+        n_posterior_samples (int): Number of samples from posterior distribution
+    
     """
     exs_prob = 1 - Empirical.from_data(data).cdf(threshold)
 
     exceedances = data[data > threshold]
 
     empirical = Empirical.from_data(data[data <= threshold])
+    if bin_empirical:
+      empirical = empirical.to_integer()
 
     tail = BayesianGPTail.fit(data = exceedances, threshold = threshold, **kwargs)
 
