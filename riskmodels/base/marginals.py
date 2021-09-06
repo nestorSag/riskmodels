@@ -218,10 +218,11 @@ class Mixture(BaseDistribution):
     indices = (new_weights > 0).nonzero()[0]
 
     nz_weights = new_weights[indices]
-    
+    nz_dists = [self.distributions[i] for i in indices]
+
     return Mixture(
       weights = nz_weights/np.sum(nz_weights), 
-      distributions = [dist >= other for dist in self.distributions[nz_weights]])
+      distributions = [dist >= other for dist in nz_dists])
 
   def __gt__(self, other:float):
 
@@ -335,15 +336,15 @@ class GPTail(BaseDistribution):
     if other >= self.endpoint:
       raise ValueError(f"No probability mass above endpoint ({self.endpoint}); conditional distribution X | X >= {other} does not exist")
 
-    if other <= self.threshold:
-      return copy.deepcopy(self)
+    if other < self.threshold:
+      return self >= self.threshold
     else:
       # condition on empirical data if applicable
-      new_data = self.data[self.data >= other] if self.data is not None else None
-      # if no observed data is above threshold, discards
-      new_data = None if len(new_data) == 0 else new_data
-      if new_data is None:
+      if self.data is None or max(self.data) < other:
+        new_data = None
         warnings.warn(f"No observed data above {other}; setting data to None in conditional model.")
+      else:
+        new_data = self.data[self.data >= other]
       
       return GPTail(
         threshold=other,
@@ -861,7 +862,7 @@ class GPTailMixture(BaseDistribution):
     else:
       def target_function(x):
         return self.cdf(x) - q
-      x0 = np.mean(vals)
+      x0 = np.dot(self.weights, vals)
       return root_scalar(target_function, x0 = x0, x1 = x0 + 1, method="secant").root
 
   def cvar(self, p:float, return_all: bool = False) -> float:
@@ -879,20 +880,30 @@ class GPTailMixture(BaseDistribution):
 
 
   def __gt__(self, other: float) -> GPTailMixture:
-    prob_cond_exceedance = 1 - gpdist.cdf(other, scale=self.scales, c=self.shapes, loc=self.thresholds)
-    prob_exceedance = np.dot(self.weights, prob_cond_exceedance)
-    if prob_exceedance == 0:
+    exceedance_prob = 1 - self.cdf(other)
+    #prob_exceedance = np.dot(self.weights, prob_cond_exceedance)
+    if exceedance_prob == 0:
       raise ValueError(f"There is no probability mass above {other}; conditional distribution does not exist.")
 
-    new_weights = self.weights * prob_cond_exceedance / prob_exceedance
-    indices = (new_weights > 0).nonzero()[0]
+    conditional_weights = self.weights*gpdist.sf(other, c=self.shapes, scale=self.scales, loc=self.thresholds)/exceedance_prob
 
-    new_weights = new_weights[indices]
-    new_thresholds = np.clip(self.thresholds[indices], a_min=other, a_max = np.Inf)
+    indices = (conditional_weights > 0).nonzero()[0] #indices of mixture components with nonzero exceedance probability
+
+    new_weights = conditional_weights[indices]
+
+    # disable warnings temporarily
+    # with warnings.catch_warnings():
+    #   warnings.simplefilter("ignore")
+    #   new_thresholds = np.array([(GPTail(threshold = mu, shape = xi, scale = sigma) >= other).threshold for mu, sigma, xi in zip(self.thresholds[indices], self.scales[indices], self.shapes[indices])])
+
+    new_thresholds = np.array([max(other, threshold) for threshold in self.thresholds[indices]])
     new_shapes = self.shapes[indices]
-    new_scales = self.scales[indices] + new_shapes*np.clip(other - new_thresholds, a_min = 0.0, a_max=np.Inf)
+    new_scales = self.scales[indices] + new_shapes*(new_thresholds - self.thresholds[indices])
+    # new_thresholds = np.clip(self.thresholds[indices], a_min=other, a_max = np.Inf)
+    # new_shapes = self.shapes[indices]
+    # new_scales = self.scales[indices] + new_shapes*np.clip(other - new_thresholds, a_min = 0.0, a_max=np.Inf)
 
-    if self.data is not None and np.all(self.data <= other):
+    if self.data is not None and np.all(self.data < other):
       warnings.warn(f"No observed data above {other}; setting data to None in conditioned model")
       new_data = None
     elif self.data is None:
@@ -901,7 +912,7 @@ class GPTailMixture(BaseDistribution):
       new_data = self.data[self.data > other]
 
     return type(self)(
-      weights = new_weights/np.sum(new_weights),
+      weights = new_weights,
       thresholds = new_thresholds,
       shapes = new_shapes,
       scales = new_scales,
@@ -1317,7 +1328,7 @@ class Binned(Empirical):
 
   def __sub__(self, other: float):
 
-    if isinstance(other, int):
+    if isinstance(other, (int, binned)):
       return self + (-other)
     else:
       super().__sub__(other)
