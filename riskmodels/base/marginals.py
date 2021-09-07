@@ -129,7 +129,7 @@ class BaseDistribution(BaseModel):
     Raises:
         ValueError: Description
     """
-    if p < 0 or p >= 1:
+    if not isinstance(p, float) or p < 0 or p >= 1:
       raise ValueError("p must be in the open interval (0,1)")
 
     return (self >= self.ppf(p)).mean(**kwargs)
@@ -975,11 +975,15 @@ class Empirical(BaseDistribution):
   @validator("pdf_values", allow_reuse=True)
   def check_pdf_values(cls, pdf_values):
     if np.any(pdf_values < -cls._error_tol):
-      raise ValidationError("There are negative pdf values")
+      raise ValueError("There are negative pdf values")
     if not np.isclose(np.sum(pdf_values), 1, atol=cls._error_tol):
-      raise ValidationError("pdf values don't sum 1")
-    pdf_values = np.clip(pdf_values, a_min = 0.0, a_max = 1.0)
-    return pdf_values/np.sum(pdf_values)
+      print(f"sum: {np.sum(pdf_values)}, pdf vals: {pdf_values}")
+      raise ValueError("pdf values don't sum 1")
+    # pdf_values = np.clip(pdf_values, a_min = 0.0, a_max = 1.0)
+    # # normalise
+    # pdf_values = pdf_values/np.sum(pdf_values)
+
+    return pdf_values
 
   @property
   def is_valid(self):
@@ -991,6 +995,7 @@ class Empirical(BaseDistribution):
 
     if not np.all(np.diff(self.support) > 0):
       raise ValueError("Support array must be in increasing order")
+
     return True 
   
   @property
@@ -1018,7 +1023,22 @@ class Empirical(BaseDistribution):
     """Mapping from values in the support to their cumulative probability
     
     """
+    # last pdf value cannot be zero. Trim arrays
+    # def trim(support, pdf):
+    #   while pdf[-1] == 0.0:
+    #     support = support[0:len(pdf)-1]
+    #     pdf = pdf[0:len(pdf)-1]
+    #   return support, pdf
+
+    # self.support, self.pdf_values = trim(self.support, self.pdf_values)
+
+    # # add any missing probability mass
+    # rounding_error = 1.0 - np.sum(self.pdf_values)
+    # if rounding_error != 0.0:
+    #   self.pdf_values[-1] += np.sign(rounding_error)*rounding_error
+
     x = np.cumsum(self.pdf_values)
+    # make sure cdf reaches 1
     x[-1] = 1.0
     return x
 
@@ -1085,18 +1105,27 @@ class Empirical(BaseDistribution):
     if not isinstance(other, self._allowed_scalar_types):
       raise TypeError(f">= is implemented for instances of types : {self._allowed_scalar_types}")
 
+    if 1 - self.cdf(other) + self.pdf(other) == 0.0:
+      raise ValueError(f"No probability mass above conditional threshold ({other}).")
+
     index = self.support >= other
 
     new_data = None if self.data is None else self.data[self.data >= other]
+
+    pdf_vals = self.pdf_values[index]/np.sum(self.pdf_values[index])
+
     return type(self)(
       support = self.support[index],
-      pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
+      pdf_values = pdf_vals, 
       data = new_data)
 
   def __gt__(self, other:float):
 
     if not isinstance(other, self._allowed_scalar_types):
       raise TypeError(f"> is implemented for instances of types: {self._allowed_scalar_types}")
+
+    if 1 - self.cdf(other):
+      raise ValueError(f"No probability mass above conditional threshold ({other}).")
 
     index = self.support > other
 
@@ -1107,31 +1136,31 @@ class Empirical(BaseDistribution):
       pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
       data = new_data)
 
-  def __le__(self, other:float):
+  # def __le__(self, other:float):
 
-    if not isinstance(other, self._allowed_scalar_types):
-      raise TypeError(f"<= is implemented for instances of type float: {self._allowed_scalar_types}")
+  #   if not isinstance(other, self._allowed_scalar_types):
+  #     raise TypeError(f"<= is implemented for instances of type float: {self._allowed_scalar_types}")
 
-    index = self.support <= other
-    new_data = None if self.data is None else self.data[self.data <= other]
+  #   index = self.support <= other
+  #   new_data = None if self.data is None else self.data[self.data <= other]
 
-    return type(self)(
-      support = self.support[index],
-      pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      data = new_data)
+  #   return type(self)(
+  #     support = self.support[index],
+  #     pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
+  #     data = new_data)
 
-  def __lt__(self, other:float):
+  # def __lt__(self, other:float):
 
-    if not isinstance(other, self._allowed_scalar_types):
-      raise TypeError(f"< is implemented for instances of type float: {self._allowed_scalar_types}")
+  #   if not isinstance(other, self._allowed_scalar_types):
+  #     raise TypeError(f"< is implemented for instances of type float: {self._allowed_scalar_types}")
 
-    index = self.support < other
-    new_data = None if self.data is None else self.data[self.data < other]
+  #   index = self.support < other
+  #   new_data = None if self.data is None else self.data[self.data < other]
 
-    return type(self)(
-      support = self.support[index],
-      pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      data = new_data)
+  #   return type(self)(
+  #     support = self.support[index],
+  #     pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
+  #     data = new_data)
 
 
   def simulate(self, size: int):
@@ -1318,9 +1347,23 @@ class Binned(Empirical):
 
     if isinstance(other, Binned):
       new_support = np.arange(min(self.support) + min(other.support), max(self.support) + max(other.support) + 1)
+
+      pdf_vals = fftconvolve(self.pdf_values, other.pdf_values)
+      pdf_vals = np.abs(pdf_vals) #some values are negative due to numerical rounding error, set to positive (they are infinitesimal in any case)
+      pdf_vals = pdf_vals/np.sum(pdf_vals)
+
+      # this block removes trailing support elements with zero probability
+      while pdf_vals[-1] == 0.0:
+        new_support = new_support[0:len(pdf_vals)-1]
+        pdf_vals = pdf_vals[0:len(pdf_vals)-1]
+
+      # add any missing probability mass
+      error = 1.0 - np.sum(pdf_vals)
+      pdf_vals[0] += np.sign(error)*np.abs(error)
+
       return Binned(
         support = new_support, 
-        pdf_values = fftconvolve(self.pdf_values, other.pdf_values),
+        pdf_values = pdf_vals,
         data = None)
 
     else:
