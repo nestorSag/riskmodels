@@ -299,7 +299,7 @@ class Gumbel(ExceedanceCopula):
 
 class Gaussian(ExceedanceCopula):
 
-  """This model is a Gaussian copula model restricted to the region of the form $U \\nleq U$, or equivalently $\\max\\{U_1,U_2\\} > u$, which represents threshold exceedances above $u$ in at least one component. As the Gaussian copula is asymptotically independent for any correlation value lower than one, it is assumed that extreme values across components in the data are weakly associated and tend to occur independently at more extreme levels.
+  """This model is a Gaussian copula model restricted to the region of the form $U \\nleq U$, or equivalently $\\max\\{U_1,U_2\\} > u$, which represents threshold exceedances above $u$ in at least one component. As the Gaussian copula is asymptotically independent for any correlation value lower than one, it is assumed that extreme values across components in the data are weakly associated and tend to occur progressively independently at more extreme levels.
   """
   
   alpha: float

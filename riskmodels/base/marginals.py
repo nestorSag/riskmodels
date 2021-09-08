@@ -1283,21 +1283,23 @@ class Empirical(BaseDistribution):
     """Convert to Binned distribution
     
     """
-    integer_dist = self.map(lambda x: np.round(x))
+    return Binned.from_empirical(self)
 
-    # unroll to [min,max] integer range (possibly sparse)
-    base_support = integer_dist.support.astype(Binned._supported_types[0])
-    full_support = np.arange(min(integer_dist.support), max(integer_dist.support) + 1)
+    # # unroll to [min,max] integer range (possibly sparse)
+    # base_support = integer_dist.support#.astype(Binned._supported_types[0])
+    # # full_support = np.arange(min(base_support), max(base_support) + 1)
 
-    # create (possibly sparse) pdf vector
-    int_pdf = np.zeros((len(full_support,)), dtype=np.float64)
-    indices = base_support - min(base_support)
-    int_pdf[indices] = integer_dist.pdf_values
+    # # # create (possibly sparse) pdf vector
+    # # int_pdf = np.zeros((len(full_support,)), dtype=np.float64)
+    # # indices = base_support - min(base_support)
+    # # int_pdf[indices] = integer_dist.pdf_values
 
-    return Binned(
-      support = full_support.astype(Binned._supported_types[0]),
-      pdf_values = int_pdf,
-      data = integer_dist.data)
+    # return Binned.from_support(integer_dist.support, integer_dist.pdf_values, integer_dist.data)
+    
+    # return Binned(
+    #   support = full_support,
+    #   pdf_values = full_pdf,
+    #   data = integer_dist.data)
 
     # return Binned(
     #   support = integer_dist.support.astype(Binned._supported_types[0]),
@@ -1320,9 +1322,9 @@ class Binned(Empirical):
   def integer_support(cls, support):
     n = len(support)
     if not np.all(np.diff(support) == 1):
-      raise ValidationError("The support vector must contain every integer between its minimum and maximum value")
+      raise ValueError("The support vector must contain every integer between its minimum and maximum value")
     elif support.dtype not in cls._supported_types:
-      raise ValidationError(f"Support entry types must be one of {self._supported_types}")
+      raise ValueError(f"Support entry types must be one of {self._supported_types}")
     else:
       return support
 
@@ -1332,8 +1334,9 @@ class Binned(Empirical):
       raise TypeError(f"multiplication is supported only for nonzero instances of type:{self._allowed_scalar_types}")
 
     if isinstance(factor, int):
-      new_data = None if self.data is None else self.data*factor
-      return Binned(support = factor*self.support, pdf_values = self.pdf_values, data = new_data)
+      return self.from_empirical(float(factor) * self)
+      #new_data = None if self.data is None else self.data*factor
+      #return Binned(support = factor*self.support, pdf_values = self.pdf_values, data = new_data)
 
     else:
       return super().__mul__(factor)
@@ -1392,6 +1395,34 @@ class Binned(Empirical):
       data = data.astype(np.int64)
 
     return super().from_data(data).to_integer()
+
+  @classmethod
+  def from_empirical(cls, dist: Empirical) -> Binned:
+    """Takes an Empirical instance with discrete support and creates a Binned instance by casting the support to integer values and filling the gaps in the support if needed
+    
+    
+    Args:
+        empirical_dist (Empirical): Empirical instance
+    
+    Returns:
+        Binned: Binned distribution
+    
+    
+    """
+    empirical_dist = dist.map(lambda x: np.round(x))
+    base_support = empirical_dist.support.astype(Binned._supported_types[0])
+    full_support = np.arange(min(base_support), max(base_support) + 1)
+    
+    full_pdf = np.zeros((len(full_support,)), dtype=np.float64)
+    indices = base_support - min(base_support)
+    full_pdf[indices] = empirical_dist.pdf_values
+
+    data = None if empirical_dist.data is None else empirical_dist.data.astype(Binned._supported_types[0])
+
+    return Binned(
+      support = full_support.astype(cls._supported_types[0]), 
+      pdf_values = full_pdf,
+      data = data)
 
   def cdf(self, x: float, **kwargs):
 
