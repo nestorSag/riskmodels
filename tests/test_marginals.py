@@ -1,7 +1,7 @@
 import pytest as pt
 import numpy as np
 import scipy as sp
-from riskmodels.base.marginals import *
+from riskmodels.univariate import *
 
 tol = 1e-6
 

@@ -258,6 +258,15 @@ class Mixture(BaseDistribution):
     samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
     return np.concatenate(samples, axis=0)
 
+  def cdf(self, x:float, **kwargs) -> float:
+    vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
+
+  def pdf(self, x:float, **kwargs) -> float:
+    
+    vals = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
+
   def ppf(self, q: float) -> float:
 
     def target_function(x):
@@ -267,15 +276,6 @@ class Mixture(BaseDistribution):
     x0 = np.dot(self.weights, ppfs)
 
     return root_scalar(target_function, x0 = x0, x1 = x0 + 1, method="secant").root
-    
-  def cdf(self, x:float, **kwargs) -> float:
-    vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
-    return reduce(lambda x,y: x + y, vals)
-
-  def pdf(self, x:float, **kwargs) -> float:
-    
-    vals = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
-    return reduce(lambda x,y: x + y, vals)
 
   def moment(self, n: int, **kwargs) -> float:
     
@@ -1398,7 +1398,7 @@ class Binned(Empirical):
 
   @classmethod
   def from_empirical(cls, dist: Empirical) -> Binned:
-    """Takes an Empirical instance with discrete support and creates a Binned instance by casting the support to integer values and filling the gaps in the support if needed
+    """Takes an Empirical instance with discrete support and creates a Binned instance by casting the support to integer values and filling the gaps in the support
     
     
     Args:
@@ -1415,7 +1415,11 @@ class Binned(Empirical):
     
     full_pdf = np.zeros((len(full_support,)), dtype=np.float64)
     indices = base_support - min(base_support)
-    full_pdf[indices] = empirical_dist.pdf_values
+    try:
+      full_pdf[indices] = empirical_dist.pdf_values
+    except Exception as e:
+      print(f"base support: {base_support}")
+      print(f"full support: {full_support}")
 
     data = None if empirical_dist.data is None else empirical_dist.data.astype(Binned._supported_types[0])
 
