@@ -1,7 +1,7 @@
 from __future__ import annotations
 import warnings
 
-from riskmodels.base.marginals import Binned
+from riskmodels.univariate import Binned
 
 import numpy as np
 import pandas as pd

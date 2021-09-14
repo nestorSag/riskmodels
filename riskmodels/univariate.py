@@ -120,6 +120,15 @@ class BaseDistribution(BaseModel):
     plt.title(f"Histogram from {np.round(size/1000,1)}K simulated samples")
     plt.show()
 
+  def plot(self, size: int = 1000) -> None:
+    """Plots a histogram of a simulated sample
+    
+    Args:
+        size (int, optional): sample size
+    
+    """
+    self.histogram(size)
+
   def cvar(self, p: float, **kwargs):
     """Calculates conditional value at risk for a probability level p, defined as the mean conditioned to an exceedance above the p-quantile.
     
@@ -215,6 +224,9 @@ class Mixture(BaseDistribution):
     if not isinstance(other, self._allowed_scalar_types):
       raise TypeError(f">= is implemented for instances of types : {self._allowed_scalar_types}")
 
+    if self.cdf(other) == 1:
+      raise ValueError("There is no probability mass above provided threshold")
+
     cond_weights = np.array([1 - dist.cdf(other) + (isinstance(dist,Empirical))*dist.pdf(other) for dist in self.distributions])
     new_weights = cond_weights*self.weights
 
@@ -232,23 +244,28 @@ class Mixture(BaseDistribution):
     if not isinstance(other, self._allowed_scalar_types):
       raise TypeError(f"> is implemented for instances of types : {self._allowed_scalar_types}")
 
-    cond_weights = np.array([1 - dist.cdf(other) for dist in self.distributions])
+    if self.cdf(other) == 1:
+      raise ValueError("There is no probability mass above provided threshold")
+
+    cond_weights = np.array([1 - dist.cdf(other) + (isinstance(dist,Empirical))*dist.pdf(other) for dist in self.distributions])
+
     new_weights = cond_weights*self.weights
 
     indices = (new_weights > 0).nonzero()[0]
 
     nz_weights = new_weights[indices]
-    
+    nz_dists = [self.distributions[i] for i in indices]
+
     return Mixture(
       weights = nz_weights/np.sum(nz_weights), 
-      distributions = [dist > other for dist in self.distributions[nz_weights]])
+      distributions = [dist > other for dist in nz_dists])
 
-    index = self.support > other
+    # index = self.support > other
 
-    return type(self)(
-      self.support[index],
-      self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-      self.data[self.data > other])
+    # return type(self)(
+    #   self.support[index],
+    #   self.pdf_values[index]/np.sum(self.pdf_values[index]), 
+    #   self.data[self.data > other])
 
 
   def simulate(self, size: int) -> np.ndarray:
@@ -1127,7 +1144,7 @@ class Empirical(BaseDistribution):
     if not isinstance(other, self._allowed_scalar_types):
       raise TypeError(f"> is implemented for instances of types: {self._allowed_scalar_types}")
 
-    if 1 - self.cdf(other):
+    if 1 - self.cdf(other) == 0:
       raise ValueError(f"No probability mass above conditional threshold ({other}).")
 
     index = self.support > other
