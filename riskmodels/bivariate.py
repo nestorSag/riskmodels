@@ -279,8 +279,10 @@ class Logistic(ExceedanceDistribution):
     x, y = self.unbundle(data)
 
     ## to copula scale
-    x = np.array([self.margin1.cdf(z) for z in x]) #list comprehension
-    y = np.array([self.margin2.cdf(z) for z in y]) #list comprehension
+    x = self.margin1.cdf(x)
+    y = self.margin2.cdf(y)
+    #x = np.array([self.margin1.cdf(z) for z in x]) #list comprehension
+    #y = np.array([self.margin2.cdf(z) for z in y]) #list comprehension
 
     # pass to Gumbel scale 
     x = self._model_marginal_dist.ppf(x)
@@ -306,8 +308,10 @@ class Logistic(ExceedanceDistribution):
     w = self._model_marginal_dist.cdf(y)
 
     # data scale
-    u = np.array([self.margin1.ppf(v) for v in u]) #list comprehension
-    w = np.array([self.margin2.ppf(v) for v in w]) #list comprehension
+    u = self.margin1.ppf(u)
+    w = self.margin2.ppf(w)
+    #u = np.array([self.margin1.ppf(v) for v in u]) #list comprehension
+    #w = np.array([self.margin2.ppf(v) for v in w]) #list comprehension
 
     return self.bundle(u,w)
 
@@ -415,7 +419,7 @@ class Logistic(ExceedanceDistribution):
     # get threshold exceedances
     model_scale_threshold = cls._model_marginal_dist.ppf(quantile_threshold)
 
-    exs_idx = np.logical_or(x >= model_scale_threshold, y >= model_scale_threshold)
+    exs_idx = np.logical_or(x > model_scale_threshold, y > model_scale_threshold)
     x = x[exs_idx]
     y = y[exs_idx]
 
@@ -516,7 +520,7 @@ class Logistic(ExceedanceDistribution):
     z1,z2= self.unbundle(self.data_to_model_dist(self.data))
     n = len(z1)
 
-    fig, axs = plt.subplots(3, 2)
+    fig, axs = plt.subplots(2, 2)
 
     ####### loglikelihood plot
     sdev = np.sqrt(-1.0/self.hessian(self.alpha, self.quantile_threshold, self.bundle(z1, z2)))
@@ -530,6 +534,8 @@ class Logistic(ExceedanceDistribution):
     axs[0,0].set_xlabel('Alpha')
     axs[0,0].set_ylabel('log-likelihood')
 
+    #print("loglikelihood plot finished")
+
     ####### density plot
     z1_range = max(z1) - min(z1)
     z2_range = max(z2) - min(z2)
@@ -542,12 +548,13 @@ class Logistic(ExceedanceDistribution):
     bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
     Z = self.logpdf(data=bundled_grid, threshold=gumbel_th, alpha=self.alpha).reshape(X.shape)
     axs[0,1].contourf(X,Y,Z)
-    axs[0,1].scatter(z1,z2, color=self._figure_color_palette[1], s=0.5)
-    axs[0,1].title.set_text('Data with model density (Gumbel scale)')
+    axs[0,1].scatter(z1,z2, color=self._figure_color_palette[1], s=0.9)
+    axs[0,1].title.set_text('Model density (Gumbel scale)')
     axs[0,1].set_xlabel('x')
     axs[0,1].set_ylabel('y')
 
 
+    #print("density plot finished")
     ####### Pickands function
     x_grid = np.linspace(0,1,50)
     logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
@@ -558,9 +565,11 @@ class Logistic(ExceedanceDistribution):
     exs1, exs2 = self.unbundle(exceedance_data)
 
     tail = self.margin1 > th_margin1
-    xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
+    xi = -np.log(tail.cdf(exs1))
+    #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
     tail = self.margin2 > th_margin2
-    eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
+    eta = -np.log(tail.cdf(exs2))
+    #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
 
     finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
     xi = xi[finite_idx]
@@ -578,46 +587,20 @@ class Logistic(ExceedanceDistribution):
     axs[1,0].set_xlabel("t")
     axs[1,0].set_ylabel("")
 
-    ##### Q-Q plots
-    def marginal_ppf(q, component = 0):
-      margin = self.margin1 if component == 0 else self.margin2
-      def target_func(x):
-        # ensure x is in a reasonable range' this avoids numerical instability
-        x = np.clip(x, a_min=margin.ppf(0.001), a_max=margin.ppf(0.999))
-        x_ = np.Inf*np.ones((2,))
-        x_[component] = x
-        r = self.cdf(x_.reshape((1,2))) - q
-        #print(f"x: {x}, r: {r}")
-        return r
-      return root_scalar(target_func, bracket = (margin.ppf(0.001), margin.ppf(0.999)), method="bisect").root
+    ##### Q-Q plot
+    cdf_values = self.cdf(self.data)
+    model_logodds = np.log(cdf_values/(1-cdf_values))
+    ecdf_values = Empirical.from_data(self.data).cdf(self.data)
+    empirical_logodds = np.log(ecdf_values/(1-ecdf_values))
 
+    axs[1,1].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
 
-    #### first component
-    probability_range = np.linspace(0.02,0.98, 49)
-    empirical_quantiles = np.quantile(x, probability_range)
-    model_quantiles = np.array([marginal_ppf(p) for p in probability_range])
-
-    axs[1,1].scatter(model_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
-    min_x, max_x = min(model_quantiles), max(model_quantiles)
-    #axs[0,1].set_aspect('equal', 'box')
-    axs[1,1].title.set_text('Q-Q plot (1st component)')
-    axs[1,1].set_xlabel('model quantiles')
-    axs[1,1].set_ylabel('Data quantiles')
-    axs[1,1].grid()
-    axs[1,1].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
-
-    #### second component
-    empirical_quantiles = np.quantile(y, probability_range)
-    model_quantiles = np.array([marginal_ppf(p, component=1) for p in probability_range])
-
-    axs[2,0].scatter(model_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
-    min_x, max_x = min(model_quantiles), max(model_quantiles)
-    #axs[0,1].set_aspect('equal', 'box')
-    axs[2,0].title.set_text('Q-Q plot (2nd component)')
-    axs[2,0].set_xlabel('model quantiles')
-    axs[2,0].set_ylabel('Data quantiles')
-    axs[2,0].grid()
-    axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
+    axs[1,1].title.set_text('Model vs data log-odds')
+    axs[1,1].set_ylabel('Data log-odds')
+    axs[1,1].set_ylabel('Model log-odds')
+    axs[1,1].set_xlim(-5,5)
+    min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
+    axs[1,1].plot([min_e, max_e], [min_e, max_e], linestyle="--", color="black")
 
     plt.tight_layout()
     plt.show()
@@ -654,7 +637,7 @@ class Logistic(ExceedanceDistribution):
     mapped_data = self.data_to_model_dist(data)
     gumbel_threshold = self._model_marginal_dist.ppf(self.quantile_threshold)
     u = np.minimum(mapped_data, gumbel_threshold)
-    norm_factor = float((1 - self.uncond_cdf(self.alpha, self.bundle(gumbel_threshold, gumbel_threshold))))
+    norm_factor = float(1 - self.uncond_cdf(self.alpha, self.bundle(gumbel_threshold, gumbel_threshold)))
 
     return (self.uncond_cdf(self.alpha, mapped_data) - self.uncond_cdf(self.alpha,u))/norm_factor
      
@@ -735,7 +718,7 @@ class Gaussian(Logistic):
     z1,z2= self.unbundle(self.data_to_model_dist(self.data))
     n = len(z1)
 
-    fig, axs = plt.subplots(3, 2)
+    fig, axs = plt.subplots(2, 2)
 
     ####### loglikelihood plot
     sdev = np.sqrt(-1.0/self.hessian(self.alpha, self.quantile_threshold, self.bundle(z1, z2)))
@@ -749,6 +732,8 @@ class Gaussian(Logistic):
     axs[0,0].set_xlabel('Alpha')
     axs[0,0].set_ylabel('log-likelihood')
 
+    #print("loglikelihood plot finished")
+
     ####### density plot
     z1_range = max(z1) - min(z1)
     z2_range = max(z2) - min(z2)
@@ -761,52 +746,59 @@ class Gaussian(Logistic):
     bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
     Z = self.logpdf(data=bundled_grid, threshold=gumbel_th, alpha=self.alpha).reshape(X.shape)
     axs[0,1].contourf(X,Y,Z)
-    axs[0,1].scatter(z1,z2, color=self._figure_color_palette[1])
-    axs[0,1].title.set_text('Data with model density (Gumbel scale)')
-    axs[0,1].set_xlabel('y')
-    axs[0,1].set_ylabel('x')
+    axs[0,1].scatter(z1,z2, color=self._figure_color_palette[1], s=0.9)
+    axs[0,1].title.set_text('Model density (Gumbel scale)')
+    axs[0,1].set_xlabel('x')
+    axs[0,1].set_ylabel('y')
 
 
-    ##### Q-Q plots
-    def marginal_ppf(q, component = 0):
-      margin = self.margin1 if component == 0 else self.margin2
-      def target_func(x):
-        # ensure x is in a reasonable range' this avoids numerical instability
-        x = np.clip(x, a_min=margin.ppf(0.001), a_max=margin.ppf(0.999))
-        x_ = np.Inf*np.ones((2,))
-        x_[component] = x
-        r = self.cdf(x_.reshape((1,2))) - q
-        #print(f"x: {x}, r: {r}")
-        return r
-      return root_scalar(target_func, bracket = (margin.ppf(0.001), margin.ppf(0.999)), method="bisect").root
+    #print("density plot finished")
+    ####### Pickands function
+    x_grid = np.linspace(0,1,50)
+    logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
+    ## get data for empirical pickands function
+    # see Statistics of Extremes by Berlaint, page 315
+    th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
+    exceedance_data = self.data[np.logical_and(x > th_margin1, y > th_margin2)]
+    exs1, exs2 = self.unbundle(exceedance_data)
 
+    tail = self.margin1 > th_margin1
+    xi = -np.log(tail.cdf(exs1))
+    #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
+    tail = self.margin2 > th_margin2
+    eta = -np.log(tail.cdf(exs2))
+    #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
 
-    #### first component
-    probability_range = np.linspace(0.02,0.98, 49)
-    empirical_quantiles = np.quantile(x, probability_range)
-    model_quantiles = np.array([marginal_ppf(p) for p in probability_range])
+    finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
+    xi = xi[finite_idx]
+    eta = eta[finite_idx]
 
-    axs[1,1].scatter(model_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
-    min_x, max_x = min(model_quantiles), max(model_quantiles)
-    #axs[0,1].set_aspect('equal', 'box')
-    axs[1,1].title.set_text('Q-Q plot (1st component)')
-    axs[1,1].set_xlabel('model quantiles')
-    axs[1,1].set_ylabel('Data quantiles')
-    axs[1,1].grid()
-    axs[1,1].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
+    def nonparametric_pickands(t):
+      return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
+    empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
 
-    #### second component
-    empirical_quantiles = np.quantile(y, probability_range)
-    model_quantiles = np.array([marginal_ppf(p, component=1) for p in probability_range])
+    axs[1,0].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
+    axs[1,0].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
+    axs[1,0].plot(x_grid, np.ones((len(x_grid),)), linestyle="--", color="black")
+    axs[1,0].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle="--", color="black")
+    axs[1,0].title.set_text("model vs empirical Pickands function")
+    axs[1,0].set_xlabel("t")
+    axs[1,0].set_ylabel("")
 
-    axs[2,0].scatter(model_quantiles, empirical_quantiles, color = self._figure_color_palette[0])
-    min_x, max_x = min(model_quantiles), max(model_quantiles)
-    #axs[0,1].set_aspect('equal', 'box')
-    axs[2,0].title.set_text('Q-Q plot (2nd component)')
-    axs[2,0].set_xlabel('model quantiles')
-    axs[2,0].set_ylabel('Data quantiles')
-    axs[2,0].grid()
-    axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
+    ##### Q-Q plot
+    cdf_values = self.cdf(self.data)
+    model_logodds = np.log(cdf_values/(1-cdf_values))
+    ecdf_values = Empirical.from_data(self.data).cdf(self.data)
+    empirical_logodds = np.log(ecdf_values/(1-ecdf_values))
+
+    axs[1,1].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
+
+    axs[1,1].title.set_text('Model vs data log-odds')
+    axs[1,1].set_ylabel('Data log-odds')
+    axs[1,1].set_ylabel('Model log-odds')
+    axs[1,1].set_xlim(-5,5)
+    min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
+    axs[1,1].plot([min_e, max_e], [min_e, max_e], linestyle="--", color="black")
 
     plt.tight_layout()
     plt.show()
@@ -933,12 +925,19 @@ class Empirical(BaseDistribution):
     return Empirical(data=np.concatenate([x.reshape((-1,1)),y.reshape((-1,1))],axis=1), pdf_values = pdf_values)
 
   def pdf(self, x: np.ndarray):
-    return self.pdf_lookup(tuple(x))
+
+    if  len(x.shape) > 1:
+      return np.array([self.pdf(elem) for elem in x])
+    try:
+      self.pdf_lookup[tuple(x)]
+    except KeyError as e:
+      return 0.0
 
   def cdf(self, x: np.ndarray):
+    if  len(x.shape) > 1:
+      return np.apply_along_axis(self.cdf, axis=1, arr=x)
     x1, x2 = x
-    n = len(self.data)
-    return np.sum(np.logical_and(self.data[:,0] <= x1, self.data[:,1] <=x2))/n
+    return np.mean(np.logical_and(self.data[:,0] <= x1, self.data[:,1] <=x2))
 
   def simulate(self, size: int):
     n = len(self.data)
@@ -980,7 +979,7 @@ class Empirical(BaseDistribution):
       warnings.warn("second marginal not provided. Fitting tail model for second component using provided quantile threshold.")
       margin2 = univar.Empirical.from_data(y).fit_tail_model(x.ppf(quantile_threshold))
 
-    exceedance_idx = np.logical_or(x >= margin1.ppf(quantile_threshold), y>= margin2.ppf(quantile_threshold))
+    exceedance_idx = np.logical_or(x > margin1.ppf(quantile_threshold), y > margin2.ppf(quantile_threshold))
 
     exceedances = data[exceedance_idx]
 
@@ -1003,4 +1002,4 @@ class Empirical(BaseDistribution):
 
     return ExceedanceModel(
       distributions = [empirical_model, exceedance_model],
-      weights = [p, 1-p])
+      weights = np.array([p, 1-p]))

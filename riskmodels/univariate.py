@@ -32,6 +32,7 @@ from scipy.signal import fftconvolve
 from pydantic import BaseModel, ValidationError, validator, PositiveFloat
 from functools import reduce
 
+import statsmodels.distributions.empirical_distribution as ed
 # class BaseWrapper(BaseModel):
 
 #   class Config:
@@ -275,24 +276,37 @@ class Mixture(BaseDistribution):
     samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
     return np.concatenate(samples, axis=0)
 
-  def cdf(self, x:float, **kwargs) -> float:
+  def cdf(self, x: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+
+    # if isinstance(x, np.ndarray):
+    #   return np.array([self.cdf(elem, **kwargs) for elem in x])
+
     vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
     return reduce(lambda x,y: x + y, vals)
 
-  def pdf(self, x:float, **kwargs) -> float:
+  def pdf(self, x: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
     
+    # if isinstance(x, np.ndarray):
+    #   return np.array([self.pdf(elem, **kwargs) for elem in x])
+
     vals = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
     return reduce(lambda x,y: x + y, vals)
 
-  def ppf(self, q: float) -> float:
+  def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+
+    if isinstance(q, np.ndarray):
+      return np.array([self.ppf(elem, **kwargs) for elem in q])
 
     def target_function(x):
       return self.cdf(x) - q
 
-    ppfs =[w*dist.ppf(q) for w, dist in zip(self.weights, self.distributions)]
-    x0 = np.dot(self.weights, ppfs)
+    vals =[w*dist.ppf(q, **kwargs) for w, dist in zip(self.weights, self.distributions)]
+    x0 = reduce(lambda x,y: x + y, vals)
 
-    return root_scalar(target_function, x0 = x0, x1 = x0 + 1, method="secant").root
+    vals =[w*dist.ppf(0.5 + q/2, **kwargs) for w, dist in zip(self.weights, self.distributions)]
+    x1 = reduce(lambda x,y: x + y, vals)
+
+    return root_scalar(target_function, x0 = x0, x1 = x1, method="secant").root
 
   def moment(self, n: int, **kwargs) -> float:
     
@@ -392,19 +406,19 @@ class GPTail(BaseDistribution):
   def simulate(self, size: int) -> np.ndarray:
     return self.model.rvs(size=size)
 
-  def moment(self, n: int) -> float:
+  def moment(self, n: int, **kwargs) -> float:
     return self.model.moment(n)
 
-  def ppf(self, q: float) -> float:
+  def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
     return self.model.ppf(q)
 
-  def cdf(self, x:float) -> float:
+  def cdf(self, x:t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
     return self.model.cdf(x)
 
-  def pdf(self, x:float) -> float:
+  def pdf(self, x:t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
     return self.model.pdf(x)
 
-  def std(self):
+  def std(self, **kwargs):
     return self.model.std()
 
   def mle_cov(self) -> np.ndarray:
@@ -844,7 +858,11 @@ class GPTailMixture(BaseDistribution):
       return np.dot(self.weights, vals)
 
 
-  def cdf(self, x:float, return_all: bool = False) -> float:
+  def cdf(self, x: t.Union[float, np.ndarray], return_all: bool = False) -> t.Union[float, np.ndarray]:
+
+    if isinstance(x, np.ndarray):
+      return np.array([self.cdf(elem, return_all) for elem in x])
+
     vals = gpdist.cdf(
       x,
       loc=self.thresholds, 
@@ -856,8 +874,11 @@ class GPTailMixture(BaseDistribution):
     else:
       return np.dot(self.weights, vals)
 
-  def pdf(self, x:float, return_all: bool = False) -> float:
+  def pdf(self, x: t.Union[float, np.ndarray], return_all: bool = False) -> t.Union[float, np.ndarray]:
     
+    if isinstance(x, np.ndarray):
+      return np.array([self.pdf(elem, return_all) for elem in x])
+
     vals = gpdist.pdf(
       x,
       loc=self.thresholds, 
@@ -869,7 +890,11 @@ class GPTailMixture(BaseDistribution):
     else:
       return np.dot(self.weights, vals)
 
-  def ppf(self, q: float, return_all: bool = False) -> float:
+  def ppf(self, q: t.Union[float, np.ndarray], return_all: bool = False) -> t.Union[float, np.ndarray]:
+
+    if isinstance(q, np.ndarray):
+      return np.array([self.ppf(elem, return_all) for elem in q])
+
     vals = gpdist.ppf(
       q,
       loc=self.thresholds, 
@@ -1043,25 +1068,29 @@ class Empirical(BaseDistribution):
     """Mapping from values in the support to their cumulative probability
     
     """
-    # last pdf value cannot be zero. Trim arrays
-    # def trim(support, pdf):
-    #   while pdf[-1] == 0.0:
-    #     support = support[0:len(pdf)-1]
-    #     pdf = pdf[0:len(pdf)-1]
-    #   return support, pdf
-
-    # self.support, self.pdf_values = trim(self.support, self.pdf_values)
-
-    # # add any missing probability mass
-    # rounding_error = 1.0 - np.sum(self.pdf_values)
-    # if rounding_error != 0.0:
-    #   self.pdf_values[-1] += np.sign(rounding_error)*rounding_error
-
     x = np.cumsum(self.pdf_values)
     # make sure cdf reaches 1
     x[-1] = 1.0
     return x
 
+  @property
+  def ecdf(self):
+    """Mapping from values in the support to their cumulative probability
+    
+    """
+    cdf_vals = np.cumsum(self.pdf_values)
+    # make sure cdf reaches 1
+    cdf_vals[-1] = 1.0
+
+    return ed.StepFunction(x=self.support, y=cdf_vals)
+
+  @property
+  def ecdf_inv(self):
+    """Mapping from values in the support to their cumulative probability
+    
+    """
+    return ed.monotone_fn_inverter(self.ecdf, self.support)
+  
   def __mul__(self, factor: float):
 
     if not isinstance(factor, self._allowed_scalar_types) or factor == 0:
@@ -1156,32 +1185,6 @@ class Empirical(BaseDistribution):
       pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
       data = new_data)
 
-  # def __le__(self, other:float):
-
-  #   if not isinstance(other, self._allowed_scalar_types):
-  #     raise TypeError(f"<= is implemented for instances of type float: {self._allowed_scalar_types}")
-
-  #   index = self.support <= other
-  #   new_data = None if self.data is None else self.data[self.data <= other]
-
-  #   return type(self)(
-  #     support = self.support[index],
-  #     pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-  #     data = new_data)
-
-  # def __lt__(self, other:float):
-
-  #   if not isinstance(other, self._allowed_scalar_types):
-  #     raise TypeError(f"< is implemented for instances of type float: {self._allowed_scalar_types}")
-
-  #   index = self.support < other
-  #   new_data = None if self.data is None else self.data[self.data < other]
-
-  #   return type(self)(
-  #     support = self.support[index],
-  #     pdf_values = self.pdf_values[index]/np.sum(self.pdf_values[index]), 
-  #     data = new_data)
-
 
   def simulate(self, size: int):
     return np.random.choice(self.support, size=size, p=self.pdf_values)
@@ -1190,29 +1193,44 @@ class Empirical(BaseDistribution):
 
     return np.sum(self.pdf_values * self.support**n)
 
-  def ppf(self, q: float, **kwargs):
+  def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+    return self.ecdf_inv(q)
+    
+    # if isinstance(q, np.ndarray):
+    #   # make efficient vectorised ppf function
+    #   ecdf = ed.StepFunction(x = self.support, y = self.cdf_values)
+    #   ecdf_inv = ed.monotone_fn_inverter(ecdf, self.support)
+    #   return ecdf_inv(q)
 
-    if q < 0 or q > 1:
-      raise ValueError(f"q needs to be in (0,1)")
+    # if q < 0 or q > 1:
+    #   raise ValueError(f"q needs to be in (0,1)")
 
-    if q < self.cdf_values[0]:
-      warnings.warn("q is lower than the smallest CDF value; returning -1.0")
-      return -1.0
-    else:
-      return self.support[np.argmax(self.cdf_values >=q)]
+    # if q < self.cdf_values[0]:
+    #   warnings.warn("q is lower than the smallest CDF value; returning -1.0")
+    #   return -1.0
+    # else:
+    #   return self.support[np.argmax(self.cdf_values >=q)]
 
-  def cdf(self, x: int, **kwargs):
+  def cdf(self, x: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+    return self.ecdf(x)
+    # if isinstance(x, np.ndarray):
+    #   # make efficient vectorised cdf function
+    #   ecdf = ed.StepFunction(x = self.support, y = self.cdf_values)
+    #   return ecdf(x)
 
-    if x < self.min:
-      return 0.0
-    elif x >= self.max:
-      return 1.0
-    else:
-      first_nonlower = np.argmax(self.support >= x)
-      return self.cdf_values[first_nonlower]
+    # if x < self.min:
+    #   return 0.0
+    # elif x >= self.max:
+    #   return self.cdf_values[-1]
+    # else:
+    #   first_nonlower = np.argmax(self.support >= x)
+    #   return self.cdf_values[first_nonlower]
 
 
-  def pdf(self, x: float, **kwargs):
+  def pdf(self, x: t.Union[float, np.ndarray], **kwargs):
+
+    if isinstance(x, np.ndarray):
+      return np.array([self.pdf(elem) for elem in x])
 
     try:
       pdf_val = self.pdf_lookup[x]
@@ -1301,28 +1319,6 @@ class Empirical(BaseDistribution):
     
     """
     return Binned.from_empirical(self)
-
-    # # unroll to [min,max] integer range (possibly sparse)
-    # base_support = integer_dist.support#.astype(Binned._supported_types[0])
-    # # full_support = np.arange(min(base_support), max(base_support) + 1)
-
-    # # # create (possibly sparse) pdf vector
-    # # int_pdf = np.zeros((len(full_support,)), dtype=np.float64)
-    # # indices = base_support - min(base_support)
-    # # int_pdf[indices] = integer_dist.pdf_values
-
-    # return Binned.from_support(integer_dist.support, integer_dist.pdf_values, integer_dist.data)
-    
-    # return Binned(
-    #   support = full_support,
-    #   pdf_values = full_pdf,
-    #   data = integer_dist.data)
-
-    # return Binned(
-    #   support = integer_dist.support.astype(Binned._supported_types[0]),
-    #   pdf_values = integer_dist.pdf_values,
-    #   data = integer_dist.data)
-
 
 
 
@@ -1445,16 +1441,10 @@ class Binned(Empirical):
       pdf_values = full_pdf,
       data = data)
 
-  def cdf(self, x: float, **kwargs):
+  def pdf(self, x: t.Union[float, np.ndarray], **kwargs):
 
-    if x < self.min:
-      return 0.0
-    elif x >= self.max:
-      return 1.0
-    else:
-      return self.cdf_values[int(x) - self.min]
-
-  def pdf(self, x: float, **kwargs):
+    if isinstance(x, np.ndarray):
+      return np.array([self.pdf(elem) for elem in x])
 
     if not isinstance(x, (int, np.int32, np.int64)) or x > self.max or x < self.min:
       return 0.0
@@ -1491,11 +1481,26 @@ class EmpiricalWithGPTail(Mixture):
   def exs_prob(self):
     return self.weights[1]
 
-  def ppf(self, q: float):
-    if q <= 1 - self.exs_prob:
-      return self.empirical.ppf(q/(1-self.exs_prob))
+  def ppf(self, q: t.Union[float, np.ndarray]) -> t.Union[float, np.ndarray]:
+
+    
+    is_scalar = isinstance(q, self._allowed_scalar_types)
+
+    if is_scalar:
+      q = np.array([q])
+
+    lower_idx = q <= 1 - self.exs_prob
+    higher_idx = np.logical_not(lower_idx)
+
+    ppf_values = np.empty((len(q),))
+    ppf_values[lower_idx] = self.empirical.ppf(q[lower_idx]/(1-self.exs_prob))
+    ppf_values[higher_idx] = self.tail.ppf((q[higher_idx] - (1-self.exs_prob))/self.exs_prob)
+    
+    if is_scalar:
+      return ppf_values[0]
     else:
-      return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob)
+      return ppf_values
+
 
   @classmethod
   def from_data(cls, data: np.ndarray, threshold: float, bin_empirical: bool = False, **kwargs) -> EmpiricalWithGPTail:
@@ -1798,8 +1803,17 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
       weights = np.array([1 -exs_prob, exs_prob]),
       distributions = [empirical, tail])
 
-  def ppf(self, q: float, **kwargs):
+  def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+
+    if isinstance(q, np.ndarray):
+      return np.array([self.ppf(elem) for elem in q])
+
     if q <= 1 - self.exs_prob:
-      return self.empirical.ppf(q/(1-self.exs_prob), **kwargs)
+      val = self.empirical.ppf(q/(1-self.exs_prob), **kwargs)
+      # if a vector is expected as output, vectorize scalar
+      if return_all:
+        return val * np.ones((len(self.tail.shapes)))
+      else:
+        return val
     else:
       return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob, **kwargs)
