@@ -1194,7 +1194,28 @@ class Empirical(BaseDistribution):
     return np.sum(self.pdf_values * self.support**n)
 
   def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
-    return self.ecdf_inv(q)
+    is_scalar = isinstance(q, self._allowed_scalar_types)
+
+    if is_scalar:
+      q = np.array([q])
+
+    if np.any(q < 0) or np.any(q >1):
+      raise ValueError(f"q needs to be in the interval [0,1]")
+
+    ppf_values = np.empty((len(q),))
+
+    left_vals_idx = q <= self.ecdf_inv.x[0]
+    right_vals_idx = q >= self.ecdf_inv.x[-1]
+    inside_vals_idx = np.logical_and(np.logical_not(left_vals_idx), np.logical_not(right_vals_idx))
+
+    ppf_values[left_vals_idx] = self.ecdf_inv.y[0]
+    ppf_values[right_vals_idx] = self.ecdf_inv.y[-1]
+    ppf_values[inside_vals_idx] = self.ecdf_inv(q[inside_vals_idx])
+
+    if is_scalar:
+      return ppf_values[0]
+    else:
+      return ppf_values
     
     # if isinstance(q, np.ndarray):
     #   # make efficient vectorised ppf function
