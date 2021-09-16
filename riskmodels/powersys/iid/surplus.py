@@ -146,13 +146,15 @@ class BivariateEmpirical(BaseSurplus):
     self,
     demand_data: np.ndarray,
     renewables_data: np.ndarray,
-    gen_distribution: Independent):
+    gen_distribution: Independent,
+    season_length: int = None):
     """
     
     Args:
       demand_data (np.ndarray): Demand data matrix with two columns
       gen_distribution (Independent): A bivariate distribution with independent components, where each component is a univar.Binned instance representing the distribution of available conventional generation for the corresponding area
       renewables_data (np.ndarray): Renewable generation data matrix with two columns
+      season_length (int, optional): length of peak season. If None, it is set as the length of demand data
     
     """
     warnings.warn("Coercing data to integer values.")
@@ -161,11 +163,25 @@ class BivariateEmpirical(BaseSurplus):
     self.renewables_data = np.ascontiguousarray(renewables_data, dtype = np.int32)
     self.net_demand_data = np.ascontiguousarray(self.demand_data - self.renewables_data)
 
-    if not isisnstance(gen_distribution.x, univar.Binned) or not isisnstance(gen_distribution.y, univar.Binned):
-      raise TypeError("Marginal generation distributions must be instances of Binned (integer support).")
+    if not isinstance(gen_distribution.x, univar.Binned) or not isinstance(gen_distribution.y, univar.Binned):
+      raise TypeError("Marginal generation distributions must be instances of Binned (i.e. integer support).")
 
-    self.gen_distribution = gen_distribution
+    self.convgen1 = {
+      "min": gen_distribution.x.min,
+      "max": gen_distribution.x.max,
+      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.x.cdf_values))}
+
+    self.convgen2 = {
+      "min": gen_distribution.y.min,
+      "max": gen_distribution.y.max,
+      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.y.cdf_values))}
+
+    #self.gen_distribution = gen_distribution
     self.MARGIN_BOUND = int(np.iinfo(np.int32).max / 2)
+
+    if season_length is None:
+      warnings.warn("Using length of demand data as season length.")
+    self.season_length = len(self.demand_data) if season_length is None else season_length
 
   def cdf(
     self, 
@@ -194,6 +210,12 @@ class BivariateEmpirical(BaseSurplus):
 
     cdf = 0
 
+    # print(f"convgen1: max: {convgen1.max}, min {convgen1.min}, cdf: {convgen1.cdf_values}")
+    # print(f"convgen2: max: {convgen2.max}, min {convgen2.min}, cdf: {convgen2.cdf_values}")
+    # print(f"x1: {x1}, x2: {x2}")
+    # print(f"itc_cap: {itc_cap}, policy: {policy}")
+    # print(f"demand: {self.demand_data}, net_demand: {self.net_demand_data}")
+
     for k in range(n):
       net_demand1, net_demand2 = self.net_demand_data[k]
       demand1, demand2 = self.demand_data[k]
@@ -215,7 +237,7 @@ class BivariateEmpirical(BaseSurplus):
 
       cdf += point_cdf
     
-    return cdf
+    return cdf/self.season_length
 
   def system_lolp(
     self,
@@ -249,10 +271,10 @@ class BivariateEmpirical(BaseSurplus):
     for k in range(n):
       net_demand1, net_demand2 = self.net_demand_data[k]
       # system-wide lolp does not depend on the policy
-      point_lolp = gen.cdf((net_demand1-c-1,math.inf)) + gen.cdf((math.inf,net_demand2-c-1)) - gen.cdf((net_demand1+c,net_demand2-c-1)) + trapezoid_prob(gen,(net_demand1-c-1,net_demand2+c),2*c)
+      point_lolp = gen.cdf(np.array([net_demand1-c-1,np.Inf])) + gen.cdf(np.array([np.Inf,net_demand2-c-1])) - gen.cdf(np.array([net_demand1+c,net_demand2-c-1])) + trapezoid_prob(gen,(net_demand1-c-1,net_demand2+c),2*c)
       lolp += point_lolp
 
-    return lolp
+    return lolp/self.season_length
 
 
   def lole(
@@ -278,7 +300,7 @@ class BivariateEmpirical(BaseSurplus):
       itc_cap=itc_cap,
       policy=policy) 
     
-    return len(self.net_demand_data) * lolp
+    return self.season_length * lolp
 
 
   def swap_axes(self):
@@ -333,7 +355,7 @@ class BivariateEmpirical(BaseSurplus):
         point_EPU = C_API.cond_eeu_veto_py_interface(
           np.int32(net_demand1),
           np.int32(net_demand2),
-          np.int32(c),
+          np.int32(itc_cap),
           np.int32(convgen1.min),
           np.int32(convgen2.min),
           np.int32(convgen1.max),
@@ -351,7 +373,7 @@ class BivariateEmpirical(BaseSurplus):
 
     return eeu
 
-  def get_pointwise_cdfs(x: np.ndarray, itc_cap: int = 1000, policy:str = "veto"):
+  def get_pointwise_cdfs(self, x: np.ndarray, itc_cap: int = 1000, policy:str = "veto"):
     """Calculates the post-interconnection shortfall probability for each one of the demand-wind observations
     
     Args:
@@ -360,16 +382,16 @@ class BivariateEmpirical(BaseSurplus):
         policy (str): one of 'veto' or 'share'
     
     """
-    pointwise_cdfs = np.empty((len(self.net_demand),))
-    for k, (demand_row, renewables_row) in enumerate(zip(self.demand_data, self.renewable_data)):
+    pointwise_cdfs = np.empty((len(self.demand_data),))
+    for k, (demand_row, renewables_row) in enumerate(zip(self.demand_data, self.renewables_data)):
       pointwise_cdfs[k] = type(self)(
         demand_data=demand_row.reshape((1,2)),
         renewables_data=renewables_row.reshape((1,2)),
-        gen_distribution=self.gen_distribution).cdf(x=x, itc_cap=itc_cap, polic=policy)
+        gen_distribution=self.gen_distribution).cdf(x=x, itc_cap=itc_cap, policy=policy)
 
     return pointwise_cdfs
 
-  def simulate(size: int, itc_cap: int = 1000, policy = "veto"):
+  def simulate(self, size: int, itc_cap: int = 1000, policy = "veto"):
     """Simulate the post-interconnection bivariate surplus distribution
     
     Args:
@@ -405,16 +427,15 @@ class BivariateEmpirical(BaseSurplus):
 
     simulated = np.ascontiguousarray(np.zeros((size,2)),dtype=np.int32)
     convgen1, convgen2 = self.gen_distribution.x, self.gen_distribution.y
-    ### calculate conditional probability of each historical observation given
-    ### margin value tuple m
+    ### calculate conditional probability of each historical observation conditioned to the region of interest
     if shortfall_region:
       warnings.warn("Simulating from shortfall region; ignoring passed upper bounds.")
-      pointwise_cdfs = self.get_pointwise_cdfs(upper_bounds=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
-        self.get_pointwise_cdfs(upper_bounds=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
-        self.get_pointwise_cdfs(upper_bounds=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
+      pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
+        self.get_pointwise_cdfs(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
+        self.get_pointwise_cdfs(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
       intersection = False
     else:
-      pointwise_cdfs = self.get_pointwise_cdfs(upper_bounds=upper_bounds,itc_cap=itc_cap,policy=policy)
+      pointwise_cdfs = self.get_pointwise_cdfs(x=upper_bounds,itc_cap=itc_cap,policy=policy)
       intersection = True
     
     # numerical rounding error sometimes output negative probabilities of the order of 1e-30
@@ -422,11 +443,11 @@ class BivariateEmpirical(BaseSurplus):
 
     total_prob = np.sum(pointwise_cdfs)
     if total_prob <= 1e-8:
-      raise Exception("Region has probability lower than 1e-8; too small to simulate accurately")
+      raise Exception(f"Region has probability {total_prob}; too small to simulate accurately")
     else:
       probs = pointwise_cdfs/total_prob
       
-      samples_per_row = np.random.multinomial(n=size,pvals=probs,size=1).reshape((n,))
+      samples_per_row = np.random.multinomial(n=size,pvals=probs,size=1).reshape((len(probs),))
       nonzero_samples = samples_per_row > 0
       ## only pass rows which induce at least one simulated value
       row_weights = np.ascontiguousarray(samples_per_row[nonzero_samples],dtype=np.int32)
@@ -489,9 +510,9 @@ class BivariateEmpirical(BaseSurplus):
     
     ### calculate conditional probability of each historical observation given
     ### margin value tuple m
-    df = self.cdf(m=(m1,m2),c=itc_cap,policy=policy,get_pointwise_risk=True) 
-    pointwise_cdfs = self.get_pointwise_cdfs(upper_bounds=upper_bounds,itc_cap=itc_cap,policy=policy) - \
-      self.get_pointwise_cdfs(upper_bounds=np.array([m1-1,m2]),itc_cap=itc_cap,policy=policy)
+    df = self.cdf(x=np.array([m1,m2]),itc_cap=itc_cap,policy=policy) 
+    pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([m1,m2]),itc_cap=itc_cap,policy=policy) - \
+      self.get_pointwise_cdfs(x=np.array([m1-1,m2]),itc_cap=itc_cap,policy=policy)
 
     pointwise_cdfs = np.clip(pointwise_cdfs, a_min=0.0, a_max=np.Inf)
     # df["value"] = df["value"] - self.cdf(m=(m1-1,m2),itc_cap=c,policy=policy,get_pointwise_risk=True)["value"]
@@ -507,7 +528,7 @@ class BivariateEmpirical(BaseSurplus):
     else:
       probs = pointwise_cdfs/total_prob
       
-      samples_per_row = np.random.multinomial(n=size,pvals=probs,size=1).reshape((n,))
+      samples_per_row = np.random.multinomial(n=size,pvals=probs,size=1).reshape((len(probs),))
       nonzero_samples = samples_per_row > 0
       ## only pass rows which induce at least one simulated value
       row_weights = np.ascontiguousarray(samples_per_row[nonzero_samples],dtype=np.int32)
