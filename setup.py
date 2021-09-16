@@ -23,18 +23,27 @@ setuptools.setup(
 
      license = "MIT",
 
+     setup_requires = ['cffi>=1.0.0'],
+
      install_requires=[
         'pydantic>=1.8.2',
         'emcee>=3.1.0',
         'scipy>=1.7.1',
         'numpy>=1.21.2',
         'matplotlib>=3.4.3',
-        'pandas'
+        'pandas',
+        'statsmodels>=0.12',
+        'cffi>=1.0.0'
     ],
 
      #long_description=long_description,
 
      long_description_content_type="text/markdown",
+
+     cffi_modules=[
+       "riskmodels/c_build/build_timedependence.py:ffibuilder",
+       "riskmodels/c_build/build_univarmargins.py:ffibuilder",
+       "riskmodels/c_build/build_bivarmargins.py:ffibuilder"],
 
      url="https://bitbucket.com/nestorsag/phd",
 

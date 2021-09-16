@@ -35,6 +35,8 @@ import riskmodels.univariate as univar
 
 from riskmodels.utils.tmvn import TruncatedMVN as tmvn
 
+import emcee
+
 class BaseDistribution(BaseModel, ABC):
 
   """Base interface for bivariate distributions
@@ -632,7 +634,7 @@ class Logistic(ExceedanceDistribution):
   def simulate(self, size: int):
     alpha = self.alpha
     exs_prob = 1 - self.quantile_threshold
-    ### simulate in Gumbel scale maximum component: z = max(x,y) ~ Gumbel using inverse function method
+    ### simulate in Gumbel scale maximum component: z = max(x,y) ~ Gumbel(loc=np.log(2)) using inverse function method
     u = np.random.uniform(size=size)
     maxima = -np.log(-np.log(1 - exs_prob*(1-u))) + alpha*np.log(2)
 
@@ -937,3 +939,37 @@ class Empirical(BaseDistribution):
     return ExceedanceModel(
       distributions = [empirical_model, exceedance_model],
       weights = np.array([p, 1-p]))
+
+  # def test_exceedance_dependence(self):
+
+  #   def tegpd_logp(x,eta,sigma):
+  #     #returns the sum of log-liklihoods
+  #     return tt.sum(-tt.log(sigma) - (1.0/eta+1)*tt.log(1+eta/sigma*x))
+
+  #   def get_eta_posterior(obs,n_samples = 2500):
+      
+  #     if isinstance(obs,list):
+  #       obs = numpy.array(obs)
+        
+  #     #Bayesian specification and inference
+  #     eta_model = pm.Model()
+
+  #     with eta_model:
+  #       #uniform eta prior in (0,1)
+  #       eta = pm.Uniform("eta",lower=0,upper=1)
+  #       #flat sigma prior in positive line
+  #       sigma = pm.HalfFlat("sigma")
+  #       X = pm.DensityDist("tegpd",tegpd_logp,observed={"eta":eta,"sigma":sigma,"x":obs})
+  #       trace = pm.sample(n_samples,random_seed = 1)
+  #       #plots = pm.traceplot(trace)
+        
+  #     eta_samples = trace.get_values("eta")
+  #     #sigma_samples = trace.get_values("sigma")
+      
+  #     #posterior_kde = arviz.plot_kde(eta_samples)
+  #     posterior_AD_prob = sp.stats.gaussian_kde(eta_samples).evaluate(1)
+      
+  #     # get mean kernel density estimator for density at eta = 1
+  #     #eta_posterior = posterior_kde.lines[0].get_ydata()[-1]
+  #     #return 1
+  #     return 1.0/(1+1.0/posterior_AD_prob) if posterior_AD_prob > 0 else 0
