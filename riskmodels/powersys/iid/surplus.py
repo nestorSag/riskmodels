@@ -134,13 +134,6 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
 class BivariateEmpirical(BaseSurplus):
 
   """Computes statistics for the power surpluses in a 2-area power system with a single interconnector, given the distributions of available conventional generation and data for demand and renewable generation in the two areas; this uses the empirical distributions induced by the data. The interconnector is assumed to never fail.
-  
-  Attributes:
-      demand_data (TYPE): Description
-      gen_distribution (TYPE): Description
-      MARGIN_BOUND (TYPE): Description
-      net_demand_data (TYPE): Description
-      renewables_data (TYPE): Description
   """
   
   def __init__(
@@ -551,22 +544,22 @@ class BivariateEmpirical(BaseSurplus):
       demand = np.ascontiguousarray(self.demand_data[nonzero_samples,:],dtype=np.int32)
 
       C_API.conditioned_simulation_py_interface(
-          np.int32(size),
-          ffi.cast("int *",simulated.ctypes.data),
-          np.int32(self.convgen1["min"]),
-          np.int32(self.convgen2["min"]),
-          np.int32(self.convgen1["max"]),
-          np.int32(self.convgen2["max"]),
-          ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
-          ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data),
-          ffi.cast("int *",net_demand.ctypes.data),
-          ffi.cast("int *",demand.ctypes.data),
-          ffi.cast("int *",row_weights.ctypes.data),
-          np.int32(net_demand.shape[0]),
-          np.int32(m1),
-          np.int32(itc_cap),
-          int(seed),
-          int(policy == "share"))
+        np.int32(size),
+        ffi.cast("int *",simulated.ctypes.data),
+        np.int32(self.convgen1["min"]),
+        np.int32(self.convgen2["min"]),
+        np.int32(self.convgen1["max"]),
+        np.int32(self.convgen2["max"]),
+        ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
+        ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data),
+        ffi.cast("int *",net_demand.ctypes.data),
+        ffi.cast("int *",demand.ctypes.data),
+        ffi.cast("int *",row_weights.ctypes.data),
+        np.int32(net_demand.shape[0]),
+        np.int32(m1),
+        np.int32(itc_cap),
+        int(seed),
+        int(policy == "share"))
 
     if fixed_area == 1:
       self.swap_axes()

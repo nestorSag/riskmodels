@@ -343,14 +343,14 @@ class Logistic(ExceedanceDistribution):
     x, y = cls.unbundle(data)
 
     # nlogp = np.exp(-x/alpha) + np.exp(-y/alpha)
-    # rescaler = 1 - cls.uncond_cdf(alpha, cls.bundle(threshold,threshold))
+    # rescaler = 1 - cls.logistic_gumbel_cdf(alpha, cls.bundle(threshold,threshold))
     # density = x/alpha - (nlogp)**alpha + y/alpha + alpha*np.log(nlogp) + np.log((-alpha + alpha*(nlogp)**alpha + 1)) - np.log(alpha) - 2*np.log(np.exp(x/alpha) + np.exp(y/alpha)) - np.log(rescaler)
 
     #density = x/alpha - (nlogp)**alpha + y/alpha + alpha*np.log(nlogp) + np.log((-alpha + alpha*(nlogp)**alpha + 1)) - np.log(alpha) - 2*np.log(np.exp(x/alpha) + np.exp(y/alpha)) - np.log(rescaler)
 
     nlogp = (np.exp(-x/alpha) + np.exp(-y/alpha))**alpha
     lognlogp = alpha*np.log(np.exp(-x/alpha) + np.exp(-y/alpha))
-    rescaler = 1 - cls.uncond_cdf(alpha, cls.bundle(threshold,threshold))
+    rescaler = 1 - cls.logistic_gumbel_cdf(alpha, cls.bundle(threshold,threshold))
 
     #a = np.exp((x + y - nlogp*alpha)/alpha)
     log_a = (x + y)/alpha - nlogp
@@ -380,7 +380,7 @@ class Logistic(ExceedanceDistribution):
     return np.sum(cls.logpdf(alpha, threshold, data))
 
   @classmethod
-  def uncond_cdf(cls, alpha: float, data: t.Union[np.ndarray,t.Iterable]):
+  def logistic_gumbel_cdf(cls, alpha: float, data: t.Union[np.ndarray,t.Iterable]):
     """Calculates unconstrained standard Gumbel CDF
 
     """
@@ -434,8 +434,6 @@ class Logistic(ExceedanceDistribution):
 
     x,y = cls.unbundle(mapped_data)
 
-    n = len(x)
-
     # get threshold exceedances
     model_scale_threshold = cls._model_marginal_dist.ppf(quantile_threshold)
 
@@ -453,7 +451,7 @@ class Logistic(ExceedanceDistribution):
 
     def loss(phi, data):
       alpha = logistic(phi)
-      return -cls.loglik(alpha, model_scale_threshold, data)/n
+      return -np.mean(cls.loglik(alpha, model_scale_threshold, data))
 
     res = minimize(
       fun=loss, 
@@ -634,9 +632,10 @@ class Logistic(ExceedanceDistribution):
   def simulate(self, size: int):
     alpha = self.alpha
     exs_prob = 1 - self.quantile_threshold
-    ### simulate in Gumbel scale maximum component: z = max(x,y) ~ Gumbel(loc=np.log(2)) using inverse function method
-    u = np.random.uniform(size=size)
-    maxima = -np.log(-np.log(1 - exs_prob*(1-u))) + alpha*np.log(2)
+    ### simulate in Gumbel scale maximum component: z = max(x1, x2) ~ Gumbel(loc=alpha*np.log(2)) using inverse function method
+    q0 = gumbel.cdf(self.model_scale_threshold, loc=alpha*np.log(2)) # quantile of model's threshold in the maximum's distribution
+    u = np.random.uniform(size=size, low=q0)
+    maxima = gumbel.ppf(q=u, loc=alpha*np.log(2))
 
     ###simulate difference between maxima and minima r = max(x,y) - min(x,y) using inverse function method
     u = np.random.uniform(size=size)
@@ -663,9 +662,9 @@ class Logistic(ExceedanceDistribution):
     mapped_data = self.data_to_model_dist(data)
     gumbel_threshold = self.model_scale_threshold
     u = np.minimum(mapped_data, gumbel_threshold)
-    norm_factor = float(1 - self.uncond_cdf(self.alpha, self.bundle(gumbel_threshold, gumbel_threshold)))
+    norm_factor = float(1 - self.logistic_gumbel_cdf(self.alpha, self.bundle(gumbel_threshold, gumbel_threshold)))
 
-    return (self.uncond_cdf(self.alpha, mapped_data) - self.uncond_cdf(self.alpha,u))/norm_factor
+    return (self.logistic_gumbel_cdf(self.alpha, mapped_data) - self.logistic_gumbel_cdf(self.alpha,u))/norm_factor
      
 
   def dx_dz(self, z: t.Union[float, np.ndarray], component: int):
@@ -716,7 +715,7 @@ class Gaussian(Logistic):
     return np.array([[1,self.alpha],[self.alpha,1]])
   
   @classmethod
-  def uncond_cdf(cls, alpha: float, data: np.ndarray):
+  def logistic_gumbel_cdf(cls, alpha: float, data: np.ndarray):
     """Calculates unconstrained standard Gaussian CDF
 
     """
