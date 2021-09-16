@@ -1,6 +1,7 @@
 from __future__ import annotations
 import warnings
 from abc import ABC, abstractmethod
+import copy
 
 from riskmodels.bivariate import Independent, BaseDistribution
 import riskmodels.univariate as univar
@@ -166,17 +167,21 @@ class BivariateEmpirical(BaseSurplus):
     if not isinstance(gen_distribution.x, univar.Binned) or not isinstance(gen_distribution.y, univar.Binned):
       raise TypeError("Marginal generation distributions must be instances of Binned (i.e. integer support).")
 
+    # save hard copy of relevant arrays from generation
+    # this is needed because strange things happened when copying arrays directly from the Independent instance. This somehow solves the issue
     self.convgen1 = {
       "min": gen_distribution.x.min,
       "max": gen_distribution.x.max,
-      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.x.cdf_values))}
+      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.x.cdf_values)),
+      "expectation_vals": np.ascontiguousarray(np.cumsum(gen_distribution.x.support * gen_distribution.x.pdf_values))}
 
     self.convgen2 = {
       "min": gen_distribution.y.min,
       "max": gen_distribution.y.max,
-      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.y.cdf_values))}
+      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.y.cdf_values)),
+      "expectation_vals": np.ascontiguousarray(np.cumsum(gen_distribution.y.support * gen_distribution.y.pdf_values))}
 
-    #self.gen_distribution = gen_distribution
+    self.gen_distribution = gen_distribution
     self.MARGIN_BOUND = int(np.iinfo(np.int32).max / 2)
 
     if season_length is None:
@@ -205,13 +210,13 @@ class BivariateEmpirical(BaseSurplus):
     x = np.clip(x,a_min=-self.MARGIN_BOUND,a_max=self.MARGIN_BOUND)
     x1, x2 = x.reshape(-1)
 
-    convgen1, convgen2 = self.gen_distribution.x, self.gen_distribution.y
+    #convgen1, convgen2 = self.gen_distribution.x, self.gen_distribution.y
     n = len(self.net_demand_data)
 
     cdf = 0
 
-    # print(f"convgen1: max: {convgen1.max}, min {convgen1.min}, cdf: {convgen1.cdf_values}")
-    # print(f"convgen2: max: {convgen2.max}, min {convgen2.min}, cdf: {convgen2.cdf_values}")
+    # print(f"convgen1: max: {self.convgen1["max"]}, min {self.convgen1["min"]}, cdf: {self.convgen1["cdf_values"]}")
+    # print(f"convgen2: max: {self.convgen2["max"]}, min {self.convgen2["min"]}, cdf: {convgen2.cdf_values}")
     # print(f"x1: {x1}, x2: {x2}")
     # print(f"itc_cap: {itc_cap}, policy: {policy}")
     # print(f"demand: {self.demand_data}, net_demand: {self.net_demand_data}")
@@ -220,12 +225,12 @@ class BivariateEmpirical(BaseSurplus):
       net_demand1, net_demand2 = self.net_demand_data[k]
       demand1, demand2 = self.demand_data[k]
       point_cdf = C_API.cond_bivariate_power_margin_cdf_py_interface(
-        np.int32(convgen1.min),
-        np.int32(convgen2.min),
-        np.int32(convgen1.max),
-        np.int32(convgen2.max),
-        ffi.cast("double *",convgen1.cdf_values.ctypes.data),
-        ffi.cast("double *",convgen2.cdf_values.ctypes.data),
+        np.int32(self.convgen1["min"]),
+        np.int32(self.convgen2["min"]),
+        np.int32(self.convgen1["max"]),
+        np.int32(self.convgen2["max"]),
+        ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
+        ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data),
         np.int32(x1),
         np.int32(x2),
         np.int32(net_demand1),
@@ -248,20 +253,19 @@ class BivariateEmpirical(BaseSurplus):
         itc_cap (int, optional): Interconnector capacity
     
     """
-    def trapezoid_prob(gen,ulc,c):
+    def trapezoid_prob(ulc,c):
 
       ulc1, ulc2 = ulc
-      convgen1, convgen2 = gen.gen_distribution.x, gen.gen_distribution.y
       return C_API.trapezoid_prob_py_interface(
         np.int32(ulc1),
         np.int32(ulc2),
         np.int32(c),
-        np.int32(convgen1.min),
-        np.int32(convgen2.min),
-        np.int32(convgen1.max),
-        np.int32(convgen2.max),
-        ffi.cast("double *",convgen1.cdf_values.ctypes.data),
-        ffi.cast("double *",convgen2.cdf_values.ctypes.data))
+        np.int32(self.convgen1["min"]),
+        np.int32(self.convgen2["min"]),
+        np.int32(self.convgen1["max"]),
+        np.int32(self.convgen2["max"]),
+        ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
+        ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data))
       
     n = len(self.net_demand_data)
     gen = self.gen_distribution
@@ -271,7 +275,7 @@ class BivariateEmpirical(BaseSurplus):
     for k in range(n):
       net_demand1, net_demand2 = self.net_demand_data[k]
       # system-wide lolp does not depend on the policy
-      point_lolp = gen.cdf(np.array([net_demand1-c-1,np.Inf])) + gen.cdf(np.array([np.Inf,net_demand2-c-1])) - gen.cdf(np.array([net_demand1+c,net_demand2-c-1])) + trapezoid_prob(gen,(net_demand1-c-1,net_demand2+c),2*c)
+      point_lolp = gen.cdf(np.array([net_demand1-c-1,np.Inf])) + gen.cdf(np.array([np.Inf,net_demand2-c-1])) - gen.cdf(np.array([net_demand1+c,net_demand2-c-1])) + trapezoid_prob((net_demand1-c-1,net_demand2+c),2*c)
       lolp += point_lolp
 
     return lolp/self.season_length
@@ -305,8 +309,13 @@ class BivariateEmpirical(BaseSurplus):
 
   def swap_axes(self):
     self.demand_data = np.flip(self.demand_data,axis=1)
+    self.renewables_data = np.flip(self.renewables_data,axis=1)
     self.net_demand_data = np.flip(self.net_demand_data,axis=1)
-    self.gen_distribution = Independent(x=self.gen_distribution.y, y=self.gen_distribution.x)
+    
+    aux = copy.deepcopy(self.convgen1)
+    self.convgen1 = self.convgen2
+    self.convgen2 = aux
+    #self.gen_distribution = Independent(x=self.gen_distribution.y, y=self.gen_distribution.x)
 
 
   def eeu(
@@ -343,26 +352,26 @@ class BivariateEmpirical(BaseSurplus):
           np.int32(d2),
           np.int32(net_demand1),
           np.int32(net_demand2),
-          np.int32(c),
-          np.int32(convgen1.min),
-          np.int32(convgen2.min),
-          np.int32(convgen1.max),
-          np.int32(convgen2.max),
-          ffi.cast("double *",convgen1.cdf_values.ctypes.data),
-          ffi.cast("double *",convgen2.cdf_values.ctypes.data),
-          ffi.cast("double *",convgen1.expectation_vals.ctypes.data))
+          np.int32(itc_cap),
+          np.int32(self.convgen1["min"]),
+          np.int32(self.convgen2["min"]),
+          np.int32(self.convgen1["max"]),
+          np.int32(self.convgen2["max"]),
+          ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
+          ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data),
+          ffi.cast("double *",self.convgen1["expectation_vals"].ctypes.data))
       elif policy == "veto":
         point_EPU = C_API.cond_eeu_veto_py_interface(
           np.int32(net_demand1),
           np.int32(net_demand2),
           np.int32(itc_cap),
-          np.int32(convgen1.min),
-          np.int32(convgen2.min),
-          np.int32(convgen1.max),
-          np.int32(convgen2.max),
-          ffi.cast("double *",convgen1.cdf_values.ctypes.data),
-          ffi.cast("double *",convgen2.cdf_values.ctypes.data),
-          ffi.cast("double *",convgen1.expectation_vals.ctypes.data))
+          np.int32(self.convgen1["min"]),
+          np.int32(self.convgen2["min"]),
+          np.int32(self.convgen1["max"]),
+          np.int32(self.convgen2["max"]),
+          ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
+          ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data),
+          ffi.cast("double *",self.convgen1["expectation_vals"].ctypes.data))
       else:
         raise ValueError(f"Policy name ({policy}) not recognised.")
 
@@ -426,7 +435,7 @@ class BivariateEmpirical(BaseSurplus):
     n = len(self.demand_data)
 
     simulated = np.ascontiguousarray(np.zeros((size,2)),dtype=np.int32)
-    convgen1, convgen2 = self.gen_distribution.x, self.gen_distribution.y
+    #convgen1, convgen2 = self.gen_distribution.x, self.gen_distribution.y
     ### calculate conditional probability of each historical observation conditioned to the region of interest
     if shortfall_region:
       warnings.warn("Simulating from shortfall region; ignoring passed upper bounds.")
@@ -443,6 +452,8 @@ class BivariateEmpirical(BaseSurplus):
 
     total_prob = np.sum(pointwise_cdfs)
     if total_prob <= 1e-8:
+      if fixed_area == 1:
+        self.swap_axes()
       raise Exception(f"Region has probability {total_prob}; too small to simulate accurately")
     else:
       probs = pointwise_cdfs/total_prob
@@ -459,12 +470,12 @@ class BivariateEmpirical(BaseSurplus):
       C_API.region_simulation_py_interface(
         np.int32(size),
         ffi.cast("int *",simulated.ctypes.data),
-        np.int32(convgen1.min),
-        np.int32(convgen2.min),
-        np.int32(convgen1.max),
-        np.int32(convgen2.max),
-        ffi.cast("double *",convgen1.cdf_values.ctypes.data),
-        ffi.cast("double *",convgen2.cdf_values.ctypes.data),
+        np.int32(self.convgen1["min"]),
+        np.int32(self.convgen2["min"]),
+        np.int32(self.convgen1["max"]),
+        np.int32(self.convgen2["max"]),
+        ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
+        ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data),
         ffi.cast("int *",net_demand.ctypes.data),
         ffi.cast("int *",demand.ctypes.data),
         ffi.cast("int *",row_weights.ctypes.data),
@@ -503,8 +514,8 @@ class BivariateEmpirical(BaseSurplus):
     if fixed_area == 1:
       self.swap_axes()
 
-    convgen1 = self.gen_distribution.x
-    convgen2 = self.gen_distribution.y
+    #convgen1 = self.gen_distribution.x
+    #convgen2 = self.gen_distribution.y
 
     simulated = np.ascontiguousarray(np.zeros((size,2)),dtype=np.int32)
     
@@ -523,8 +534,10 @@ class BivariateEmpirical(BaseSurplus):
     ## rounding errors can make probabilities negative of the order of 1e-60
     total_prob = np.sum(pointwise_cdfs)
     
-    if total_prob <= 1e-8:
-      raise Exception("Region has probability lower than 1e-8; too small to simulate accurately")
+    if total_prob <= 1e-12:
+      if fixed_area == 1:
+        self.swap_axes()
+      raise Exception(f"Region has low probability ({total_prob}); too small to simulate accurately")
     else:
       probs = pointwise_cdfs/total_prob
       
@@ -540,12 +553,12 @@ class BivariateEmpirical(BaseSurplus):
       C_API.conditioned_simulation_py_interface(
           np.int32(size),
           ffi.cast("int *",simulated.ctypes.data),
-          np.int32(convgen1.min),
-          np.int32(convgen2.min),
-          np.int32(convgen1.max),
-          np.int32(convgen2.max),
-          ffi.cast("double *",convgen1.cdf_values.ctypes.data),
-          ffi.cast("double *",convgen2.cdf_values.ctypes.data),
+          np.int32(self.convgen1["min"]),
+          np.int32(self.convgen2["min"]),
+          np.int32(self.convgen1["max"]),
+          np.int32(self.convgen2["max"]),
+          ffi.cast("double *",self.convgen1["cdf_values"].ctypes.data),
+          ffi.cast("double *",self.convgen2["cdf_values"].ctypes.data),
           ffi.cast("int *",net_demand.ctypes.data),
           ffi.cast("int *",demand.ctypes.data),
           ffi.cast("int *",row_weights.ctypes.data),
