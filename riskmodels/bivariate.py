@@ -417,11 +417,11 @@ class Logistic(ExceedanceDistribution):
     """
     if margin1 is None:
       margin1 = univar.empirical.from_data(data[:,0])
-      warnings.warn("margin1 is None; using an empirical distribution")
+      warnings.warn("margin1 is None; using an empirical distribution", stacklevel=2)
 
     if margin2 is None:
       margin1 = univar.empirical.from_data(data[:,1])
-      warnings.warn("margin1 is None; using an empirical distribution")
+      warnings.warn("margin1 is None; using an empirical distribution", stacklevel=2)
 
     if not isinstance(quantile_threshold, float) or quantile_threshold <= 0 or quantile_threshold >= 1:
       raise ValueError("quantile_threshold must be in the open interval (0,1)")
@@ -830,54 +830,65 @@ class Empirical(BaseDistribution):
 
     return pdf_values
 
-  @property
-  def pdf_lookup(self):
-    """Mapping from values in the support to their probability mass
+  # @property
+  # def pdf_lookup(self):
+  #   """Mapping from values in the support to their probability mass
     
-    """
-    return {tuple(row): p for p, row in zip(self.pdf_values,self.data)}
+  #   """
+  #   return {tuple(row): p for p, row in zip(self.pdf_values,self.data)}
 
 
   @classmethod
   def from_data(cls, data: np.ndarray):
-    """Instantiate an empirical distribution from an array of bivariate data
+    """Instantiate an empirical distribution from an n x 2 data matrix
     
     Args:
         data (np.ndarray): observed data
     
     
     """
-    if not isinstance(data, np.ndarray) or len(data.shape) != 2:
-      raise ValueError("data must be a 2-dimensional numpy array")
+    if not isinstance(data, np.ndarray) or len(data.shape) != 2 or data.shape[1] != 2:
+      raise ValueError("data must be an n x 2 numpy array")
 
-    df = pd.DataFrame(data)
-    df.columns = ["x","y"]
-    df["counter"] = 1.0
-    df = df.groupby(by=["x","y"]).agg(n = ("counter",np.sum)).reset_index()
-    x, y, p = np.array(df["x"]), np.array(df["y"]), np.array(df["n"])
+    # df = pd.DataFrame(data)
+    # df.columns = ["x","y"]
+    # df["counter"] = 1.0
+    # df = df.groupby(by=["x","y"]).agg(n = ("counter",np.sum)).reset_index()
+    # x, y, p = np.array(df["x"]), np.array(df["y"]), np.array(df["n"])
 
-    pdf_values = p/np.sum(p)
-    return Empirical(data=np.concatenate([x.reshape((-1,1)),y.reshape((-1,1))],axis=1), pdf_values = pdf_values)
+    # pdf_values = p/np.sum(p)
+    #return Empirical(data=np.concatenate([x.reshape((-1,1)),y.reshape((-1,1))],axis=1), pdf_values = pdf_values)
+    n = len(data)
+    return Empirical(data=data, pdf_values = 1.0/n * np.ones((n,), dtype=np.float64))
 
   def pdf(self, x: np.ndarray):
 
-    if  len(x.shape) > 1:
-      return np.array([self.pdf(elem) for elem in x])
-    try:
-      self.pdf_lookup[tuple(x)]
-    except KeyError as e:
-      return 0.0
+    # if  len(x.shape) > 1:
+    #   return np.array([self.pdf(elem) for elem in x])
+    # try:
+    #   self.pdf_lookup[tuple(x)]
+    # except KeyError as e:
+    #   return 0.0
+
+    return np.mean(self.data == x.reshape((1,2)))
 
   def cdf(self, x: np.ndarray):
     if  len(x.shape) > 1:
-      return np.apply_along_axis(self.cdf, axis=1, arr=x)
-    x1, x2 = x
-    return np.mean(np.logical_and(self.data[:,0] <= x1, self.data[:,1] <=x2))
+      return np.array([self.cdf(elem) for elem in x])
+    # x1, x2 = x
+    # return np.mean(np.logical_and(self.data[:,0] <= x1, self.data[:,1] <=x2))
+    u = self.data <= x.reshape((1,2)) # componentwise comparison
+    v = u.dot(np.ones((2,1))) >= 2 #equals 1 if and only if both components are below x
+    return np.mean(v)
 
   def simulate(self, size: int):
     n = len(self.data)
     idx = np.random.choice(n, size=size)
     return self.data[idx]
+
+  def get_marginals(self):
+
+    return univar.Empirical.from_data(self.data[:,0]), univar.Empirical.from_data(self.data[:,1])
 
   def fit_tail_model(
     self,
@@ -898,23 +909,29 @@ class Empirical(BaseDistribution):
         ExceedanceModel
     
     """
-    data = self.data
-
-    x = data[:,0]
-    y = data[:,1]
-
     if model not in self._exceedance_models:
       raise ValueError(f"model must be one of {self._exceedance_models}")
 
     if margin1 is None:
-      warnings.warn("first marginal not provided. Fitting tail model for first component using provided quantile threshold.")
-      margin1 = univar.Empirical.from_data(x)
-      margin1 = margin1.fit_tail_model(margin1.ppf(quantile_threshold))
+      # margin1 = univar.Empirical.from_data(x)
+      # margin1 = margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
+
+      margin1, _ = self.get_marginals()
+      margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
+      warnings.warn(f"First marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} => {margin1.ppf(quantile_threshold)})", stacklevel=2)
 
     if margin2 is None:
-      warnings.warn("second marginal not provided. Fitting tail model for second component using provided quantile threshold.")
-      margin2 = univar.Empirical.from_data(y)
-      margin2 = margin2.fit_tail_model(margin2.ppf(quantile_threshold))
+      # margin2 = univar.Empirical.from_data(y)
+      # margin2 = margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
+
+      _, margin2 = self.get_marginals()
+      margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
+      warnings.warn(f"Second marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} => {margin2.ppf(quantile_threshold)})", stacklevel=2)
+
+    data = self.data
+
+    x = data[:,0]
+    y = data[:,1]
 
     exceedance_idx = np.logical_or(x > margin1.ppf(quantile_threshold), y > margin2.ppf(quantile_threshold))
 
@@ -928,7 +945,7 @@ class Empirical(BaseDistribution):
     #   raise ValueError("Some values are either 0 or 1 in copula scale.")
 
     exceedance_model = self._exceedance_models[model].fit(
-      data = data, 
+      data = exceedances, 
       quantile_threshold = quantile_threshold,
       margin1 = margin1,
       margin2 = margin2)

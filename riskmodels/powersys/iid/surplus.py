@@ -151,7 +151,7 @@ class BivariateEmpirical(BaseSurplus):
       season_length (int, optional): length of peak season. If None, it is set as the length of demand data
     
     """
-    warnings.warn("Coercing data to integer values.")
+    warnings.warn("Coercing data to integer values.", stacklevel=2)
 
     self.demand_data = np.ascontiguousarray(demand_data, dtype = np.int32)
     self.renewables_data = np.ascontiguousarray(renewables_data, dtype = np.int32)
@@ -178,7 +178,7 @@ class BivariateEmpirical(BaseSurplus):
     self.MARGIN_BOUND = int(np.iinfo(np.int32).max / 2)
 
     if season_length is None:
-      warnings.warn("Using length of demand data as season length.")
+      warnings.warn("Using length of demand data as season length.", stacklevel=2)
     self.season_length = len(self.demand_data) if season_length is None else season_length
 
   def cdf(
@@ -431,7 +431,7 @@ class BivariateEmpirical(BaseSurplus):
     #convgen1, convgen2 = self.gen_distribution.x, self.gen_distribution.y
     ### calculate conditional probability of each historical observation conditioned to the region of interest
     if shortfall_region:
-      warnings.warn("Simulating from shortfall region; ignoring passed upper bounds.")
+      warnings.warn("Simulating from shortfall region; ignoring passed upper bounds.", stacklevel=2)
       pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
         self.get_pointwise_cdfs(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
         self.get_pointwise_cdfs(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 

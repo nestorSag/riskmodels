@@ -376,7 +376,7 @@ class GPTail(BaseDistribution):
       # condition on empirical data if applicable
       if self.data is None or max(self.data) < other:
         new_data = None
-        warnings.warn(f"No observed data above {other}; setting data to None in conditional model.")
+        warnings.warn(f"No observed data above {other}; setting data to None in conditional model.", stacklevel=2)
       else:
         new_data = self.data[self.data >= other]
       
@@ -805,9 +805,9 @@ class GPTail(BaseDistribution):
         #
         axs[2,1].fill_between(m, return_levels - return_stdevs, return_levels + return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
       else:
-        warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned")
+        warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned", stacklevel=2)
     except Exception as e:
-      warnings.warn(f"Confidence bands for return level could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}")
+      warnings.warn(f"Confidence bands for return level could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}", stacklevel=2)
 
     plt.tight_layout()
     plt.show()
@@ -949,7 +949,7 @@ class GPTailMixture(BaseDistribution):
     # new_scales = self.scales[indices] + new_shapes*np.clip(other - new_thresholds, a_min = 0.0, a_max=np.Inf)
 
     if self.data is not None and np.all(self.data < other):
-      warnings.warn(f"No observed data above {other}; setting data to None in conditioned model")
+      warnings.warn(f"No observed data above {other}; setting data to None in conditioned model", stacklevel=2)
       new_data = None
     elif self.data is None:
       new_data = None
@@ -1425,7 +1425,7 @@ class Binned(Empirical):
 
     data = np.array(data)
     if data.dtype not in self._supported_types:
-      warnings.warn("Casting input data to integer values by rounding")
+      warnings.warn("Casting input data to integer values by rounding", stacklevel=2)
       data = data.astype(np.int64)
 
     return super().from_data(data).to_integer()
