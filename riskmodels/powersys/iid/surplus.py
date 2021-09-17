@@ -165,13 +165,13 @@ class BivariateEmpirical(BaseSurplus):
     self.convgen1 = {
       "min": gen_distribution.x.min,
       "max": gen_distribution.x.max,
-      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.x.cdf_values)),
+      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.x.cdf_values, order="C")),
       "expectation_vals": np.ascontiguousarray(np.cumsum(gen_distribution.x.support * gen_distribution.x.pdf_values))}
 
     self.convgen2 = {
       "min": gen_distribution.y.min,
       "max": gen_distribution.y.max,
-      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.y.cdf_values)),
+      "cdf_values": np.ascontiguousarray(np.copy(gen_distribution.y.cdf_values, order = "C")),
       "expectation_vals": np.ascontiguousarray(np.cumsum(gen_distribution.y.support * gen_distribution.y.pdf_values))}
 
     self.gen_distribution = gen_distribution
@@ -301,16 +301,18 @@ class BivariateEmpirical(BaseSurplus):
 
 
   def swap_axes(self):
+    """Utility method to flip components in bivariate distribution objects
+    """
     self.demand_data = np.flip(self.demand_data,axis=1)
     self.renewables_data = np.flip(self.renewables_data,axis=1)
     self.net_demand_data = np.flip(self.net_demand_data,axis=1)
     
     aux = copy.deepcopy(self.convgen1)
-    self.convgen1 = self.convgen2
+    self.convgen1 = copy.deepcopy(self.convgen2)
     self.convgen2 = aux
-    #self.gen_distribution = Independent(x=self.gen_distribution.y, y=self.gen_distribution.x)
 
-
+    self.gen_distribution = Independent(x=self.gen_distribution.y, y=self.gen_distribution.x)
+    
   def eeu(
     self,
     itc_cap: int = 1000,
@@ -330,8 +332,6 @@ class BivariateEmpirical(BaseSurplus):
     if area == 1:
       self.swap_axes()
     
-    convgen1 = self.gen_distribution.x
-    convgen2 = self.gen_distribution.y
     n = len(self.net_demand_data)
     eeu = 0
 
@@ -504,32 +504,27 @@ class BivariateEmpirical(BaseSurplus):
     m1 = np.clip(fixed_value,a_min=-self.MARGIN_BOUND,a_max=self.MARGIN_BOUND)
     m2 = self.MARGIN_BOUND
 
-    if fixed_area == 1:
-      self.swap_axes()
-
-    #convgen1 = self.gen_distribution.x
-    #convgen2 = self.gen_distribution.y
-
     simulated = np.ascontiguousarray(np.zeros((size,2)),dtype=np.int32)
     
     ### calculate conditional probability of each historical observation given
     ### margin value tuple m
-    df = self.cdf(x=np.array([m1,m2]),itc_cap=itc_cap,policy=policy) 
-    pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([m1,m2]),itc_cap=itc_cap,policy=policy) - \
-      self.get_pointwise_cdfs(x=np.array([m1-1,m2]),itc_cap=itc_cap,policy=policy)
+
+    if fixed_area == 0:
+      x = np.array([fixed_value,np.Inf])
+      y = x - 1
+    else:
+      x = np.array([np.Inf, fixed_value])
+      y = x - 1
+
+    pointwise_cdfs = self.get_pointwise_cdfs(x=x,itc_cap=itc_cap,policy=policy) - \
+      self.get_pointwise_cdfs(x=y,itc_cap=itc_cap,policy=policy)
 
     pointwise_cdfs = np.clip(pointwise_cdfs, a_min=0.0, a_max=np.Inf)
-    # df["value"] = df["value"] - self.cdf(m=(m1-1,m2),itc_cap=c,policy=policy,get_pointwise_risk=True)["value"]
-
-    # df["d0"] = self.demand[:,0]
-    # df["d1"] = self.demand[:,1]
-
+  
     ## rounding errors can make probabilities negative of the order of 1e-60
     total_prob = np.sum(pointwise_cdfs)
     
     if total_prob <= 1e-12:
-      if fixed_area == 1:
-        self.swap_axes()
       raise Exception(f"Region has low probability ({total_prob}); too small to simulate accurately")
     else:
       probs = pointwise_cdfs/total_prob
@@ -538,6 +533,9 @@ class BivariateEmpirical(BaseSurplus):
       nonzero_samples = samples_per_row > 0
       ## only pass rows which induce at least one simulated value
       row_weights = np.ascontiguousarray(samples_per_row[nonzero_samples],dtype=np.int32)
+
+      if fixed_area == 1:
+        self.swap_axes()
 
       net_demand = np.ascontiguousarray(self.net_demand_data[nonzero_samples,:],dtype=np.int32)
 
@@ -561,7 +559,7 @@ class BivariateEmpirical(BaseSurplus):
         int(seed),
         int(policy == "share"))
 
-    if fixed_area == 1:
-      self.swap_axes()
+      if fixed_area == 1:
+        self.swap_axes()
 
     return simulated[:,1] #first column has variable conditioned on (constant value)
