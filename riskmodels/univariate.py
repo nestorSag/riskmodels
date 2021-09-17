@@ -1097,13 +1097,13 @@ class Empirical(BaseDistribution):
       raise TypeError(f"multiplication is supported only for nonzero instances of type:{self._allowed_scalar_types}")
 
     new_data = None if self.data is None else self.data*factor
-    return Empirical(support = factor*self.support, pdf_values = self.pdf_values, data = new_data)
+    return Empirical(support = factor*self.support, pdf_values = np.copy(self.pdf_values, order="C"), data = new_data)
 
   def __add__(self, other: t.Union[int, float, GPTail, Mixture, GPTailMixture]):
     
     if isinstance(other, self._allowed_scalar_types):
       new_data = None if self.data is None else self.data + other
-      return Empirical(support = self.support + other, pdf_values = self.pdf_values, data = new_data)
+      return Empirical(support = self.support + other, pdf_values = np.copy(self.pdf_values, order="C"), data = new_data)
 
     elif isinstance(other, GPTail):
 
@@ -1382,7 +1382,7 @@ class Binned(Empirical):
       new_data = None if self.data is None else self.data + other
       return Binned(
         support = new_support, 
-        pdf_values = self.pdf_values, 
+        pdf_values = np.copy(self.pdf_values, order="C"), 
         data = new_data)
 
     if isinstance(other, Binned):

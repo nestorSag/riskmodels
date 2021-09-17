@@ -879,7 +879,7 @@ class Empirical(BaseDistribution):
     idx = np.random.choice(n, size=size)
     return self.data[idx]
 
-  def fit_exceedance_model(
+  def fit_tail_model(
     self,
     model: str,
     quantile_threshold: float,
@@ -908,11 +908,13 @@ class Empirical(BaseDistribution):
 
     if margin1 is None:
       warnings.warn("first marginal not provided. Fitting tail model for first component using provided quantile threshold.")
-      margin1 = univar.Empirical.from_data(x).fit_tail_model(x.ppf(quantile_threshold))
+      margin1 = univar.Empirical.from_data(x)
+      margin1 = margin1.fit_tail_model(margin1.ppf(quantile_threshold))
 
     if margin2 is None:
       warnings.warn("second marginal not provided. Fitting tail model for second component using provided quantile threshold.")
-      margin2 = univar.Empirical.from_data(y).fit_tail_model(x.ppf(quantile_threshold))
+      margin2 = univar.Empirical.from_data(y)
+      margin2 = margin2.fit_tail_model(margin2.ppf(quantile_threshold))
 
     exceedance_idx = np.logical_or(x > margin1.ppf(quantile_threshold), y > margin2.ppf(quantile_threshold))
 
