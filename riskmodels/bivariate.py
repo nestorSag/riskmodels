@@ -1,3 +1,6 @@
+"""This module contains bivariate risk models to analyse exceedances between components. Exceedance models are inspired in bivariate generalised Pareto models, with support in an inverted L-shaped subset of Euclidean space, where at least one component takes an extreme value above a specified threshold. Available parametric models include the logistic model, equivalent to a Gumbel-Hougaard copula, and a gaussian model, equivalent to a Gaussian copula. The former exhibits asymptotic dependence and the latter asymtptotic independence, which characterises the behaviour of extremes across components.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -295,8 +298,6 @@ class Logistic(ExceedanceDistribution):
     ## to copula scale
     x = self.margin1.cdf(x)
     y = self.margin2.cdf(y)
-    #x = np.array([self.margin1.cdf(z) for z in x]) #list comprehension
-    #y = np.array([self.margin2.cdf(z) for z in y]) #list comprehension
 
     # pass to Gumbel scale 
     x = self._model_marginal_dist.ppf(x)
@@ -324,8 +325,6 @@ class Logistic(ExceedanceDistribution):
     # data scale
     u = self.margin1.ppf(u)
     w = self.margin2.ppf(w)
-    #u = np.array([self.margin1.ppf(v) for v in u]) #list comprehension
-    #w = np.array([self.margin2.ppf(v) for v in w]) #list comprehension
 
     return self.bundle(u,w)
 
@@ -341,12 +340,6 @@ class Logistic(ExceedanceDistribution):
 
     """
     x, y = cls.unbundle(data)
-
-    # nlogp = np.exp(-x/alpha) + np.exp(-y/alpha)
-    # rescaler = 1 - cls.logistic_gumbel_cdf(alpha, cls.bundle(threshold,threshold))
-    # density = x/alpha - (nlogp)**alpha + y/alpha + alpha*np.log(nlogp) + np.log((-alpha + alpha*(nlogp)**alpha + 1)) - np.log(alpha) - 2*np.log(np.exp(x/alpha) + np.exp(y/alpha)) - np.log(rescaler)
-
-    #density = x/alpha - (nlogp)**alpha + y/alpha + alpha*np.log(nlogp) + np.log((-alpha + alpha*(nlogp)**alpha + 1)) - np.log(alpha) - 2*np.log(np.exp(x/alpha) + np.exp(y/alpha)) - np.log(rescaler)
 
     nlogp = (np.exp(-x/alpha) + np.exp(-y/alpha))**alpha
     lognlogp = alpha*np.log(np.exp(-x/alpha) + np.exp(-y/alpha))
@@ -458,45 +451,6 @@ class Logistic(ExceedanceDistribution):
       x0 = x0,
       method = "BFGS",
       args = (mapped_exceedances,))
-
-
-    ##### optimization in copula scale
-    # def copula_cdf(alpha, data):
-    #   U, V = cls.unbundle(data)
-    #   theta = 1.0/alpha
-    #   h = np.power(-np.log(U), theta) + np.power(-np.log(V), theta)
-    #   h = -np.power(h, 1.0 / theta)
-    #   cdfs = np.exp(h)
-    #   return cdfs
-
-    # def copula_logpdf(alpha, data):
-    #   U, V = cls.unbundle(data)
-    #   theta = 1.0/alpha
-    #   # a = np.power(np.multiply(U, V), -1)
-    #   # tmp = np.power(-np.log(U), theta) + np.power(-np.log(V), theta)
-    #   # b = np.power(tmp, -2 + 2.0 / theta)
-    #   # c = np.power(np.multiply(np.log(U), np.log(V)), theta - 1)
-    #   # d = 1 + (theta - 1) * np.power(tmp, -1.0 / theta)
-    #   #return self.cumulative_distribution(X) * a * b * c * d
-
-    #   log_a = -np.log(U*V)
-    #   tmp = np.power(-np.log(U), theta) + np.power(-np.log(V), theta)
-    #   log_b = (-2 + 2.0 / theta)* np.log(tmp)
-    #   log_c = (theta-1)*np.log(np.log(U)*np.log(V))
-    #   log_d = np.log(1 + (theta - 1) * np.power(tmp, -1.0 / theta))
-    #   logcdf = np.log(copula_cdf(alpha, data))
-    #   return logcdf + log_a + log_b + log_c + log_d
-
-    # def loss(alpha, data):
-    #   return -np.mean(copula_logpdf(alpha, data))
-
-    # copula_exceedances = cls.bundle(cls._model_marginal_dist.cdf(x), cls._model_marginal_dist.cdf(y))
-
-    # res = minimize(
-    #   fun=loss, 
-    #   x0 = x0,
-    #   method = "BFGS",
-    #   args = (copula_exceedances,))
 
     if return_opt_results:
       warn.warnings("Returning raw results for rescaled exceedance data (sdev ~ 1).")
@@ -830,13 +784,6 @@ class Empirical(BaseDistribution):
 
     return pdf_values
 
-  # @property
-  # def pdf_lookup(self):
-  #   """Mapping from values in the support to their probability mass
-    
-  #   """
-  #   return {tuple(row): p for p, row in zip(self.pdf_values,self.data)}
-
 
   @classmethod
   def from_data(cls, data: np.ndarray):
@@ -850,33 +797,17 @@ class Empirical(BaseDistribution):
     if not isinstance(data, np.ndarray) or len(data.shape) != 2 or data.shape[1] != 2:
       raise ValueError("data must be an n x 2 numpy array")
 
-    # df = pd.DataFrame(data)
-    # df.columns = ["x","y"]
-    # df["counter"] = 1.0
-    # df = df.groupby(by=["x","y"]).agg(n = ("counter",np.sum)).reset_index()
-    # x, y, p = np.array(df["x"]), np.array(df["y"]), np.array(df["n"])
-
-    # pdf_values = p/np.sum(p)
-    #return Empirical(data=np.concatenate([x.reshape((-1,1)),y.reshape((-1,1))],axis=1), pdf_values = pdf_values)
     n = len(data)
     return Empirical(data=data, pdf_values = 1.0/n * np.ones((n,), dtype=np.float64))
 
   def pdf(self, x: np.ndarray):
-
-    # if  len(x.shape) > 1:
-    #   return np.array([self.pdf(elem) for elem in x])
-    # try:
-    #   self.pdf_lookup[tuple(x)]
-    # except KeyError as e:
-    #   return 0.0
 
     return np.mean(self.data == x.reshape((1,2)))
 
   def cdf(self, x: np.ndarray):
     if  len(x.shape) > 1:
       return np.array([self.cdf(elem) for elem in x])
-    # x1, x2 = x
-    # return np.mean(np.logical_and(self.data[:,0] <= x1, self.data[:,1] <=x2))
+
     u = self.data <= x.reshape((1,2)) # componentwise comparison
     v = u.dot(np.ones((2,1))) >= 2 #equals 1 if and only if both components are below x
     return np.mean(v)
@@ -913,19 +844,15 @@ class Empirical(BaseDistribution):
       raise ValueError(f"model must be one of {self._exceedance_models}")
 
     if margin1 is None:
-      # margin1 = univar.Empirical.from_data(x)
-      # margin1 = margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
 
       margin1, _ = self.get_marginals()
-      margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
+      margin1 = margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
       warnings.warn(f"First marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} => {margin1.ppf(quantile_threshold)})", stacklevel=2)
 
     if margin2 is None:
-      # margin2 = univar.Empirical.from_data(y)
-      # margin2 = margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
 
       _, margin2 = self.get_marginals()
-      margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
+      margin2 = margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
       warnings.warn(f"Second marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} => {margin2.ppf(quantile_threshold)})", stacklevel=2)
 
     data = self.data
@@ -936,13 +863,6 @@ class Empirical(BaseDistribution):
     exceedance_idx = np.logical_or(x > margin1.ppf(quantile_threshold), y > margin2.ppf(quantile_threshold))
 
     exceedances = data[exceedance_idx]
-
-    # data in copula scale
-    # u1 = np.array([margin1.ppf(x) for x in exceedances[:,0]]).reshape((-1,1))
-    # u2 = np.array([margin2.ppf(x) for x in exceedances[:,1]]).reshape((-1,1))
-
-    # if np.any(u1 == 0) or np.any(u1 == 1.0) or np.any(u2 == 0) or np.any(u2 == 1):
-    #   raise ValueError("Some values are either 0 or 1 in copula scale.")
 
     exceedance_model = self._exceedance_models[model].fit(
       data = exceedances, 

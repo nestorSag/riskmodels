@@ -1,3 +1,6 @@
+"""This module implements methods to calculate some popular risk metrics in energy procurement for the case of an interconnected 2-area system, in particular loss of load expectation (LOLE) and expected energy unserved (EEU). As these methods assume a time-collapsed model in which serial correlation does not exist, only expected value based metrics like the above can be validly calculated. Exact calculations for empirical demand and renewable models and Monte Carlo estimation for arbitrary net demand models are available.
+"""
+
 from __future__ import annotations
 import warnings
 from abc import ABC, abstractmethod
@@ -51,7 +54,7 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
     arbitrary_types_allowed = True
 
   def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -> np.ndarray:
-    """Returns the interconnector flow from a sample of bivariate pre inerconnection surplus. The flow is expressed with flow to area 1 being positive and flow to area 2 being negative.
+    """Returns the interconnector flow from a sample of bivariate pre inerconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
     
     Args:
         sample (np.ndarray): Bivariate surplus sample
@@ -68,6 +71,7 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
     flow_from_area_1_idx = np.logical_and(sample[:,0] > 0, sample[:,1] < 0)
     flow_to_area_1_idx = np.logical_and(sample[:,0] < 0, sample[:,1] > 0)
 
+    # flows are bounded by interconnection capacity, shortfall size and spare available capacity in each area.
     flow[flow_from_area_1_idx] = -np.minimum(itc_cap, np.minimum(sample[:,0][flow_from_area_1_idx], -sample[:,1][flow_from_area_1_idx]))
     flow[flow_to_area_1_idx] = np.minimum(itc_cap, np.minimum(-sample[:,0][flow_to_area_1_idx], sample[:,1][flow_to_area_1_idx]))
 
@@ -88,7 +92,7 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
     return pre_itc_sample
 
   def cdf(self, x: np.ndarray, itc_cap: int = 1000):
-    """Estimate bivariate post-interconnection surplus CDF
+    """Estimate the CDF of bivariate post-interconnection surplus evaluated at x
     
     Args:
         x (np.ndarray): point to be evaluated
@@ -97,7 +101,7 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
     """
     samples = self.simulate(itc_cap)
     u = samples <= x.reshape((1,2)) # componentwise comparison
-    v = u.dot(np.ones((2,1))) >= 2 #equals 1 if and only if both components are below x
+    v = u.dot(np.ones((2,1))) >= 2 #equals 1 if and only if both components fulfill the above condition
     return np.mean(v) #return empirical CDF estimate
 
   def lole(self, itc_cap: int = 1000, area: int = 0):
@@ -107,7 +111,8 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
         area (int, optional): Area index (0 or 1); if area=-1, systemwide lole is returned.
 
     """
-    x = np.array([0,0], dtype=np.float32)
+    # take as loss of load when shortfalls are at least 1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
+    x = np.array([-1,-1], dtype=np.float32)
     if area >= 0:
       x[1-area] = np.Inf
       return self.season_length * self.cdf(x, itc_cap)
@@ -207,12 +212,6 @@ class BivariateEmpirical(BaseSurplus):
     n = len(self.net_demand_data)
 
     cdf = 0
-
-    # print(f"convgen1: max: {self.convgen1["max"]}, min {self.convgen1["min"]}, cdf: {self.convgen1["cdf_values"]}")
-    # print(f"convgen2: max: {self.convgen2["max"]}, min {self.convgen2["min"]}, cdf: {convgen2.cdf_values}")
-    # print(f"x1: {x1}, x2: {x2}")
-    # print(f"itc_cap: {itc_cap}, policy: {policy}")
-    # print(f"demand: {self.demand_data}, net_demand: {self.net_demand_data}")
 
     for k in range(n):
       net_demand1, net_demand2 = self.net_demand_data[k]

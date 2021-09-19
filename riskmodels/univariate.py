@@ -1,5 +1,5 @@
 """
-This module contains univariate models for risk analysis, namely, empirical (discrete) distributions and semiparametric distributions with Generalised Pareto tail models. Both MLE-based and Bayesian estimation are supported for the GP models; useful diagnostic plots are available for fitted models, and exceedance conditional distributions of the type X | X > u are implemented through the >= and > operators for distribution instances, as well as scalar addition and rescaling, Finally, Binned distributions with integer support allows them to be convolved to get the distribution of a sum of independent random variables. This is useful for risk models in energy security of supply.
+This module contains univariate models for risk analysis, namely, empirical (discrete) distributions and semiparametric distributions with Generalised Pareto tail models. Both MLE-based and Bayesian estimation are supported for the GP models; useful diagnostic plots are available for fitted models, and exceedance conditional distributions of the type X | X > u are implemented through the >= and > operators for all model classes, as well as scalar addition and rescaling, Finally, Binned distributions with integer support can be convolved to get the distribution of a sum of independent integer random variables. This is useful for risk models in energy procurement.
 """
 from __future__ import annotations
 
@@ -1082,11 +1082,11 @@ class Empirical(BaseDistribution):
     # make sure cdf reaches 1
     cdf_vals[-1] = 1.0
 
-    return ed.StepFunction(x=self.support, y=cdf_vals)
+    return ed.StepFunction(x=self.support, y=cdf_vals, side="right")
 
   @property
   def ecdf_inv(self):
-    """Mapping from values in the support to their cumulative probability
+    """Linearly interpolated mapping from probability values to their quantiles
     
     """
     return ed.monotone_fn_inverter(self.ecdf, self.support)
