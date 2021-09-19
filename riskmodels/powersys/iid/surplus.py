@@ -111,8 +111,8 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
         area (int, optional): Area index (0 or 1); if area=-1, systemwide lole is returned.
 
     """
-    # take as loss of load when shortfalls are at least 1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
-    x = np.array([-1,-1], dtype=np.float32)
+    # take as loss of load when shortfalls are at least 0.1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
+    x = np.array([-1e-1,-1e-1], dtype=np.float32)
     if area >= 0:
       x[1-area] = np.Inf
       return self.season_length * self.cdf(x, itc_cap)
