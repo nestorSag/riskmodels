@@ -258,7 +258,7 @@ class Logistic(ExceedanceDistribution):
 
   In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by
 
-  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}$$
+  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}, \\,\\,\\, \\alpha \\in (0,1)$$
 
   where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\) )
   """

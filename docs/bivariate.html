@@ -288,9 +288,9 @@ class Logistic(ExceedanceDistribution):
 
   In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by
 
-  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}$$
+  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}, \\,\\,\\, \\alpha \\in (0,1)$$
 
-  where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\)
+  where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\) )
   &#34;&#34;&#34;
   
   alpha: float
@@ -2252,8 +2252,8 @@ def cov(self):
 <dd>
 <div class="desc"><p>This model is equivalent to a Gumbel-Hougaard copula model restricted to the region of the form <span><span class="MathJax_Preview"> \mathbf{U} \nleq u </span><script type="math/tex"> \mathbf{U} \nleq u </script></span>, or equivalently <span><span class="MathJax_Preview"> \max\{\mathbf{U}_1,\mathbf{U}_2\} &gt; u </span><script type="math/tex"> \max\{\mathbf{U}_1,\mathbf{U}_2\} > u </script></span>, which represents threshold exceedances above <span><span class="MathJax_Preview"> u </span><script type="math/tex"> u </script></span> in at least one component. This model can also be thought as a pre-limit bivariate Generalised Pareto with logistic dependence in the context of extreme value theory. Consequently, under this model there is asymptotic dependence between components, this is, extreme values across components are strongly associated. Use it if there is strong evidence of asymptotic dependence in the data. </p>
 <p>In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by</p>
-<p><span><span class="MathJax_Preview"> F(\textbf{x}) - \exp \left( - \left( \exp(-\textbf{x}_1/\alpha) + \exp(-\textbf{x}_2/\alpha) \right)^\alpha \right), \,\,\, \textbf{x} \nleq \textbf{a}</span><script type="math/tex; mode=display"> F(\textbf{x}) - \exp \left( - \left( \exp(-\textbf{x}_1/\alpha) + \exp(-\textbf{x}_2/\alpha) \right)^\alpha \right), \,\,\, \textbf{x} \nleq \textbf{a}</script></span></p>
-<p>where <span><span class="MathJax_Preview"> \textbf{a} </span><script type="math/tex"> \textbf{a} </script></span> is the vector formed by the marginal quantiles of a probability threshold <span><span class="MathJax_Preview"> p </span><script type="math/tex"> p </script></span> such that exceedances with probability less than <span><span class="MathJax_Preview">1-p</span><script type="math/tex">1-p</script></span> are considered extreme (say <span><span class="MathJax_Preview">p = 0.95</span><script type="math/tex">p = 0.95</script></span></p>
+<p><span><span class="MathJax_Preview"> F(\textbf{x}) - \exp \left( - \left( \exp(-\textbf{x}_1/\alpha) + \exp(-\textbf{x}_2/\alpha) \right)^\alpha \right), \,\,\, \textbf{x} \nleq \textbf{a}, \,\,\, \alpha \in (0,1)</span><script type="math/tex; mode=display"> F(\textbf{x}) - \exp \left( - \left( \exp(-\textbf{x}_1/\alpha) + \exp(-\textbf{x}_2/\alpha) \right)^\alpha \right), \,\,\, \textbf{x} \nleq \textbf{a}, \,\,\, \alpha \in (0,1)</script></span></p>
+<p>where <span><span class="MathJax_Preview"> \textbf{a} </span><script type="math/tex"> \textbf{a} </script></span> is the vector formed by the marginal quantiles of a probability threshold <span><span class="MathJax_Preview"> p </span><script type="math/tex"> p </script></span> such that exceedances with probability less than <span><span class="MathJax_Preview">1-p</span><script type="math/tex">1-p</script></span> are considered extreme (say <span><span class="MathJax_Preview">p = 0.95</span><script type="math/tex">p = 0.95</script></span> )</p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
@@ -2266,9 +2266,9 @@ def cov(self):
 
   In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by
 
-  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}$$
+  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}, \\,\\,\\, \\alpha \\in (0,1)$$
 
-  where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\)
+  where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\) )
   &#34;&#34;&#34;
   
   alpha: float

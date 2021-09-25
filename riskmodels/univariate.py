@@ -612,6 +612,7 @@ class GPTail(BaseDistribution):
     #rescale exceedances and threshold so that both parameters are in roughly the same scale, improving numerical conditioning
     sdev = np.std(exceedances)
     
+    # rescaling the data rescales the location and scale parameter, and leaves the shape parameter unchanged
     norm_exceedances = exceedances/sdev
     norm_threshold = threshold/sdev
 
