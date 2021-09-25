@@ -1,4 +1,4 @@
-"""This module contains bivariate risk models to analyse exceedances between components. Exceedance models are inspired in bivariate generalised Pareto models, with support in an inverted L-shaped subset of Euclidean space, where at least one component takes an extreme value above a specified threshold. Available parametric models include the logistic model, equivalent to a Gumbel-Hougaard copula, and a gaussian model, equivalent to a Gaussian copula. The former exhibits asymptotic dependence and the latter asymtptotic independence, which characterises the behaviour of extremes across components.
+"""This module contains bivariate risk models to analyse exceedance dependence between components. Available exceedance models are inspired in bivariate generalised Pareto models, with support in an inverted L-shaped subset of Euclidean space, where at least one component takes an extreme value above a specified threshold. Available parametric models include the logistic model, equivalent to a Gumbel-Hougaard copula, and a gaussian model, equivalent to a Gaussian copula. The former exhibits asymptotic dependence and the latter asymtptotic independence, which characterises the dependence of extremes across components.
 """
 
 from __future__ import annotations
@@ -196,7 +196,7 @@ class Independent(BaseDistribution):
 
 class ExceedanceDistribution(BaseDistribution):
 
-  """Main interface for exceedance distributions, which are defined on a region of the form $U \\nleq u$, or equivalently $\\max\\{U_1,U_2\\} > u$. 
+  """Main interface for exceedance distributions, which are defined on a region of the form \\( $U \\nleq u$ \\), or equivalently \\( \\max\\{U_1,U_2\\} > u \\). 
   """
   quantile_threshold: float
 
@@ -254,7 +254,13 @@ class ExceedanceDistribution(BaseDistribution):
 
 class Logistic(ExceedanceDistribution):
 
-  """This model is equivalent to a Gumbel-Hougaard copula model restricted to the region of the form $U \\nleq U$, or equivalently $\\max\\{U_1,U_2\\} > u$, which represents threshold exceedances above $u$ in at least one component. This model can also be thought as a pre-limit bivariate Generalised Pareto with logistic dependence in the context of extreme value theory. Consequently, under this model there is asymptotic dependence between components, this is, extreme values across components are strongly associated. Use it if there is strong evidence of asymptotic dependence in the data.
+  """This model is equivalent to a Gumbel-Hougaard copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} > u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought as a pre-limit bivariate Generalised Pareto with logistic dependence in the context of extreme value theory. Consequently, under this model there is asymptotic dependence between components, this is, extreme values across components are strongly associated. Use it if there is strong evidence of asymptotic dependence in the data. 
+
+  In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by
+
+  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}$$
+
+  where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\) )
   """
   
   alpha: float
@@ -654,7 +660,10 @@ class Logistic(ExceedanceDistribution):
 
 class Gaussian(Logistic):
 
-  """This model is equivalent to a Gaussian copula model restricted to the region of the form $U \\nleq U$, or equivalently $\\max\\{U_1,U_2\\} > u$, which represents threshold exceedances above $u$ in at least one component. This model can also be thought of as a pre-limit bivariate Generalised Pareto with Gaussian dependence, which is degenerate in the limit. Consequently, under this model there is asymptotic independence between components, this is, extreme values across components are weakly dependent, and occur more or less independently of each other. Use it if there is weak evidence for asymptotic dependence in the data.
+  """This model is equivalent to a Gaussian copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} > u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought of as a pre-limit bivariate Generalised Pareto with Gaussian dependence, which is degenerate in the limit. Consequently, under this model there is asymptotic independence between components, this is, extreme values across components are weakly dependent, and occur more or less independently of each other. Use it if there is weak evidence for asymptotic dependence in the data.
+
+  In Gaussian scale (i.e. when both marginal distributions are gaussian), its density function is given by a bivariate normal distribution restricted to the region described above, where \\( u \\) would be the quantile corresponding to a probability value \\( p \\) such that exceedances of probability less than \\(1 - p\\) are considered extreme.
+
   """
   
   alpha: float
@@ -827,14 +836,14 @@ class Empirical(BaseDistribution):
     quantile_threshold: float,
     margin1: univar.BaseDistribution = None, 
     margin2: univar.BaseDistribution = None):
-    """Fits a parametric model for threshold exceedances in the data. For a given threshold $u$, exceedances are defined as vectors $U$ such that $\\max\\{U_1,U_2\\} > u$, this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
-    Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extremes across components, and the latter exhibiting asymptotic independence, in which extremes happen mostly independently across components.
+    """Fits a parametric model for threshold exceedances in the data. For a given threshold \\( u \\), exceedances are defined as vectors \\(U\\) such that \\( \\max\\{U_1,U_2\\} > u \\), this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
+    Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extreme occurrences across components, and the latter exhibiting asymptotic independence, in which extremes occur relatively independently across components.
     
     Args:
         model (str): name of selected model, currently one of 'gaussian' or 'logistic'
-        margin1 (univar.BaseDistribution, optional): Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto tail is used.
-        margin2 (univar.BaseDistribution, optional): Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto tail is used.
-        quantile_threshold (float): Quantile threshold to use for the deffinition of exceedances
+        margin1 (univar.BaseDistribution, optional): Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+        margin2 (univar.BaseDistribution, optional): Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+        quantile_threshold (float): Quantile threshold to use for the definition of exceedances
     
     Returns:
         ExceedanceModel

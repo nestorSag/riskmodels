@@ -1,5 +1,5 @@
 """
-This module contains univariate models for risk analysis, namely, empirical (discrete) distributions and semiparametric distributions with Generalised Pareto tail models. Both MLE-based and Bayesian estimation are supported for the GP models; useful diagnostic plots are available for fitted models, and exceedance conditional distributions of the type X | X > u are implemented through the >= and > operators for all model classes, as well as scalar addition and rescaling, Finally, Binned distributions with integer support can be convolved to get the distribution of a sum of independent integer random variables. This is useful for risk models in energy procurement.
+This module contains univariate models for risk analysis, namely, empirical (discrete) distributions and semiparametric distributions with Generalised Pareto tail models. Both MLE-based and Bayesian estimation are supported for the GP models; useful diagnostic plots are available for fitted models, and exceedance conditional distributions of the type X | X > u for a fitted model X are implemented through the >= and > operators for all model classes, as well as scalar addition and (positive) rescaling, Finally, Binned distributions with integer support are available and can be convolved to get the distribution of a sum of independent integer random variables. This is useful for risk models in energy procurement.
 """
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ class BaseDistribution(BaseModel):
 
   @abstractmethod
   def ppf(self, q: float) -> float:
-    """Calculates quantile for a given probability value
+    """Calculates the corresponding quantile for a given probability value
     
     Args:
         q (float): probability level
@@ -318,8 +318,12 @@ class Mixture(BaseDistribution):
 
 
 class GPTail(BaseDistribution):
-  """Representation of a fitted Generalized Pareto distribution as a tail model
+  """Representation of a fitted Generalized Pareto distribution as an exceedance model. It's density is given by
+
+  $$ \\frac{1}{\\sigma} \\left( 1 + \\xi \\left( \\frac{x - \\mu}{\\sigma} \\right) \\right)^{-(1 + 1/\\xi)} $$
   
+  where \\( \\mu, \\sigma, \\xi \\) are the location, scale and shape parameters. The location parameter is also the lower endpoint (or threshold) of the distribution.
+
   Args:
       threshold (float): modeling threshold
       shape (float): fitted shape parameter
@@ -1004,7 +1008,7 @@ class GPTailMixture(BaseDistribution):
 
 class Empirical(BaseDistribution):
 
-  """Model for an empirical (empirical) probability distribution, induced by a sample of data.
+  """Model for an empirical probability distribution, induced by a sample of data.
 
   Args:
       support (np.ndarray): distribution support
@@ -1449,11 +1453,12 @@ class Binned(Empirical):
     
     full_pdf = np.zeros((len(full_support,)), dtype=np.float64)
     indices = base_support - min(base_support)
-    try:
-      full_pdf[indices] = empirical_dist.pdf_values
-    except Exception as e:
-      print(f"base support: {base_support}")
-      print(f"full support: {full_support}")
+    full_pdf[indices] = empirical_dist.pdf_values
+    # try:
+    #   full_pdf[indices] = empirical_dist.pdf_values
+    # except Exception as e:
+    #   print(f"base support: {base_support}")
+    #   print(f"full support: {full_support}")
 
     data = None if empirical_dist.data is None else empirical_dist.data.astype(Binned._supported_types[0])
 
@@ -1559,7 +1564,7 @@ class EmpiricalWithGPTail(Mixture):
 
 class BayesianGPTail(GPTailMixture):
 
-  """Generalised Pareto tail model which is fitted through Bayesian inference.
+  """Generalised Pareto tail model which is fitted through Bayesian inference, using uninformative (uniform) priors for the shape and scale parameters
 
   Args:
       threshold (float): modeling threshold

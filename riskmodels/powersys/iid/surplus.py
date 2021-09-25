@@ -1,4 +1,6 @@
-"""This module implements methods to calculate some popular risk metrics in energy procurement for the case of an interconnected 2-area system, in particular loss of load expectation (LOLE) and expected energy unserved (EEU). As these methods assume a time-collapsed model in which serial correlation does not exist, only expected value based metrics like the above can be validly calculated. Exact calculations for empirical demand and renewable models and Monte Carlo estimation for arbitrary net demand models are available.
+"""This module implements models to calculate risk metrics relevant to energy procurement for the case of an interconnected 2-area system, specifically loss of load expectation (LOLE) and expected energy unserved (EEU). As these models assume a time-collapsed setting in which serial dependence does not exist, only metrics based on expected values like the above can be validly calculated. Exact calculations for empirical demand and renewable models are available for both veto and share policies (see below), and Monte Carlo estimation for arbitrary net demand models are available for a veto policy only.
+
+In a share policy, power flow through the interconnection is driven by market prices, even in the event of a shortfall; this can create situations in which shortfalls spread to other areas by excessive imports or exports. In a veto policy on the other hand, only spare available generation can flow through the interconnector, and areas never divert generation they are already using somewhere else. 
 """
 
 from __future__ import annotations
@@ -138,7 +140,7 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
 
 class BivariateEmpirical(BaseSurplus):
 
-  """Computes statistics for the power surpluses in a 2-area power system with a single interconnector, given the distributions of available conventional generation and data for demand and renewable generation in the two areas; this uses the empirical distributions induced by the data. The interconnector is assumed to never fail.
+  """Computes statistics for the power surpluses in a 2-area power system with a single interconnector, given the distributions of available conventional generation and data for demand and renewable generation in the two areas; this uses the empirical distributions induced by the data. The interconnector is assumed to always work. This class interfaces to C for performance.
   """
   
   def __init__(
@@ -191,7 +193,7 @@ class BivariateEmpirical(BaseSurplus):
     x: np.ndarray,
     itc_cap: int = 1000, 
     policy: str = "veto"):
-    """Computes the power surplus CDF for a given area
+    """Evaluates the bivariate post-interconnection power surplus distribution's cumulative distribution function
     
     Args:
         x (np.ndarray): value at which to evaluate the cdf

@@ -10,7 +10,7 @@ class TruncatedMVN:
 
 
   *******
-  I got this ode from the following repository:
+  This code comes from the following repository:
 
   https://github.com/brunzema/truncated-mvn-sampler
 

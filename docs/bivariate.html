@@ -1,0 +1,3427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>riskmodels.bivariate API documentation</title>
+<meta name="description" content="This module contains bivariate risk models to analyse exceedance dependence between components. Available exceedance models are inspired in bivariate …" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>riskmodels.bivariate</code></h1>
+</header>
+<section id="section-intro">
+<p>This module contains bivariate risk models to analyse exceedance dependence between components. Available exceedance models are inspired in bivariate generalised Pareto models, with support in an inverted L-shaped subset of Euclidean space, where at least one component takes an extreme value above a specified threshold. Available parametric models include the logistic model, equivalent to a Gumbel-Hougaard copula, and a gaussian model, equivalent to a Gaussian copula. The former exhibits asymptotic dependence and the latter asymtptotic independence, which characterises the dependence of extremes across components.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;This module contains bivariate risk models to analyse exceedance dependence between components. Available exceedance models are inspired in bivariate generalised Pareto models, with support in an inverted L-shaped subset of Euclidean space, where at least one component takes an extreme value above a specified threshold. Available parametric models include the logistic model, equivalent to a Gumbel-Hougaard copula, and a gaussian model, equivalent to a Gaussian copula. The former exhibits asymptotic dependence and the latter asymtptotic independence, which characterises the dependence of extremes across components.
+&#34;&#34;&#34;
+
+from __future__ import annotations
+
+import logging
+import time
+import typing as t
+import traceback
+import warnings
+from argparse import Namespace
+from abc import ABC, abstractmethod
+from multiprocessing import Pool
+from collections.abc import Iterable
+import copy
+
+import pandas as pd
+import scipy as sp
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
+from matplotlib import cm
+
+import numpy as np
+import emcee
+
+from scipy.stats import genpareto as gpdist, gumbel_r as gumbel, norm as gaussian, multivariate_normal as mv_gaussian
+from scipy.optimize import LinearConstraint, minimize, root_scalar
+from scipy.stats import gaussian_kde as kde
+from scipy.signal import fftconvolve
+from scipy.special import lambertw
+
+
+from pydantic import BaseModel, ValidationError, validator, PositiveFloat
+from functools import reduce
+
+import riskmodels.univariate as univar
+
+from riskmodels.utils.tmvn import TruncatedMVN as tmvn
+
+import emcee
+
+class BaseDistribution(BaseModel, ABC):
+
+  &#34;&#34;&#34;Base interface for bivariate distributions
+  &#34;&#34;&#34;
+  
+  _allowed_scalar_types = (int, float, np.int64, np.int32, np.float32, np.float64)
+  _figure_color_palette = [&#34;tab:cyan&#34;, &#34;deeppink&#34;]
+  _error_tol = 1e-6
+
+  data: t.Optional[np.ndarray]
+
+  class Config:
+    arbitrary_types_allowed = True
+
+  @abstractmethod
+  def pdf(self, x: np.ndarray) -&gt; float:
+    &#34;&#34;&#34;Evaluate probability density function
+    
+    &#34;&#34;&#34;
+    pass
+
+  @abstractmethod
+  def cdf(self, x: np.ndarray):
+    &#34;&#34;&#34;Evaluate cumulative distribution function
+    
+    &#34;&#34;&#34;
+    pass
+
+  @abstractmethod
+  def simulate(self, size: int):
+    &#34;&#34;&#34;Simulate from bivariate distribution
+    
+    &#34;&#34;&#34;
+    pass
+
+  def plot(self, size: int = 1000):
+    &#34;&#34;&#34;Sample distribution and produce scatterplots and histograms
+    
+    Args:
+        size (int, optional): Sample size
+    &#34;&#34;&#34;
+    sample = self.simulate(size)
+
+    x = sample[:,0]
+    y = sample[:,1]
+
+    # definitions for the axes
+    left, width = 0.1, 0.65
+    bottom, height = 0.1, 0.65
+    spacing = 0.005
+
+
+    rect_scatter = [left, bottom, width, height]
+    rect_histx = [left, bottom + height + spacing, width, 0.2]
+    rect_histy = [left + width + spacing, bottom, 0.2, height]
+
+    # start with a rectangular Figure
+    plt.figure(figsize=(8, 8))
+
+    ax_scatter = plt.axes(rect_scatter)
+    ax_scatter.tick_params(direction=&#39;in&#39;, top=True, right=True)
+    ax_histx = plt.axes(rect_histx)
+    ax_histx.tick_params(direction=&#39;in&#39;, labelbottom=False)
+    ax_histy = plt.axes(rect_histy)
+    ax_histy.tick_params(direction=&#39;in&#39;, labelleft=False)
+
+    # the scatter plot:
+    ax_scatter.scatter(x, y, color = self._figure_color_palette[0], alpha=0.35)
+
+    # now determine nice limits by hand:
+    # binwidth = 0.25
+    # lim = np.ceil(np.abs([x, y]).max() / binwidth) * binwidth
+    # ax_scatter.set_xlim((-lim, lim))
+    # ax_scatter.set_ylim((-lim, lim))
+
+    #bins = np.arange(-lim, lim + binwidth, binwidth)
+    ax_histx.hist(x, bins=25, color = self._figure_color_palette[0], edgecolor=&#39;white&#39;)
+    #plt.title(f&#34;Scatter plot from {np.round(size/1000,1)}K simulated samples&#34;)
+    ax_histy.hist(y, bins=25, orientation=&#39;horizontal&#39;, color = self._figure_color_palette[0], edgecolor=&#39;white&#39;)
+
+    #ax_histx.set_xlim(ax_scatter.get_xlim())
+    #ax_histy.set_ylim(ax_scatter.get_ylim())
+    plt.tight_layout()
+    plt.show()
+
+
+
+class Mixture(BaseDistribution):
+
+  &#34;&#34;&#34;Base interface for a bivariate mixture distribution
+  &#34;&#34;&#34;
+  
+  distributions: t.List[BaseDistribution]
+  weights: np.ndarray
+
+  def simulate(self, size: int) -&gt; np.ndarray:
+    
+    n_samples = np.random.multinomial(n=size, pvals = self.weights, size=1)[0]
+    indices = (n_samples &gt; 0).nonzero()[0]
+    samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
+    return np.concatenate(samples, axis=0)
+
+  def cdf(self, x:np.ndarray, **kwargs) -&gt; float:
+    vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
+
+  def pdf(self, x:np.ndarray, **kwargs) -&gt; float:
+    
+    vals = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
+
+
+class ExceedanceModel(Mixture):
+
+  &#34;&#34;&#34;Interface for exceedance models
+  &#34;&#34;&#34;
+  
+  def plot_diagnostics(self):
+
+    self.distributions[1].plot_diagnostics()
+
+  @property
+  def tail(self):
+    return self.distributions[1]
+
+  @property
+  def empirical(self):
+    return self.distributions[0]
+  
+
+
+
+class Independent(BaseDistribution):
+
+  &#34;&#34;&#34;Bivariate distribution with independent components
+  &#34;&#34;&#34;
+  
+  x: univar.BaseDistribution
+  y: univar.BaseDistribution
+
+  def pdf(self, x: np.ndarray):
+    x1, x2 = x
+    return self.x.pdf(x1)*self.y.pdf(x2)
+
+  def cdf(self, x: np.ndarray):
+    x1, x2 = x
+    return self.x.cdf(x1)*self.y.cdf(x2)
+
+  def simulate(self, size: int):
+    return np.concatenate([self.x.simulate(size).reshape((-1,1)), self.y.simulate(size).reshape((-1,1))], axis=1)
+
+
+
+
+class ExceedanceDistribution(BaseDistribution):
+
+  &#34;&#34;&#34;Main interface for exceedance distributions, which are defined on a region of the form \\( $U \\nleq u$ \\), or equivalently \\( \\max\\{U_1,U_2\\} &gt; u \\). 
+  &#34;&#34;&#34;
+  quantile_threshold: float
+
+  @classmethod
+  @abstractmethod
+  def fit(cls, data: np.ndarray, threshold: float):
+    &#34;&#34;&#34;Fit the model through maximum likelihood estimation
+    
+    Args:
+        data (np.ndarray): Observed data
+        threshold (float): Exceedance threshold
+    &#34;&#34;&#34;
+    pass
+
+  @abstractmethod
+  def plot_diagnostics(self):
+    &#34;&#34;&#34;Plot diagnostics for the fitted model.
+    &#34;&#34;&#34;
+    pass
+
+  @classmethod
+  def unbundle(cls, data: t.Union[np.ndarray,t.Iterable]) -&gt; t.Tuple[t.Union[np.ndarray, float], t.Union[np.ndarray, float]]:
+    &#34;&#34;&#34;Unbundles matrix or iterables into separate components
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable]): dara
+    
+    &#34;&#34;&#34;
+    if isinstance(data, np.ndarray) and len(data.shape) == 2 and data.shape[1] == 2:
+      x = data[:,0]
+      y = data[:,1]
+    elif isinstance(data, Iterable):
+      # if iterable, unroll
+      x, y = data
+    else:
+      raise TypeError(&#34;data must be an n x 2 numpy array or an iterable of length 2.&#34;)
+    return x, y
+
+  @classmethod
+  def bundle(cls, x: t.Union[np.ndarray, float, int], y: t.Union[np.ndarray,float, int]) -&gt; t.Tuple[t.Union[np.ndarray, float], t.Union[np.ndarray, float]]:
+    &#34;&#34;&#34;bundle a pair of arrays or primitives into n x 2 matrix
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable])
+    
+    &#34;&#34;&#34;
+    if isinstance(x, np.ndarray) and isinstance(y, np.ndarray) and len(x) == len(y):
+      z = np.concatenate([x.reshape((-1,1)), y.reshape((-1,1))], axis=1)
+    elif issubclass(type(x), (float, int)) and issubclass(type(y), (float, int)):
+      z = np.array([x,y]).reshape((1,2))
+    else:
+      raise TypeError(&#34;x, y must be 1-dimensional arrays or inherit from float or int.&#34;)
+    return z
+
+
+class Logistic(ExceedanceDistribution):
+
+  &#34;&#34;&#34;This model is equivalent to a Gumbel-Hougaard copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} &gt; u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought as a pre-limit bivariate Generalised Pareto with logistic dependence in the context of extreme value theory. Consequently, under this model there is asymptotic dependence between components, this is, extreme values across components are strongly associated. Use it if there is strong evidence of asymptotic dependence in the data. 
+
+  In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by
+
+  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}$$
+
+  where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\)
+  &#34;&#34;&#34;
+  
+  alpha: float
+  margin1: univar.BaseDistribution
+  margin2: univar.BaseDistribution
+
+  _model_marginal_dist = gumbel
+  _marginal_model_name = &#34;Gumbel&#34;
+
+  @property
+  def model_scale_threshold(self):
+    return self._model_marginal_dist.ppf(self.quantile_threshold)
+
+  @property
+  def data_scale_threshold(self):
+    return self.model_to_data_dist(self.bundle(self.model_scale_threshold, self.model_scale_threshold))
+
+  @validator(&#34;alpha&#34;)
+  def validate_alpha(cls, alpha):
+    if alpha &lt; 0 or alpha &gt; 1:
+      raise TypeError(&#34;alpha must be in the open interval (0,1) &#34;)
+    else:
+      return alpha
+
+  @validator(&#34;data&#34;)
+  def validate_data(cls, data):
+    if data is None or len(data.shape) != 2 or data.shape[1] != 2:
+      raise ValueError(&#34;Data needs to be an n x 2 matrix array&#34;)
+    else:
+      return data
+
+  def data_to_model_dist(self, data: t.Union[np.ndarray,t.Iterable]) -&gt; np.ndarray:
+    &#34;&#34;&#34;Transforms original data scale to standard Gumbel scale
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable]): observations in original scale
+    
+    &#34;&#34;&#34;
+    x, y = self.unbundle(data)
+
+    ## to copula scale
+    x = self.margin1.cdf(x)
+    y = self.margin2.cdf(y)
+
+    # pass to Gumbel scale 
+    x = self._model_marginal_dist.ppf(x)
+    y = self._model_marginal_dist.ppf(y)
+
+    return self.bundle(x,y)
+
+  def model_to_data_dist(self, data: t.Union[np.ndarray,t.Iterable]) -&gt; np.ndarray:
+    &#34;&#34;&#34;Transforms data in standard Gumbel scale to original data scale
+    
+    Args:
+        x (np.ndarray): data from first component
+        y (np.ndarray): data from second component
+    
+    Returns:
+        np.ndarray
+    &#34;&#34;&#34;
+
+    # copula scale
+    x, y = self.unbundle(data)
+
+    u = self._model_marginal_dist.cdf(x)
+    w = self._model_marginal_dist.cdf(y)
+
+    # data scale
+    u = self.margin1.ppf(u)
+    w = self.margin2.ppf(w)
+
+    return self.bundle(u,w)
+
+  @classmethod
+  def logpdf(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates logpdf function for Gumbel exceedances
+    
+    
+    Args:
+        alpha (float): Dependence parameter
+        threshold (float): Exceedance threshold in Gumbel scale
+        data (t.Union[np.ndarray, t.Iterable]): Observed data in Gumbel scale
+
+    &#34;&#34;&#34;
+    x, y = cls.unbundle(data)
+
+    nlogp = (np.exp(-x/alpha) + np.exp(-y/alpha))**alpha
+    lognlogp = alpha*np.log(np.exp(-x/alpha) + np.exp(-y/alpha))
+    rescaler = 1 - cls.logistic_gumbel_cdf(alpha, cls.bundle(threshold,threshold))
+
+    #a = np.exp((x + y - nlogp*alpha)/alpha)
+    log_a = (x + y)/alpha - nlogp
+
+    #b = nlogp
+    log_b = lognlogp
+
+    #c = 1 + alpha*(nlogp - 1)
+    log_c = np.log(1 + alpha*(nlogp - 1))
+
+    #d = 1.0/(alpha*(np.exp(x/alpha) + np.exp(y/alpha))**2)
+    log_d = -(np.log(alpha) + 2*np.log(np.exp(x/alpha) + np.exp(y/alpha)))
+
+    log_density = log_a + log_b + log_c + log_d - np.log(rescaler)
+
+    # density is 0 when both coordinates are below the threshold
+    nil_density_idx = np.logical_and(x &lt;= threshold, y &lt;= threshold)
+    log_density[nil_density_idx] = -np.Inf
+
+    return log_density
+
+  @classmethod
+  def loglik(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates log-likelihood for Gumbel exceedances
+    
+    &#34;&#34;&#34;
+    return np.sum(cls.logpdf(alpha, threshold, data))
+
+  @classmethod
+  def logistic_gumbel_cdf(cls, alpha: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates unconstrained standard Gumbel CDF
+
+    &#34;&#34;&#34;
+    x, y = cls.unbundle(data)
+    return np.exp(-(np.exp(-x/alpha) + np.exp(-y/alpha))**(alpha))
+
+  @classmethod
+  def fit(
+    cls, 
+    data: t.Union[np.ndarray,t.Iterable], 
+    quantile_threshold: float,
+    margin1: univar.BaseDistribution = None,
+    margin2: univar.BaseDistribution = None,
+    return_opt_results = False,
+    x0: float = None) -&gt; Logistic:
+    &#34;&#34;&#34;Fits the model from provided data, threshold and marginal distributons
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable])
+        quantile_threshold (float): Description
+        margin1 (univar.BaseDistribution, optional)
+        margin2 (univar.BaseDistribution, optional)
+        return_opt_results (bool, optional): If True, the object from the optimization result is returned
+        x0 (float, optional): Initial point for the optimisation algorithm. Defaults to 0.5
+    
+    Returns:
+        Logistic: Fitted model
+    
+    
+    Raises:
+        ValueError: Description
+    
+    
+    &#34;&#34;&#34;
+    if margin1 is None:
+      margin1 = univar.empirical.from_data(data[:,0])
+      warnings.warn(&#34;margin1 is None; using an empirical distribution&#34;, stacklevel=2)
+
+    if margin2 is None:
+      margin1 = univar.empirical.from_data(data[:,1])
+      warnings.warn(&#34;margin1 is None; using an empirical distribution&#34;, stacklevel=2)
+
+    if not isinstance(quantile_threshold, float) or quantile_threshold &lt;= 0 or quantile_threshold &gt;= 1:
+      raise ValueError(&#34;quantile_threshold must be in the open interval (0,1)&#34;)
+
+    mapped_data = cls(
+      alpha=0.5, 
+      margin1=margin1, 
+      margin2=margin2, 
+      quantile_threshold=quantile_threshold).data_to_model_dist(data)
+
+    x,y = cls.unbundle(mapped_data)
+
+    # get threshold exceedances
+    model_scale_threshold = cls._model_marginal_dist.ppf(quantile_threshold)
+
+    exs_idx = np.logical_or(x &gt; model_scale_threshold, y &gt; model_scale_threshold)
+    x = x[exs_idx]
+    y = y[exs_idx]
+
+    mapped_exceedances = cls.bundle(x,y)
+
+
+    def logistic(x):
+      return 1.0/(1 + np.exp(-x))
+
+    x0 = 0.5 if x0 is None else x0
+
+    def loss(phi, data):
+      alpha = logistic(phi)
+      return -np.mean(cls.loglik(alpha, model_scale_threshold, data))
+
+    res = minimize(
+      fun=loss, 
+      x0 = x0,
+      method = &#34;BFGS&#34;,
+      args = (mapped_exceedances,))
+
+    if return_opt_results:
+      warn.warnings(&#34;Returning raw results for rescaled exceedance data (sdev ~ 1).&#34;)
+      return res
+    else:
+      phi = res.x[0]
+      alpha = logistic(phi)
+
+    return cls(
+      quantile_threshold = quantile_threshold,
+      alpha = alpha,
+      data = data[exs_idx,:],
+      margin1 = margin1,
+      margin2 = margin2)
+
+  @classmethod
+  def hessian(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates loglikelihood&#39;s second deriviative (i.e., negative estimator&#39;s precision)
+    
+    Args:
+        alpha (float): dependence parameter
+        threshold (float): Threshold in standard scale (i.e. Gumbel or Gaussian)
+        data (t.Union[np.ndarray, t.Iterable]): Data in standard scale (i.e. Gumbel or Gaussian)
+    
+    Returns:
+        TYPE: Description
+    
+    &#34;&#34;&#34;
+    delta = 1e-3
+    n = len(data)
+    return (cls.loglik(alpha - delta, threshold, data) -2*cls.loglik(alpha, threshold, data) + cls.loglik(alpha + delta, threshold, data))/(n*delta**2)
+
+  def plot_diagnostics(self):
+    &#34;&#34;&#34;Produce diagnostic plots for fitted model
+
+    &#34;&#34;&#34;
+
+    x, y = self.unbundle(self.data)
+    z1,z2= self.unbundle(self.data_to_model_dist(self.data))
+    n = len(z1)
+
+    fig, axs = plt.subplots(2, 2)
+
+    ####### loglikelihood plot
+
+    model_scale_threshold = self.model_scale_threshold
+    sdev = np.sqrt(-1.0/self.hessian(self.alpha, model_scale_threshold, self.bundle(z1, z2)))
+    grid = np.linspace(self.alpha - sdev, self.alpha + sdev, 100)
+    grid = grid[np.logical_and(grid &gt; 0, grid &lt; 1)]
+    ll = np.array([self.loglik(alpha, model_scale_threshold, self.bundle(z1,z2)) for alpha in grid])
+
+    # filter to almost optimal values
+    max_ll = max(ll)
+    almost_optimal = np.abs(ll - max_ll) &lt; np.abs(2*max_ll)
+    ll = ll[almost_optimal]
+    grid = grid[almost_optimal]
+
+    axs[0,0].plot(grid, ll, color=self._figure_color_palette[0])
+    axs[0,0].vlines(x=self.alpha, ymin=min(ll), ymax = max(ll), linestyle=&#34;dashed&#34;, colors = self._figure_color_palette[1])
+    axs[0,0].title.set_text(&#39;Log-likelihood&#39;)
+    axs[0,0].set_xlabel(&#39;Alpha&#39;)
+    axs[0,0].set_ylabel(&#39;log-likelihood&#39;)
+
+    #print(&#34;loglikelihood plot finished&#34;)
+
+    ####### density plot
+    z1_range = max(z1) - min(z1)
+    z2_range = max(z2) - min(z2)
+
+    x_range = np.linspace(min(z1) - 0.05*z1_range, max(z1) + 0.05*z1_range, 50)
+    y_range = np.linspace(min(z1) - 0.05*z2_range, max(z1) + 0.05*z2_range, 50)
+
+    X, Y = np.meshgrid(x_range, y_range)
+    bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
+    Z = self.logpdf(data=bundled_grid, threshold=model_scale_threshold, alpha=self.alpha).reshape(X.shape)
+    axs[0,1].contourf(X,Y,Z)
+    axs[0,1].scatter(z1,z2, color=self._figure_color_palette[1], s=0.9)
+    axs[0,1].title.set_text(f&#39;Model density ({self._marginal_model_name} scale)&#39;)
+    axs[0,1].set_xlabel(&#39;x&#39;)
+    axs[0,1].set_ylabel(&#39;y&#39;)
+
+    ##### Q-Q plot
+    cdf_values = self.cdf(self.data)
+    model_logodds = np.log(cdf_values/(1-cdf_values))
+    ecdf_values = Empirical.from_data(self.data).cdf(self.data)
+    empirical_logodds = np.log(ecdf_values/(1-ecdf_values))
+
+    axs[1,0].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
+
+    axs[1,0].title.set_text(&#39;Model vs data log-odds&#39;)
+    axs[1,0].set_ylabel(&#39;Data log-odds&#39;)
+    axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
+    axs[1,0].set_xlim(-5,5)
+    min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
+    axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
+
+    plt.tight_layout()
+    plt.show()
+
+    # #print(&#34;density plot finished&#34;)
+    # ####### Pickands function
+    # x_grid = np.linspace(0,1,50)
+    # logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
+    # ## get data for empirical pickands function
+    # # see Statistics of Extremes by Berlaint, page 315
+    # th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
+    # exceedance_data = self.data[np.logical_and(x &gt; th_margin1, y &gt; th_margin2)]
+    # exs1, exs2 = self.unbundle(exceedance_data)
+
+    # tail = self.margin1 &gt; th_margin1
+    # xi = -np.log(tail.cdf(exs1))
+    # #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
+    # tail = self.margin2 &gt; th_margin2
+    # eta = -np.log(tail.cdf(exs2))
+    # #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
+
+    # finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
+    # xi = xi[finite_idx]
+    # eta = eta[finite_idx]
+
+    # def nonparametric_pickands(t):
+    #   return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
+    # empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
+
+    # axs[1,1].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
+    # axs[1,1].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
+    # axs[1,1].plot(x_grid, np.ones((len(x_grid),)), linestyle=&#34;--&#34;, color=&#34;black&#34;)
+    # axs[1,1].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle=&#34;--&#34;, color=&#34;black&#34;)
+    # axs[1,1].title.set_text(&#34;model vs empirical Pickands function&#34;)
+    # axs[1,1].set_xlabel(&#34;t&#34;)
+    # axs[1,1].set_ylabel(&#34;&#34;)
+
+  def simulate(self, size: int):
+    alpha = self.alpha
+    exs_prob = 1 - self.quantile_threshold
+    ### simulate in Gumbel scale maximum component: z = max(x1, x2) ~ Gumbel(loc=alpha*np.log(2)) using inverse function method
+    q0 = gumbel.cdf(self.model_scale_threshold, loc=alpha*np.log(2)) # quantile of model&#39;s threshold in the maximum&#39;s distribution
+    u = np.random.uniform(size=size, low=q0)
+    maxima = gumbel.ppf(q=u, loc=alpha*np.log(2))
+
+    ###simulate difference between maxima and minima r = max(x,y) - min(x,y) using inverse function method
+    u = np.random.uniform(size=size)
+    r = (alpha*np.log((-((alpha - 1)*np.exp(maxima)*lambertw(-(np.exp(-maxima - (2**alpha*np.exp(-maxima)*alpha)/(alpha - 1))*(-2**(alpha - 1)*(u - 1))**(alpha/(alpha - 1))*alpha)/(alpha - 1)))/alpha)**(1/alpha) - 1)).real
+
+    minima = maxima - r
+
+    #allocate maxima randomly between components
+    max_indices= np.random.binomial(1,0.5,size)
+
+    x = np.concatenate([
+      maxima[max_indices==0].reshape((-1,1)),
+      minima[max_indices==1].reshape((-1,1))],
+      axis = 0)
+
+    y = np.concatenate([
+      minima[max_indices==0].reshape((-1,1)),
+      maxima[max_indices==1].reshape((-1,1))],
+      axis = 0)
+
+    return self.model_to_data_dist(self.bundle(x,y))
+
+  def cdf(self, data: np.ndarray):
+    mapped_data = self.data_to_model_dist(data)
+    gumbel_threshold = self.model_scale_threshold
+    u = np.minimum(mapped_data, gumbel_threshold)
+    norm_factor = float(1 - self.logistic_gumbel_cdf(self.alpha, self.bundle(gumbel_threshold, gumbel_threshold)))
+
+    return (self.logistic_gumbel_cdf(self.alpha, mapped_data) - self.logistic_gumbel_cdf(self.alpha,u))/norm_factor
+     
+
+  def dx_dz(self, z: t.Union[float, np.ndarray], component: int):
+    &#34;&#34;&#34;Calculate analytically or otherwise, the derivative of the standardised marginal distributions with respect to original data scale. This is necessary to calculate pdf values in the original data scale
+    
+    Args:
+        z (t.Union[float, np.ndarray]): values in original scale
+        component (int): component index(0 or 1)
+    
+    &#34;&#34;&#34;
+    margin = self.margin1 if component == 0 else self.margin2
+    if isinstance(margin, univar.EmpiricalWithGPTail):
+      mu, sigma, xi = margin.tail.threshold, margin.tail.scale, margin.tail.shape
+      p = self.quantile_threshold
+      dx = -((1 - p)*((xi*(z - mu))/sigma + 1)**(-1/xi - 1))/(sigma*((1 - p)*(1 - ((xi*(z - mu))/sigma + 1)**(-1/xi)) + p)*np.log((1 - p)*(1 - ((xi*(z - mu))/sigma + 1)**(-1/xi)) + p))
+    else:
+      # estimate by finite differences
+      eps = 1e-3
+      dx = (margin.pdf(z+eps) - margin.pdf(z-eps))/(2*eps)
+    return dx
+
+  def pdf(self, data: t.Union[np.ndarray,t.Iterable]):
+    z1, z2 = self.unbundle(data)
+    model_scale_data = self.data_to_model_dist(data)
+    return np.exp(self.logpdf(self.alpha, self.quantile_threshold, model_scale_data))*self.dx_dz(z1,0)*self.dx_dz(z2,1)
+
+
+
+
+
+
+# This class inherits from Logistic for coding convenience, but they are not theoretically related
+
+class Gaussian(Logistic):
+
+  &#34;&#34;&#34;This model is equivalent to a Gaussian copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} &gt; u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought of as a pre-limit bivariate Generalised Pareto with Gaussian dependence, which is degenerate in the limit. Consequently, under this model there is asymptotic independence between components, this is, extreme values across components are weakly dependent, and occur more or less independently of each other. Use it if there is weak evidence for asymptotic dependence in the data.
+
+  In Gaussian scale (i.e. when both marginal distributions are gaussian), its density function is given by a bivariate normal distribution restricted to the region described above, where \\( u \\) would be the quantile corresponding to a probability value \\( p \\) such that exceedances of probability less than \\(1 - p\\) are considered extreme.
+
+  &#34;&#34;&#34;
+  
+  alpha: float
+  margin1: univar.BaseDistribution
+  margin2: univar.BaseDistribution
+
+  _model_marginal_dist = gaussian
+  _marginal_model_name = &#34;Gaussian&#34;
+
+  @property
+  def cov(self):
+    return np.array([[1,self.alpha],[self.alpha,1]])
+  
+  @classmethod
+  def logistic_gumbel_cdf(cls, alpha: float, data: np.ndarray):
+    &#34;&#34;&#34;Calculates unconstrained standard Gaussian CDF
+
+    &#34;&#34;&#34;
+    return mv_gaussian.cdf(data, cov = np.array([[1,alpha],[alpha,1]]))
+
+  @classmethod
+  def logpdf(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates logpdf for Gaussian exceedances
+    
+    &#34;&#34;&#34;
+    x, y = cls.unbundle(data)
+    norm_factor = 1 - mv_gaussian.cdf(cls.bundle(threshold,threshold), cov = np.array([[1,alpha],[alpha,1]]))
+    density = mv_gaussian.logpdf(data, cov = np.array([[1,alpha],[alpha,1]])) - np.log(norm_factor)
+
+    # density is 0 when both coordinates are below the threshold
+    nil_density_idx = np.logical_and(x &lt;= threshold, y&lt;= threshold)
+    density[nil_density_idx] = -np.Inf
+
+    return density
+
+  def simulate(self, size: int):
+    &#34;&#34;&#34;Simulate exceedances
+    
+    Args:
+        size (int): Description
+    
+    Returns:
+        TYPE: Description
+    &#34;&#34;&#34;
+
+    # exceedance subregions:
+    # r1 =&gt; exceedance in second component only, r2 =&gt; exceedance in both components, r3 =&gt; exceedance in first component only
+    threshold = self.model_scale_threshold
+    th = self.bundle(threshold,threshold)
+    p1 = self.quantile_threshold - mv_gaussian.cdf(th, cov = self.cov)
+    p2 = 1 - 2*self.quantile_threshold + mv_gaussian.cdf(th, cov = self.cov)
+    p3 = 1 - mv_gaussian.cdf(th, cov = self.cov) - (p1+p2)
+
+    p = np.array([p1,p2,p3])
+    p = p/np.sum(p)
+
+    # compute number of samples per subregion
+    n1, n2, n3 = np.random.multinomial(n=size, pvals = p, size=1)[0].astype(np.int32)
+    n1, n2, n3 = int(n1), int(n2), int(n3)
+
+    r1_samples = tmvn(
+      mu=np.zeros((2,)), 
+      cov = self.cov, 
+      lb = np.array([-np.Inf, threshold]),
+      ub = np.array([threshold, np.Inf])).sample(n1).T
+
+    r2_samples = tmvn(
+      mu=np.zeros((2,)), 
+      cov = self.cov, 
+      lb = np.array([threshold, threshold]),
+      ub = np.array([np.Inf, np.Inf])).sample(n2).T
+
+    r3_samples = tmvn(
+      mu=np.zeros((2,)), 
+      cov = self.cov, 
+      lb = np.array([threshold, -np.Inf]),
+      ub = np.array([np.Inf, threshold])).sample(n3).T
+
+    samples = np.concatenate([r1_samples, r2_samples, r3_samples], axis = 0)
+
+    return self.model_to_data_dist(samples)
+
+  def dx_dz(z: t.Union[float, np.ndarray], component: int):
+    &#34;&#34;&#34;Calculate analytically or otherwise, the derivative of the standard Gumbel transform with respect to original data scale. This is necessary to calculate pdf values in the original data scale
+    
+    Args:
+        z (t.Union[float, np.ndarray]): values in original scale
+        component (int): component index(0 or 1)
+    
+    &#34;&#34;&#34;
+    margin = self.margin1 if component ==0 else margin2
+    eps = 1e-3
+    dx = (margin.pdf(z+eps) - margin.pdf(z-eps))/(2*eps)
+    return dx
+
+
+
+
+
+
+
+
+class Empirical(BaseDistribution):
+
+  &#34;&#34;&#34;Bivariate empirical distribution induced by a sample of observed data
+  
+  &#34;&#34;&#34;
+  
+  data: np.ndarray
+  pdf_values: np.ndarray
+
+  _exceedance_models = {
+    &#34;logistic&#34;: Logistic,
+    &#34;gaussian&#34;: Gaussian
+  }
+
+  @validator(&#34;pdf_values&#34;, allow_reuse=True)
+  def check_pdf_values(cls, pdf_values):
+    if np.any(pdf_values &lt; -cls._error_tol):
+      raise ValueError(&#34;There are negative pdf values&#34;)
+    if not np.isclose(np.sum(pdf_values), 1, atol=cls._error_tol):
+      print(f&#34;sum: {np.sum(pdf_values)}, pdf vals: {pdf_values}&#34;)
+      raise ValueError(&#34;pdf values don&#39;t sum 1&#34;)
+    # pdf_values = np.clip(pdf_values, a_min = 0.0, a_max = 1.0)
+    # # normalise
+    # pdf_values = pdf_values/np.sum(pdf_values)
+
+    return pdf_values
+
+
+  @classmethod
+  def from_data(cls, data: np.ndarray):
+    &#34;&#34;&#34;Instantiate an empirical distribution from an n x 2 data matrix
+    
+    Args:
+        data (np.ndarray): observed data
+    
+    
+    &#34;&#34;&#34;
+    if not isinstance(data, np.ndarray) or len(data.shape) != 2 or data.shape[1] != 2:
+      raise ValueError(&#34;data must be an n x 2 numpy array&#34;)
+
+    n = len(data)
+    return Empirical(data=data, pdf_values = 1.0/n * np.ones((n,), dtype=np.float64))
+
+  def pdf(self, x: np.ndarray):
+
+    return np.mean(self.data == x.reshape((1,2)))
+
+  def cdf(self, x: np.ndarray):
+    if  len(x.shape) &gt; 1:
+      return np.array([self.cdf(elem) for elem in x])
+
+    u = self.data &lt;= x.reshape((1,2)) # componentwise comparison
+    v = u.dot(np.ones((2,1))) &gt;= 2 #equals 1 if and only if both components are below x
+    return np.mean(v)
+
+  def simulate(self, size: int):
+    n = len(self.data)
+    idx = np.random.choice(n, size=size)
+    return self.data[idx]
+
+  def get_marginals(self):
+
+    return univar.Empirical.from_data(self.data[:,0]), univar.Empirical.from_data(self.data[:,1])
+
+  def fit_tail_model(
+    self,
+    model: str,
+    quantile_threshold: float,
+    margin1: univar.BaseDistribution = None, 
+    margin2: univar.BaseDistribution = None):
+    &#34;&#34;&#34;Fits a parametric model for threshold exceedances in the data. For a given threshold \\( u \\), exceedances are defined as vectors \\(U\\) such that \\( \\max\\{U_1,U_2\\} &gt; u \\), this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
+    Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extreme occurrences across components, and the latter exhibiting asymptotic independence, in which extremes occur relatively independently across components.
+    
+    Args:
+        model (str): name of selected model, currently one of &#39;gaussian&#39; or &#39;logistic&#39;
+        margin1 (univar.BaseDistribution, optional): Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+        margin2 (univar.BaseDistribution, optional): Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+        quantile_threshold (float): Quantile threshold to use for the definition of exceedances
+    
+    Returns:
+        ExceedanceModel
+    
+    &#34;&#34;&#34;
+    if model not in self._exceedance_models:
+      raise ValueError(f&#34;model must be one of {self._exceedance_models}&#34;)
+
+    if margin1 is None:
+
+      margin1, _ = self.get_marginals()
+      margin1 = margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
+      warnings.warn(f&#34;First marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} =&gt; {margin1.ppf(quantile_threshold)})&#34;, stacklevel=2)
+
+    if margin2 is None:
+
+      _, margin2 = self.get_marginals()
+      margin2 = margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
+      warnings.warn(f&#34;Second marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} =&gt; {margin2.ppf(quantile_threshold)})&#34;, stacklevel=2)
+
+    data = self.data
+
+    x = data[:,0]
+    y = data[:,1]
+
+    exceedance_idx = np.logical_or(x &gt; margin1.ppf(quantile_threshold), y &gt; margin2.ppf(quantile_threshold))
+
+    exceedances = data[exceedance_idx]
+
+    exceedance_model = self._exceedance_models[model].fit(
+      data = exceedances, 
+      quantile_threshold = quantile_threshold,
+      margin1 = margin1,
+      margin2 = margin2)
+
+    empirical_model = Empirical.from_data(self.data[np.logical_not(exceedance_idx)])
+
+    p = np.mean(np.logical_not(exceedance_idx))
+
+    return ExceedanceModel(
+      distributions = [empirical_model, exceedance_model],
+      weights = np.array([p, 1-p]))
+
+  # def test_exceedance_dependence(self):
+
+  #   def tegpd_logp(x,eta,sigma):
+  #     #returns the sum of log-liklihoods
+  #     return tt.sum(-tt.log(sigma) - (1.0/eta+1)*tt.log(1+eta/sigma*x))
+
+  #   def get_eta_posterior(obs,n_samples = 2500):
+      
+  #     if isinstance(obs,list):
+  #       obs = numpy.array(obs)
+        
+  #     #Bayesian specification and inference
+  #     eta_model = pm.Model()
+
+  #     with eta_model:
+  #       #uniform eta prior in (0,1)
+  #       eta = pm.Uniform(&#34;eta&#34;,lower=0,upper=1)
+  #       #flat sigma prior in positive line
+  #       sigma = pm.HalfFlat(&#34;sigma&#34;)
+  #       X = pm.DensityDist(&#34;tegpd&#34;,tegpd_logp,observed={&#34;eta&#34;:eta,&#34;sigma&#34;:sigma,&#34;x&#34;:obs})
+  #       trace = pm.sample(n_samples,random_seed = 1)
+  #       #plots = pm.traceplot(trace)
+        
+  #     eta_samples = trace.get_values(&#34;eta&#34;)
+  #     #sigma_samples = trace.get_values(&#34;sigma&#34;)
+      
+  #     #posterior_kde = arviz.plot_kde(eta_samples)
+  #     posterior_AD_prob = sp.stats.gaussian_kde(eta_samples).evaluate(1)
+      
+  #     # get mean kernel density estimator for density at eta = 1
+  #     #eta_posterior = posterior_kde.lines[0].get_ydata()[-1]
+  #     #return 1
+  #     return 1.0/(1+1.0/posterior_AD_prob) if posterior_AD_prob &gt; 0 else 0</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="riskmodels.bivariate.BaseDistribution"><code class="flex name class">
+<span>class <span class="ident">BaseDistribution</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base interface for bivariate distributions</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class BaseDistribution(BaseModel, ABC):
+
+  &#34;&#34;&#34;Base interface for bivariate distributions
+  &#34;&#34;&#34;
+  
+  _allowed_scalar_types = (int, float, np.int64, np.int32, np.float32, np.float64)
+  _figure_color_palette = [&#34;tab:cyan&#34;, &#34;deeppink&#34;]
+  _error_tol = 1e-6
+
+  data: t.Optional[np.ndarray]
+
+  class Config:
+    arbitrary_types_allowed = True
+
+  @abstractmethod
+  def pdf(self, x: np.ndarray) -&gt; float:
+    &#34;&#34;&#34;Evaluate probability density function
+    
+    &#34;&#34;&#34;
+    pass
+
+  @abstractmethod
+  def cdf(self, x: np.ndarray):
+    &#34;&#34;&#34;Evaluate cumulative distribution function
+    
+    &#34;&#34;&#34;
+    pass
+
+  @abstractmethod
+  def simulate(self, size: int):
+    &#34;&#34;&#34;Simulate from bivariate distribution
+    
+    &#34;&#34;&#34;
+    pass
+
+  def plot(self, size: int = 1000):
+    &#34;&#34;&#34;Sample distribution and produce scatterplots and histograms
+    
+    Args:
+        size (int, optional): Sample size
+    &#34;&#34;&#34;
+    sample = self.simulate(size)
+
+    x = sample[:,0]
+    y = sample[:,1]
+
+    # definitions for the axes
+    left, width = 0.1, 0.65
+    bottom, height = 0.1, 0.65
+    spacing = 0.005
+
+
+    rect_scatter = [left, bottom, width, height]
+    rect_histx = [left, bottom + height + spacing, width, 0.2]
+    rect_histy = [left + width + spacing, bottom, 0.2, height]
+
+    # start with a rectangular Figure
+    plt.figure(figsize=(8, 8))
+
+    ax_scatter = plt.axes(rect_scatter)
+    ax_scatter.tick_params(direction=&#39;in&#39;, top=True, right=True)
+    ax_histx = plt.axes(rect_histx)
+    ax_histx.tick_params(direction=&#39;in&#39;, labelbottom=False)
+    ax_histy = plt.axes(rect_histy)
+    ax_histy.tick_params(direction=&#39;in&#39;, labelleft=False)
+
+    # the scatter plot:
+    ax_scatter.scatter(x, y, color = self._figure_color_palette[0], alpha=0.35)
+
+    # now determine nice limits by hand:
+    # binwidth = 0.25
+    # lim = np.ceil(np.abs([x, y]).max() / binwidth) * binwidth
+    # ax_scatter.set_xlim((-lim, lim))
+    # ax_scatter.set_ylim((-lim, lim))
+
+    #bins = np.arange(-lim, lim + binwidth, binwidth)
+    ax_histx.hist(x, bins=25, color = self._figure_color_palette[0], edgecolor=&#39;white&#39;)
+    #plt.title(f&#34;Scatter plot from {np.round(size/1000,1)}K simulated samples&#34;)
+    ax_histy.hist(y, bins=25, orientation=&#39;horizontal&#39;, color = self._figure_color_palette[0], edgecolor=&#39;white&#39;)
+
+    #ax_histx.set_xlim(ax_scatter.get_xlim())
+    #ax_histy.set_ylim(ax_scatter.get_ylim())
+    plt.tight_layout()
+    plt.show()</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.Empirical" href="#riskmodels.bivariate.Empirical">Empirical</a></li>
+<li><a title="riskmodels.bivariate.ExceedanceDistribution" href="#riskmodels.bivariate.ExceedanceDistribution">ExceedanceDistribution</a></li>
+<li><a title="riskmodels.bivariate.Independent" href="#riskmodels.bivariate.Independent">Independent</a></li>
+<li><a title="riskmodels.bivariate.Mixture" href="#riskmodels.bivariate.Mixture">Mixture</a></li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.BaseDistribution.Config"><code class="name">var <span class="ident">Config</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.BaseDistribution.data"><code class="name">var <span class="ident">data</span> : Optional[numpy.ndarray]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.BaseDistribution.cdf"><code class="name flex">
+<span>def <span class="ident">cdf</span></span>(<span>self, x: np.ndarray)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Evaluate cumulative distribution function</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@abstractmethod
+def cdf(self, x: np.ndarray):
+  &#34;&#34;&#34;Evaluate cumulative distribution function
+  
+  &#34;&#34;&#34;
+  pass</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.BaseDistribution.pdf"><code class="name flex">
+<span>def <span class="ident">pdf</span></span>(<span>self, x: np.ndarray) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Evaluate probability density function</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@abstractmethod
+def pdf(self, x: np.ndarray) -&gt; float:
+  &#34;&#34;&#34;Evaluate probability density function
+  
+  &#34;&#34;&#34;
+  pass</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.BaseDistribution.plot"><code class="name flex">
+<span>def <span class="ident">plot</span></span>(<span>self, size: int = 1000)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample distribution and produce scatterplots and histograms</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>size</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Sample size</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(self, size: int = 1000):
+  &#34;&#34;&#34;Sample distribution and produce scatterplots and histograms
+  
+  Args:
+      size (int, optional): Sample size
+  &#34;&#34;&#34;
+  sample = self.simulate(size)
+
+  x = sample[:,0]
+  y = sample[:,1]
+
+  # definitions for the axes
+  left, width = 0.1, 0.65
+  bottom, height = 0.1, 0.65
+  spacing = 0.005
+
+
+  rect_scatter = [left, bottom, width, height]
+  rect_histx = [left, bottom + height + spacing, width, 0.2]
+  rect_histy = [left + width + spacing, bottom, 0.2, height]
+
+  # start with a rectangular Figure
+  plt.figure(figsize=(8, 8))
+
+  ax_scatter = plt.axes(rect_scatter)
+  ax_scatter.tick_params(direction=&#39;in&#39;, top=True, right=True)
+  ax_histx = plt.axes(rect_histx)
+  ax_histx.tick_params(direction=&#39;in&#39;, labelbottom=False)
+  ax_histy = plt.axes(rect_histy)
+  ax_histy.tick_params(direction=&#39;in&#39;, labelleft=False)
+
+  # the scatter plot:
+  ax_scatter.scatter(x, y, color = self._figure_color_palette[0], alpha=0.35)
+
+  # now determine nice limits by hand:
+  # binwidth = 0.25
+  # lim = np.ceil(np.abs([x, y]).max() / binwidth) * binwidth
+  # ax_scatter.set_xlim((-lim, lim))
+  # ax_scatter.set_ylim((-lim, lim))
+
+  #bins = np.arange(-lim, lim + binwidth, binwidth)
+  ax_histx.hist(x, bins=25, color = self._figure_color_palette[0], edgecolor=&#39;white&#39;)
+  #plt.title(f&#34;Scatter plot from {np.round(size/1000,1)}K simulated samples&#34;)
+  ax_histy.hist(y, bins=25, orientation=&#39;horizontal&#39;, color = self._figure_color_palette[0], edgecolor=&#39;white&#39;)
+
+  #ax_histx.set_xlim(ax_scatter.get_xlim())
+  #ax_histy.set_ylim(ax_scatter.get_ylim())
+  plt.tight_layout()
+  plt.show()</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.BaseDistribution.simulate"><code class="name flex">
+<span>def <span class="ident">simulate</span></span>(<span>self, size: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Simulate from bivariate distribution</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@abstractmethod
+def simulate(self, size: int):
+  &#34;&#34;&#34;Simulate from bivariate distribution
+  
+  &#34;&#34;&#34;
+  pass</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="riskmodels.bivariate.Empirical"><code class="flex name class">
+<span>class <span class="ident">Empirical</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Bivariate empirical distribution induced by a sample of observed data</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Empirical(BaseDistribution):
+
+  &#34;&#34;&#34;Bivariate empirical distribution induced by a sample of observed data
+  
+  &#34;&#34;&#34;
+  
+  data: np.ndarray
+  pdf_values: np.ndarray
+
+  _exceedance_models = {
+    &#34;logistic&#34;: Logistic,
+    &#34;gaussian&#34;: Gaussian
+  }
+
+  @validator(&#34;pdf_values&#34;, allow_reuse=True)
+  def check_pdf_values(cls, pdf_values):
+    if np.any(pdf_values &lt; -cls._error_tol):
+      raise ValueError(&#34;There are negative pdf values&#34;)
+    if not np.isclose(np.sum(pdf_values), 1, atol=cls._error_tol):
+      print(f&#34;sum: {np.sum(pdf_values)}, pdf vals: {pdf_values}&#34;)
+      raise ValueError(&#34;pdf values don&#39;t sum 1&#34;)
+    # pdf_values = np.clip(pdf_values, a_min = 0.0, a_max = 1.0)
+    # # normalise
+    # pdf_values = pdf_values/np.sum(pdf_values)
+
+    return pdf_values
+
+
+  @classmethod
+  def from_data(cls, data: np.ndarray):
+    &#34;&#34;&#34;Instantiate an empirical distribution from an n x 2 data matrix
+    
+    Args:
+        data (np.ndarray): observed data
+    
+    
+    &#34;&#34;&#34;
+    if not isinstance(data, np.ndarray) or len(data.shape) != 2 or data.shape[1] != 2:
+      raise ValueError(&#34;data must be an n x 2 numpy array&#34;)
+
+    n = len(data)
+    return Empirical(data=data, pdf_values = 1.0/n * np.ones((n,), dtype=np.float64))
+
+  def pdf(self, x: np.ndarray):
+
+    return np.mean(self.data == x.reshape((1,2)))
+
+  def cdf(self, x: np.ndarray):
+    if  len(x.shape) &gt; 1:
+      return np.array([self.cdf(elem) for elem in x])
+
+    u = self.data &lt;= x.reshape((1,2)) # componentwise comparison
+    v = u.dot(np.ones((2,1))) &gt;= 2 #equals 1 if and only if both components are below x
+    return np.mean(v)
+
+  def simulate(self, size: int):
+    n = len(self.data)
+    idx = np.random.choice(n, size=size)
+    return self.data[idx]
+
+  def get_marginals(self):
+
+    return univar.Empirical.from_data(self.data[:,0]), univar.Empirical.from_data(self.data[:,1])
+
+  def fit_tail_model(
+    self,
+    model: str,
+    quantile_threshold: float,
+    margin1: univar.BaseDistribution = None, 
+    margin2: univar.BaseDistribution = None):
+    &#34;&#34;&#34;Fits a parametric model for threshold exceedances in the data. For a given threshold \\( u \\), exceedances are defined as vectors \\(U\\) such that \\( \\max\\{U_1,U_2\\} &gt; u \\), this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
+    Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extreme occurrences across components, and the latter exhibiting asymptotic independence, in which extremes occur relatively independently across components.
+    
+    Args:
+        model (str): name of selected model, currently one of &#39;gaussian&#39; or &#39;logistic&#39;
+        margin1 (univar.BaseDistribution, optional): Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+        margin2 (univar.BaseDistribution, optional): Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+        quantile_threshold (float): Quantile threshold to use for the definition of exceedances
+    
+    Returns:
+        ExceedanceModel
+    
+    &#34;&#34;&#34;
+    if model not in self._exceedance_models:
+      raise ValueError(f&#34;model must be one of {self._exceedance_models}&#34;)
+
+    if margin1 is None:
+
+      margin1, _ = self.get_marginals()
+      margin1 = margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
+      warnings.warn(f&#34;First marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} =&gt; {margin1.ppf(quantile_threshold)})&#34;, stacklevel=2)
+
+    if margin2 is None:
+
+      _, margin2 = self.get_marginals()
+      margin2 = margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
+      warnings.warn(f&#34;Second marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} =&gt; {margin2.ppf(quantile_threshold)})&#34;, stacklevel=2)
+
+    data = self.data
+
+    x = data[:,0]
+    y = data[:,1]
+
+    exceedance_idx = np.logical_or(x &gt; margin1.ppf(quantile_threshold), y &gt; margin2.ppf(quantile_threshold))
+
+    exceedances = data[exceedance_idx]
+
+    exceedance_model = self._exceedance_models[model].fit(
+      data = exceedances, 
+      quantile_threshold = quantile_threshold,
+      margin1 = margin1,
+      margin2 = margin2)
+
+    empirical_model = Empirical.from_data(self.data[np.logical_not(exceedance_idx)])
+
+    p = np.mean(np.logical_not(exceedance_idx))
+
+    return ExceedanceModel(
+      distributions = [empirical_model, exceedance_model],
+      weights = np.array([p, 1-p]))
+
+  # def test_exceedance_dependence(self):
+
+  #   def tegpd_logp(x,eta,sigma):
+  #     #returns the sum of log-liklihoods
+  #     return tt.sum(-tt.log(sigma) - (1.0/eta+1)*tt.log(1+eta/sigma*x))
+
+  #   def get_eta_posterior(obs,n_samples = 2500):
+      
+  #     if isinstance(obs,list):
+  #       obs = numpy.array(obs)
+        
+  #     #Bayesian specification and inference
+  #     eta_model = pm.Model()
+
+  #     with eta_model:
+  #       #uniform eta prior in (0,1)
+  #       eta = pm.Uniform(&#34;eta&#34;,lower=0,upper=1)
+  #       #flat sigma prior in positive line
+  #       sigma = pm.HalfFlat(&#34;sigma&#34;)
+  #       X = pm.DensityDist(&#34;tegpd&#34;,tegpd_logp,observed={&#34;eta&#34;:eta,&#34;sigma&#34;:sigma,&#34;x&#34;:obs})
+  #       trace = pm.sample(n_samples,random_seed = 1)
+  #       #plots = pm.traceplot(trace)
+        
+  #     eta_samples = trace.get_values(&#34;eta&#34;)
+  #     #sigma_samples = trace.get_values(&#34;sigma&#34;)
+      
+  #     #posterior_kde = arviz.plot_kde(eta_samples)
+  #     posterior_AD_prob = sp.stats.gaussian_kde(eta_samples).evaluate(1)
+      
+  #     # get mean kernel density estimator for density at eta = 1
+  #     #eta_posterior = posterior_kde.lines[0].get_ydata()[-1]
+  #     #return 1
+  #     return 1.0/(1+1.0/posterior_AD_prob) if posterior_AD_prob &gt; 0 else 0</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></li>
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.Empirical.data"><code class="name">var <span class="ident">data</span> : numpy.ndarray</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.Empirical.pdf_values"><code class="name">var <span class="ident">pdf_values</span> : numpy.ndarray</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Static methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.Empirical.check_pdf_values"><code class="name flex">
+<span>def <span class="ident">check_pdf_values</span></span>(<span>pdf_values)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@validator(&#34;pdf_values&#34;, allow_reuse=True)
+def check_pdf_values(cls, pdf_values):
+  if np.any(pdf_values &lt; -cls._error_tol):
+    raise ValueError(&#34;There are negative pdf values&#34;)
+  if not np.isclose(np.sum(pdf_values), 1, atol=cls._error_tol):
+    print(f&#34;sum: {np.sum(pdf_values)}, pdf vals: {pdf_values}&#34;)
+    raise ValueError(&#34;pdf values don&#39;t sum 1&#34;)
+  # pdf_values = np.clip(pdf_values, a_min = 0.0, a_max = 1.0)
+  # # normalise
+  # pdf_values = pdf_values/np.sum(pdf_values)
+
+  return pdf_values</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Empirical.from_data"><code class="name flex">
+<span>def <span class="ident">from_data</span></span>(<span>data: np.ndarray)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Instantiate an empirical distribution from an n x 2 data matrix</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>observed data</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def from_data(cls, data: np.ndarray):
+  &#34;&#34;&#34;Instantiate an empirical distribution from an n x 2 data matrix
+  
+  Args:
+      data (np.ndarray): observed data
+  
+  
+  &#34;&#34;&#34;
+  if not isinstance(data, np.ndarray) or len(data.shape) != 2 or data.shape[1] != 2:
+    raise ValueError(&#34;data must be an n x 2 numpy array&#34;)
+
+  n = len(data)
+  return Empirical(data=data, pdf_values = 1.0/n * np.ones((n,), dtype=np.float64))</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.Empirical.fit_tail_model"><code class="name flex">
+<span>def <span class="ident">fit_tail_model</span></span>(<span>self, model: str, quantile_threshold: float, margin1: univar.BaseDistribution = None, margin2: univar.BaseDistribution = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Fits a parametric model for threshold exceedances in the data. For a given threshold <span><span class="MathJax_Preview"> u </span><script type="math/tex"> u </script></span>, exceedances are defined as vectors <span><span class="MathJax_Preview">U</span><script type="math/tex">U</script></span> such that <span><span class="MathJax_Preview"> \max\{U_1,U_2\} &gt; u </span><script type="math/tex"> \max\{U_1,U_2\} > u </script></span>, this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
+Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extreme occurrences across components, and the latter exhibiting asymptotic independence, in which extremes occur relatively independently across components.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>model</code></strong> :&ensp;<code>str</code></dt>
+<dd>name of selected model, currently one of 'gaussian' or 'logistic'</dd>
+<dt><strong><code>margin1</code></strong> :&ensp;<code>univar.BaseDistribution</code>, optional</dt>
+<dd>Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.</dd>
+<dt><strong><code>margin2</code></strong> :&ensp;<code>univar.BaseDistribution</code>, optional</dt>
+<dd>Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.</dd>
+<dt><strong><code>quantile_threshold</code></strong> :&ensp;<code>float</code></dt>
+<dd>Quantile threshold to use for the definition of exceedances</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>ExceedanceModel</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def fit_tail_model(
+  self,
+  model: str,
+  quantile_threshold: float,
+  margin1: univar.BaseDistribution = None, 
+  margin2: univar.BaseDistribution = None):
+  &#34;&#34;&#34;Fits a parametric model for threshold exceedances in the data. For a given threshold \\( u \\), exceedances are defined as vectors \\(U\\) such that \\( \\max\\{U_1,U_2\\} &gt; u \\), this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
+  Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extreme occurrences across components, and the latter exhibiting asymptotic independence, in which extremes occur relatively independently across components.
+  
+  Args:
+      model (str): name of selected model, currently one of &#39;gaussian&#39; or &#39;logistic&#39;
+      margin1 (univar.BaseDistribution, optional): Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+      margin2 (univar.BaseDistribution, optional): Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
+      quantile_threshold (float): Quantile threshold to use for the definition of exceedances
+  
+  Returns:
+      ExceedanceModel
+  
+  &#34;&#34;&#34;
+  if model not in self._exceedance_models:
+    raise ValueError(f&#34;model must be one of {self._exceedance_models}&#34;)
+
+  if margin1 is None:
+
+    margin1, _ = self.get_marginals()
+    margin1 = margin1.fit_tail_model(threshold=margin1.ppf(quantile_threshold))
+    warnings.warn(f&#34;First marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} =&gt; {margin1.ppf(quantile_threshold)})&#34;, stacklevel=2)
+
+  if margin2 is None:
+
+    _, margin2 = self.get_marginals()
+    margin2 = margin2.fit_tail_model(threshold=margin2.ppf(quantile_threshold))
+    warnings.warn(f&#34;Second marginal not provided. Fitting tail model using provided quantile threshold ({quantile_threshold} =&gt; {margin2.ppf(quantile_threshold)})&#34;, stacklevel=2)
+
+  data = self.data
+
+  x = data[:,0]
+  y = data[:,1]
+
+  exceedance_idx = np.logical_or(x &gt; margin1.ppf(quantile_threshold), y &gt; margin2.ppf(quantile_threshold))
+
+  exceedances = data[exceedance_idx]
+
+  exceedance_model = self._exceedance_models[model].fit(
+    data = exceedances, 
+    quantile_threshold = quantile_threshold,
+    margin1 = margin1,
+    margin2 = margin2)
+
+  empirical_model = Empirical.from_data(self.data[np.logical_not(exceedance_idx)])
+
+  p = np.mean(np.logical_not(exceedance_idx))
+
+  return ExceedanceModel(
+    distributions = [empirical_model, exceedance_model],
+    weights = np.array([p, 1-p]))</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Empirical.get_marginals"><code class="name flex">
+<span>def <span class="ident">get_marginals</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_marginals(self):
+
+  return univar.Empirical.from_data(self.data[:,0]), univar.Empirical.from_data(self.data[:,1])</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.bivariate.BaseDistribution.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.simulate" href="#riskmodels.bivariate.BaseDistribution.simulate">simulate</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="riskmodels.bivariate.ExceedanceDistribution"><code class="flex name class">
+<span>class <span class="ident">ExceedanceDistribution</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Main interface for exceedance distributions, which are defined on a region of the form <span><span class="MathJax_Preview"> $U \nleq u$ </span><script type="math/tex"> $U \nleq u$ </script></span>, or equivalently <span><span class="MathJax_Preview"> \max\{U_1,U_2\} &gt; u </span><script type="math/tex"> \max\{U_1,U_2\} > u </script></span>. </p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ExceedanceDistribution(BaseDistribution):
+
+  &#34;&#34;&#34;Main interface for exceedance distributions, which are defined on a region of the form \\( $U \\nleq u$ \\), or equivalently \\( \\max\\{U_1,U_2\\} &gt; u \\). 
+  &#34;&#34;&#34;
+  quantile_threshold: float
+
+  @classmethod
+  @abstractmethod
+  def fit(cls, data: np.ndarray, threshold: float):
+    &#34;&#34;&#34;Fit the model through maximum likelihood estimation
+    
+    Args:
+        data (np.ndarray): Observed data
+        threshold (float): Exceedance threshold
+    &#34;&#34;&#34;
+    pass
+
+  @abstractmethod
+  def plot_diagnostics(self):
+    &#34;&#34;&#34;Plot diagnostics for the fitted model.
+    &#34;&#34;&#34;
+    pass
+
+  @classmethod
+  def unbundle(cls, data: t.Union[np.ndarray,t.Iterable]) -&gt; t.Tuple[t.Union[np.ndarray, float], t.Union[np.ndarray, float]]:
+    &#34;&#34;&#34;Unbundles matrix or iterables into separate components
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable]): dara
+    
+    &#34;&#34;&#34;
+    if isinstance(data, np.ndarray) and len(data.shape) == 2 and data.shape[1] == 2:
+      x = data[:,0]
+      y = data[:,1]
+    elif isinstance(data, Iterable):
+      # if iterable, unroll
+      x, y = data
+    else:
+      raise TypeError(&#34;data must be an n x 2 numpy array or an iterable of length 2.&#34;)
+    return x, y
+
+  @classmethod
+  def bundle(cls, x: t.Union[np.ndarray, float, int], y: t.Union[np.ndarray,float, int]) -&gt; t.Tuple[t.Union[np.ndarray, float], t.Union[np.ndarray, float]]:
+    &#34;&#34;&#34;bundle a pair of arrays or primitives into n x 2 matrix
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable])
+    
+    &#34;&#34;&#34;
+    if isinstance(x, np.ndarray) and isinstance(y, np.ndarray) and len(x) == len(y):
+      z = np.concatenate([x.reshape((-1,1)), y.reshape((-1,1))], axis=1)
+    elif issubclass(type(x), (float, int)) and issubclass(type(y), (float, int)):
+      z = np.array([x,y]).reshape((1,2))
+    else:
+      raise TypeError(&#34;x, y must be 1-dimensional arrays or inherit from float or int.&#34;)
+    return z</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></li>
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.Logistic" href="#riskmodels.bivariate.Logistic">Logistic</a></li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.ExceedanceDistribution.quantile_threshold"><code class="name">var <span class="ident">quantile_threshold</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Static methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.ExceedanceDistribution.bundle"><code class="name flex">
+<span>def <span class="ident">bundle</span></span>(<span>x: t.Union[np.ndarray, float, int], y: t.Union[np.ndarray, float, int]) ‑> Tuple[Union[numpy.ndarray, float], Union[numpy.ndarray, float]]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>bundle a pair of arrays or primitives into n x 2 matrix</p>
+<h2 id="args">Args</h2>
+<p>data (t.Union[np.ndarray, t.Iterable])</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def bundle(cls, x: t.Union[np.ndarray, float, int], y: t.Union[np.ndarray,float, int]) -&gt; t.Tuple[t.Union[np.ndarray, float], t.Union[np.ndarray, float]]:
+  &#34;&#34;&#34;bundle a pair of arrays or primitives into n x 2 matrix
+  
+  Args:
+      data (t.Union[np.ndarray, t.Iterable])
+  
+  &#34;&#34;&#34;
+  if isinstance(x, np.ndarray) and isinstance(y, np.ndarray) and len(x) == len(y):
+    z = np.concatenate([x.reshape((-1,1)), y.reshape((-1,1))], axis=1)
+  elif issubclass(type(x), (float, int)) and issubclass(type(y), (float, int)):
+    z = np.array([x,y]).reshape((1,2))
+  else:
+    raise TypeError(&#34;x, y must be 1-dimensional arrays or inherit from float or int.&#34;)
+  return z</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.ExceedanceDistribution.fit"><code class="name flex">
+<span>def <span class="ident">fit</span></span>(<span>data: np.ndarray, threshold: float)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Fit the model through maximum likelihood estimation</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Observed data</dd>
+<dt><strong><code>threshold</code></strong> :&ensp;<code>float</code></dt>
+<dd>Exceedance threshold</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+@abstractmethod
+def fit(cls, data: np.ndarray, threshold: float):
+  &#34;&#34;&#34;Fit the model through maximum likelihood estimation
+  
+  Args:
+      data (np.ndarray): Observed data
+      threshold (float): Exceedance threshold
+  &#34;&#34;&#34;
+  pass</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.ExceedanceDistribution.unbundle"><code class="name flex">
+<span>def <span class="ident">unbundle</span></span>(<span>data: t.Union[np.ndarray, t.Iterable]) ‑> Tuple[Union[numpy.ndarray, float], Union[numpy.ndarray, float]]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unbundles matrix or iterables into separate components</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>t.Union[np.ndarray, t.Iterable]</code></dt>
+<dd>dara</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def unbundle(cls, data: t.Union[np.ndarray,t.Iterable]) -&gt; t.Tuple[t.Union[np.ndarray, float], t.Union[np.ndarray, float]]:
+  &#34;&#34;&#34;Unbundles matrix or iterables into separate components
+  
+  Args:
+      data (t.Union[np.ndarray, t.Iterable]): dara
+  
+  &#34;&#34;&#34;
+  if isinstance(data, np.ndarray) and len(data.shape) == 2 and data.shape[1] == 2:
+    x = data[:,0]
+    y = data[:,1]
+  elif isinstance(data, Iterable):
+    # if iterable, unroll
+    x, y = data
+  else:
+    raise TypeError(&#34;data must be an n x 2 numpy array or an iterable of length 2.&#34;)
+  return x, y</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.ExceedanceDistribution.plot_diagnostics"><code class="name flex">
+<span>def <span class="ident">plot_diagnostics</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot diagnostics for the fitted model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@abstractmethod
+def plot_diagnostics(self):
+  &#34;&#34;&#34;Plot diagnostics for the fitted model.
+  &#34;&#34;&#34;
+  pass</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.bivariate.BaseDistribution.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.simulate" href="#riskmodels.bivariate.BaseDistribution.simulate">simulate</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="riskmodels.bivariate.ExceedanceModel"><code class="flex name class">
+<span>class <span class="ident">ExceedanceModel</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Interface for exceedance models</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ExceedanceModel(Mixture):
+
+  &#34;&#34;&#34;Interface for exceedance models
+  &#34;&#34;&#34;
+  
+  def plot_diagnostics(self):
+
+    self.distributions[1].plot_diagnostics()
+
+  @property
+  def tail(self):
+    return self.distributions[1]
+
+  @property
+  def empirical(self):
+    return self.distributions[0]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.Mixture" href="#riskmodels.bivariate.Mixture">Mixture</a></li>
+<li><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></li>
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.ExceedanceModel.distributions"><code class="name">var <span class="ident">distributions</span> : List[<a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.ExceedanceModel.weights"><code class="name">var <span class="ident">weights</span> : numpy.ndarray</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.ExceedanceModel.empirical"><code class="name">var <span class="ident">empirical</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def empirical(self):
+  return self.distributions[0]</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.ExceedanceModel.tail"><code class="name">var <span class="ident">tail</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def tail(self):
+  return self.distributions[1]</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.ExceedanceModel.plot_diagnostics"><code class="name flex">
+<span>def <span class="ident">plot_diagnostics</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_diagnostics(self):
+
+  self.distributions[1].plot_diagnostics()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.bivariate.Mixture" href="#riskmodels.bivariate.Mixture">Mixture</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.bivariate.Mixture.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Mixture.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Mixture.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.Mixture.simulate" href="#riskmodels.bivariate.BaseDistribution.simulate">simulate</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="riskmodels.bivariate.Gaussian"><code class="flex name class">
+<span>class <span class="ident">Gaussian</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This model is equivalent to a Gaussian copula model restricted to the region of the form <span><span class="MathJax_Preview"> \mathbf{U} \nleq u </span><script type="math/tex"> \mathbf{U} \nleq u </script></span>, or equivalently <span><span class="MathJax_Preview"> \max\{\mathbf{U}_1,\mathbf{U}_2\} &gt; u </span><script type="math/tex"> \max\{\mathbf{U}_1,\mathbf{U}_2\} > u </script></span>, which represents threshold exceedances above <span><span class="MathJax_Preview"> u </span><script type="math/tex"> u </script></span> in at least one component. This model can also be thought of as a pre-limit bivariate Generalised Pareto with Gaussian dependence, which is degenerate in the limit. Consequently, under this model there is asymptotic independence between components, this is, extreme values across components are weakly dependent, and occur more or less independently of each other. Use it if there is weak evidence for asymptotic dependence in the data.</p>
+<p>In Gaussian scale (i.e. when both marginal distributions are gaussian), its density function is given by a bivariate normal distribution restricted to the region described above, where <span><span class="MathJax_Preview"> u </span><script type="math/tex"> u </script></span> would be the quantile corresponding to a probability value <span><span class="MathJax_Preview"> p </span><script type="math/tex"> p </script></span> such that exceedances of probability less than <span><span class="MathJax_Preview">1 - p</span><script type="math/tex">1 - p</script></span> are considered extreme.</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Gaussian(Logistic):
+
+  &#34;&#34;&#34;This model is equivalent to a Gaussian copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} &gt; u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought of as a pre-limit bivariate Generalised Pareto with Gaussian dependence, which is degenerate in the limit. Consequently, under this model there is asymptotic independence between components, this is, extreme values across components are weakly dependent, and occur more or less independently of each other. Use it if there is weak evidence for asymptotic dependence in the data.
+
+  In Gaussian scale (i.e. when both marginal distributions are gaussian), its density function is given by a bivariate normal distribution restricted to the region described above, where \\( u \\) would be the quantile corresponding to a probability value \\( p \\) such that exceedances of probability less than \\(1 - p\\) are considered extreme.
+
+  &#34;&#34;&#34;
+  
+  alpha: float
+  margin1: univar.BaseDistribution
+  margin2: univar.BaseDistribution
+
+  _model_marginal_dist = gaussian
+  _marginal_model_name = &#34;Gaussian&#34;
+
+  @property
+  def cov(self):
+    return np.array([[1,self.alpha],[self.alpha,1]])
+  
+  @classmethod
+  def logistic_gumbel_cdf(cls, alpha: float, data: np.ndarray):
+    &#34;&#34;&#34;Calculates unconstrained standard Gaussian CDF
+
+    &#34;&#34;&#34;
+    return mv_gaussian.cdf(data, cov = np.array([[1,alpha],[alpha,1]]))
+
+  @classmethod
+  def logpdf(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates logpdf for Gaussian exceedances
+    
+    &#34;&#34;&#34;
+    x, y = cls.unbundle(data)
+    norm_factor = 1 - mv_gaussian.cdf(cls.bundle(threshold,threshold), cov = np.array([[1,alpha],[alpha,1]]))
+    density = mv_gaussian.logpdf(data, cov = np.array([[1,alpha],[alpha,1]])) - np.log(norm_factor)
+
+    # density is 0 when both coordinates are below the threshold
+    nil_density_idx = np.logical_and(x &lt;= threshold, y&lt;= threshold)
+    density[nil_density_idx] = -np.Inf
+
+    return density
+
+  def simulate(self, size: int):
+    &#34;&#34;&#34;Simulate exceedances
+    
+    Args:
+        size (int): Description
+    
+    Returns:
+        TYPE: Description
+    &#34;&#34;&#34;
+
+    # exceedance subregions:
+    # r1 =&gt; exceedance in second component only, r2 =&gt; exceedance in both components, r3 =&gt; exceedance in first component only
+    threshold = self.model_scale_threshold
+    th = self.bundle(threshold,threshold)
+    p1 = self.quantile_threshold - mv_gaussian.cdf(th, cov = self.cov)
+    p2 = 1 - 2*self.quantile_threshold + mv_gaussian.cdf(th, cov = self.cov)
+    p3 = 1 - mv_gaussian.cdf(th, cov = self.cov) - (p1+p2)
+
+    p = np.array([p1,p2,p3])
+    p = p/np.sum(p)
+
+    # compute number of samples per subregion
+    n1, n2, n3 = np.random.multinomial(n=size, pvals = p, size=1)[0].astype(np.int32)
+    n1, n2, n3 = int(n1), int(n2), int(n3)
+
+    r1_samples = tmvn(
+      mu=np.zeros((2,)), 
+      cov = self.cov, 
+      lb = np.array([-np.Inf, threshold]),
+      ub = np.array([threshold, np.Inf])).sample(n1).T
+
+    r2_samples = tmvn(
+      mu=np.zeros((2,)), 
+      cov = self.cov, 
+      lb = np.array([threshold, threshold]),
+      ub = np.array([np.Inf, np.Inf])).sample(n2).T
+
+    r3_samples = tmvn(
+      mu=np.zeros((2,)), 
+      cov = self.cov, 
+      lb = np.array([threshold, -np.Inf]),
+      ub = np.array([np.Inf, threshold])).sample(n3).T
+
+    samples = np.concatenate([r1_samples, r2_samples, r3_samples], axis = 0)
+
+    return self.model_to_data_dist(samples)
+
+  def dx_dz(z: t.Union[float, np.ndarray], component: int):
+    &#34;&#34;&#34;Calculate analytically or otherwise, the derivative of the standard Gumbel transform with respect to original data scale. This is necessary to calculate pdf values in the original data scale
+    
+    Args:
+        z (t.Union[float, np.ndarray]): values in original scale
+        component (int): component index(0 or 1)
+    
+    &#34;&#34;&#34;
+    margin = self.margin1 if component ==0 else margin2
+    eps = 1e-3
+    dx = (margin.pdf(z+eps) - margin.pdf(z-eps))/(2*eps)
+    return dx</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.Logistic" href="#riskmodels.bivariate.Logistic">Logistic</a></li>
+<li><a title="riskmodels.bivariate.ExceedanceDistribution" href="#riskmodels.bivariate.ExceedanceDistribution">ExceedanceDistribution</a></li>
+<li><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></li>
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.Gaussian.alpha"><code class="name">var <span class="ident">alpha</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.Gaussian.margin1"><code class="name">var <span class="ident">margin1</span> : <a title="riskmodels.univariate.BaseDistribution" href="univariate.html#riskmodels.univariate.BaseDistribution">BaseDistribution</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.Gaussian.margin2"><code class="name">var <span class="ident">margin2</span> : <a title="riskmodels.univariate.BaseDistribution" href="univariate.html#riskmodels.univariate.BaseDistribution">BaseDistribution</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Static methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.Gaussian.logistic_gumbel_cdf"><code class="name flex">
+<span>def <span class="ident">logistic_gumbel_cdf</span></span>(<span>alpha: float, data: np.ndarray)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates unconstrained standard Gaussian CDF</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def logistic_gumbel_cdf(cls, alpha: float, data: np.ndarray):
+  &#34;&#34;&#34;Calculates unconstrained standard Gaussian CDF
+
+  &#34;&#34;&#34;
+  return mv_gaussian.cdf(data, cov = np.array([[1,alpha],[alpha,1]]))</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Gaussian.logpdf"><code class="name flex">
+<span>def <span class="ident">logpdf</span></span>(<span>alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates logpdf for Gaussian exceedances</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def logpdf(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+  &#34;&#34;&#34;Calculates logpdf for Gaussian exceedances
+  
+  &#34;&#34;&#34;
+  x, y = cls.unbundle(data)
+  norm_factor = 1 - mv_gaussian.cdf(cls.bundle(threshold,threshold), cov = np.array([[1,alpha],[alpha,1]]))
+  density = mv_gaussian.logpdf(data, cov = np.array([[1,alpha],[alpha,1]])) - np.log(norm_factor)
+
+  # density is 0 when both coordinates are below the threshold
+  nil_density_idx = np.logical_and(x &lt;= threshold, y&lt;= threshold)
+  density[nil_density_idx] = -np.Inf
+
+  return density</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.Gaussian.cov"><code class="name">var <span class="ident">cov</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def cov(self):
+  return np.array([[1,self.alpha],[self.alpha,1]])</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.Gaussian.dx_dz"><code class="name flex">
+<span>def <span class="ident">dx_dz</span></span>(<span>z: t.Union[float, np.ndarray], component: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate analytically or otherwise, the derivative of the standard Gumbel transform with respect to original data scale. This is necessary to calculate pdf values in the original data scale</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>z</code></strong> :&ensp;<code>t.Union[float, np.ndarray]</code></dt>
+<dd>values in original scale</dd>
+<dt><strong><code>component</code></strong> :&ensp;<code>int</code></dt>
+<dd>component index(0 or 1)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dx_dz(z: t.Union[float, np.ndarray], component: int):
+  &#34;&#34;&#34;Calculate analytically or otherwise, the derivative of the standard Gumbel transform with respect to original data scale. This is necessary to calculate pdf values in the original data scale
+  
+  Args:
+      z (t.Union[float, np.ndarray]): values in original scale
+      component (int): component index(0 or 1)
+  
+  &#34;&#34;&#34;
+  margin = self.margin1 if component ==0 else margin2
+  eps = 1e-3
+  dx = (margin.pdf(z+eps) - margin.pdf(z-eps))/(2*eps)
+  return dx</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Gaussian.simulate"><code class="name flex">
+<span>def <span class="ident">simulate</span></span>(<span>self, size: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Simulate exceedances</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>size</code></strong> :&ensp;<code>int</code></dt>
+<dd>Description</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>TYPE</code></dt>
+<dd>Description</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate(self, size: int):
+  &#34;&#34;&#34;Simulate exceedances
+  
+  Args:
+      size (int): Description
+  
+  Returns:
+      TYPE: Description
+  &#34;&#34;&#34;
+
+  # exceedance subregions:
+  # r1 =&gt; exceedance in second component only, r2 =&gt; exceedance in both components, r3 =&gt; exceedance in first component only
+  threshold = self.model_scale_threshold
+  th = self.bundle(threshold,threshold)
+  p1 = self.quantile_threshold - mv_gaussian.cdf(th, cov = self.cov)
+  p2 = 1 - 2*self.quantile_threshold + mv_gaussian.cdf(th, cov = self.cov)
+  p3 = 1 - mv_gaussian.cdf(th, cov = self.cov) - (p1+p2)
+
+  p = np.array([p1,p2,p3])
+  p = p/np.sum(p)
+
+  # compute number of samples per subregion
+  n1, n2, n3 = np.random.multinomial(n=size, pvals = p, size=1)[0].astype(np.int32)
+  n1, n2, n3 = int(n1), int(n2), int(n3)
+
+  r1_samples = tmvn(
+    mu=np.zeros((2,)), 
+    cov = self.cov, 
+    lb = np.array([-np.Inf, threshold]),
+    ub = np.array([threshold, np.Inf])).sample(n1).T
+
+  r2_samples = tmvn(
+    mu=np.zeros((2,)), 
+    cov = self.cov, 
+    lb = np.array([threshold, threshold]),
+    ub = np.array([np.Inf, np.Inf])).sample(n2).T
+
+  r3_samples = tmvn(
+    mu=np.zeros((2,)), 
+    cov = self.cov, 
+    lb = np.array([threshold, -np.Inf]),
+    ub = np.array([np.Inf, threshold])).sample(n3).T
+
+  samples = np.concatenate([r1_samples, r2_samples, r3_samples], axis = 0)
+
+  return self.model_to_data_dist(samples)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.bivariate.Logistic" href="#riskmodels.bivariate.Logistic">Logistic</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.bivariate.Logistic.bundle" href="#riskmodels.bivariate.ExceedanceDistribution.bundle">bundle</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.data_to_model_dist" href="#riskmodels.bivariate.Logistic.data_to_model_dist">data_to_model_dist</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.fit" href="#riskmodels.bivariate.Logistic.fit">fit</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.hessian" href="#riskmodels.bivariate.Logistic.hessian">hessian</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.loglik" href="#riskmodels.bivariate.Logistic.loglik">loglik</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.model_to_data_dist" href="#riskmodels.bivariate.Logistic.model_to_data_dist">model_to_data_dist</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.plot_diagnostics" href="#riskmodels.bivariate.Logistic.plot_diagnostics">plot_diagnostics</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.unbundle" href="#riskmodels.bivariate.ExceedanceDistribution.unbundle">unbundle</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="riskmodels.bivariate.Independent"><code class="flex name class">
+<span>class <span class="ident">Independent</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Bivariate distribution with independent components</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Independent(BaseDistribution):
+
+  &#34;&#34;&#34;Bivariate distribution with independent components
+  &#34;&#34;&#34;
+  
+  x: univar.BaseDistribution
+  y: univar.BaseDistribution
+
+  def pdf(self, x: np.ndarray):
+    x1, x2 = x
+    return self.x.pdf(x1)*self.y.pdf(x2)
+
+  def cdf(self, x: np.ndarray):
+    x1, x2 = x
+    return self.x.cdf(x1)*self.y.cdf(x2)
+
+  def simulate(self, size: int):
+    return np.concatenate([self.x.simulate(size).reshape((-1,1)), self.y.simulate(size).reshape((-1,1))], axis=1)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></li>
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.Independent.x"><code class="name">var <span class="ident">x</span> : <a title="riskmodels.univariate.BaseDistribution" href="univariate.html#riskmodels.univariate.BaseDistribution">BaseDistribution</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.Independent.y"><code class="name">var <span class="ident">y</span> : <a title="riskmodels.univariate.BaseDistribution" href="univariate.html#riskmodels.univariate.BaseDistribution">BaseDistribution</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.bivariate.BaseDistribution.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.simulate" href="#riskmodels.bivariate.BaseDistribution.simulate">simulate</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="riskmodels.bivariate.Logistic"><code class="flex name class">
+<span>class <span class="ident">Logistic</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This model is equivalent to a Gumbel-Hougaard copula model restricted to the region of the form <span><span class="MathJax_Preview"> \mathbf{U} \nleq u </span><script type="math/tex"> \mathbf{U} \nleq u </script></span>, or equivalently <span><span class="MathJax_Preview"> \max\{\mathbf{U}_1,\mathbf{U}_2\} &gt; u </span><script type="math/tex"> \max\{\mathbf{U}_1,\mathbf{U}_2\} > u </script></span>, which represents threshold exceedances above <span><span class="MathJax_Preview"> u </span><script type="math/tex"> u </script></span> in at least one component. This model can also be thought as a pre-limit bivariate Generalised Pareto with logistic dependence in the context of extreme value theory. Consequently, under this model there is asymptotic dependence between components, this is, extreme values across components are strongly associated. Use it if there is strong evidence of asymptotic dependence in the data. </p>
+<p>In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by</p>
+<p><span><span class="MathJax_Preview"> F(\textbf{x}) - \exp \left( - \left( \exp(-\textbf{x}_1/\alpha) + \exp(-\textbf{x}_2/\alpha) \right)^\alpha \right), \,\,\, \textbf{x} \nleq \textbf{a}</span><script type="math/tex; mode=display"> F(\textbf{x}) - \exp \left( - \left( \exp(-\textbf{x}_1/\alpha) + \exp(-\textbf{x}_2/\alpha) \right)^\alpha \right), \,\,\, \textbf{x} \nleq \textbf{a}</script></span></p>
+<p>where <span><span class="MathJax_Preview"> \textbf{a} </span><script type="math/tex"> \textbf{a} </script></span> is the vector formed by the marginal quantiles of a probability threshold <span><span class="MathJax_Preview"> p </span><script type="math/tex"> p </script></span> such that exceedances with probability less than <span><span class="MathJax_Preview">1-p</span><script type="math/tex">1-p</script></span> are considered extreme (say <span><span class="MathJax_Preview">p = 0.95</span><script type="math/tex">p = 0.95</script></span></p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Logistic(ExceedanceDistribution):
+
+  &#34;&#34;&#34;This model is equivalent to a Gumbel-Hougaard copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} &gt; u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought as a pre-limit bivariate Generalised Pareto with logistic dependence in the context of extreme value theory. Consequently, under this model there is asymptotic dependence between components, this is, extreme values across components are strongly associated. Use it if there is strong evidence of asymptotic dependence in the data. 
+
+  In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by
+
+  $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}$$
+
+  where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\)
+  &#34;&#34;&#34;
+  
+  alpha: float
+  margin1: univar.BaseDistribution
+  margin2: univar.BaseDistribution
+
+  _model_marginal_dist = gumbel
+  _marginal_model_name = &#34;Gumbel&#34;
+
+  @property
+  def model_scale_threshold(self):
+    return self._model_marginal_dist.ppf(self.quantile_threshold)
+
+  @property
+  def data_scale_threshold(self):
+    return self.model_to_data_dist(self.bundle(self.model_scale_threshold, self.model_scale_threshold))
+
+  @validator(&#34;alpha&#34;)
+  def validate_alpha(cls, alpha):
+    if alpha &lt; 0 or alpha &gt; 1:
+      raise TypeError(&#34;alpha must be in the open interval (0,1) &#34;)
+    else:
+      return alpha
+
+  @validator(&#34;data&#34;)
+  def validate_data(cls, data):
+    if data is None or len(data.shape) != 2 or data.shape[1] != 2:
+      raise ValueError(&#34;Data needs to be an n x 2 matrix array&#34;)
+    else:
+      return data
+
+  def data_to_model_dist(self, data: t.Union[np.ndarray,t.Iterable]) -&gt; np.ndarray:
+    &#34;&#34;&#34;Transforms original data scale to standard Gumbel scale
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable]): observations in original scale
+    
+    &#34;&#34;&#34;
+    x, y = self.unbundle(data)
+
+    ## to copula scale
+    x = self.margin1.cdf(x)
+    y = self.margin2.cdf(y)
+
+    # pass to Gumbel scale 
+    x = self._model_marginal_dist.ppf(x)
+    y = self._model_marginal_dist.ppf(y)
+
+    return self.bundle(x,y)
+
+  def model_to_data_dist(self, data: t.Union[np.ndarray,t.Iterable]) -&gt; np.ndarray:
+    &#34;&#34;&#34;Transforms data in standard Gumbel scale to original data scale
+    
+    Args:
+        x (np.ndarray): data from first component
+        y (np.ndarray): data from second component
+    
+    Returns:
+        np.ndarray
+    &#34;&#34;&#34;
+
+    # copula scale
+    x, y = self.unbundle(data)
+
+    u = self._model_marginal_dist.cdf(x)
+    w = self._model_marginal_dist.cdf(y)
+
+    # data scale
+    u = self.margin1.ppf(u)
+    w = self.margin2.ppf(w)
+
+    return self.bundle(u,w)
+
+  @classmethod
+  def logpdf(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates logpdf function for Gumbel exceedances
+    
+    
+    Args:
+        alpha (float): Dependence parameter
+        threshold (float): Exceedance threshold in Gumbel scale
+        data (t.Union[np.ndarray, t.Iterable]): Observed data in Gumbel scale
+
+    &#34;&#34;&#34;
+    x, y = cls.unbundle(data)
+
+    nlogp = (np.exp(-x/alpha) + np.exp(-y/alpha))**alpha
+    lognlogp = alpha*np.log(np.exp(-x/alpha) + np.exp(-y/alpha))
+    rescaler = 1 - cls.logistic_gumbel_cdf(alpha, cls.bundle(threshold,threshold))
+
+    #a = np.exp((x + y - nlogp*alpha)/alpha)
+    log_a = (x + y)/alpha - nlogp
+
+    #b = nlogp
+    log_b = lognlogp
+
+    #c = 1 + alpha*(nlogp - 1)
+    log_c = np.log(1 + alpha*(nlogp - 1))
+
+    #d = 1.0/(alpha*(np.exp(x/alpha) + np.exp(y/alpha))**2)
+    log_d = -(np.log(alpha) + 2*np.log(np.exp(x/alpha) + np.exp(y/alpha)))
+
+    log_density = log_a + log_b + log_c + log_d - np.log(rescaler)
+
+    # density is 0 when both coordinates are below the threshold
+    nil_density_idx = np.logical_and(x &lt;= threshold, y &lt;= threshold)
+    log_density[nil_density_idx] = -np.Inf
+
+    return log_density
+
+  @classmethod
+  def loglik(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates log-likelihood for Gumbel exceedances
+    
+    &#34;&#34;&#34;
+    return np.sum(cls.logpdf(alpha, threshold, data))
+
+  @classmethod
+  def logistic_gumbel_cdf(cls, alpha: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates unconstrained standard Gumbel CDF
+
+    &#34;&#34;&#34;
+    x, y = cls.unbundle(data)
+    return np.exp(-(np.exp(-x/alpha) + np.exp(-y/alpha))**(alpha))
+
+  @classmethod
+  def fit(
+    cls, 
+    data: t.Union[np.ndarray,t.Iterable], 
+    quantile_threshold: float,
+    margin1: univar.BaseDistribution = None,
+    margin2: univar.BaseDistribution = None,
+    return_opt_results = False,
+    x0: float = None) -&gt; Logistic:
+    &#34;&#34;&#34;Fits the model from provided data, threshold and marginal distributons
+    
+    Args:
+        data (t.Union[np.ndarray, t.Iterable])
+        quantile_threshold (float): Description
+        margin1 (univar.BaseDistribution, optional)
+        margin2 (univar.BaseDistribution, optional)
+        return_opt_results (bool, optional): If True, the object from the optimization result is returned
+        x0 (float, optional): Initial point for the optimisation algorithm. Defaults to 0.5
+    
+    Returns:
+        Logistic: Fitted model
+    
+    
+    Raises:
+        ValueError: Description
+    
+    
+    &#34;&#34;&#34;
+    if margin1 is None:
+      margin1 = univar.empirical.from_data(data[:,0])
+      warnings.warn(&#34;margin1 is None; using an empirical distribution&#34;, stacklevel=2)
+
+    if margin2 is None:
+      margin1 = univar.empirical.from_data(data[:,1])
+      warnings.warn(&#34;margin1 is None; using an empirical distribution&#34;, stacklevel=2)
+
+    if not isinstance(quantile_threshold, float) or quantile_threshold &lt;= 0 or quantile_threshold &gt;= 1:
+      raise ValueError(&#34;quantile_threshold must be in the open interval (0,1)&#34;)
+
+    mapped_data = cls(
+      alpha=0.5, 
+      margin1=margin1, 
+      margin2=margin2, 
+      quantile_threshold=quantile_threshold).data_to_model_dist(data)
+
+    x,y = cls.unbundle(mapped_data)
+
+    # get threshold exceedances
+    model_scale_threshold = cls._model_marginal_dist.ppf(quantile_threshold)
+
+    exs_idx = np.logical_or(x &gt; model_scale_threshold, y &gt; model_scale_threshold)
+    x = x[exs_idx]
+    y = y[exs_idx]
+
+    mapped_exceedances = cls.bundle(x,y)
+
+
+    def logistic(x):
+      return 1.0/(1 + np.exp(-x))
+
+    x0 = 0.5 if x0 is None else x0
+
+    def loss(phi, data):
+      alpha = logistic(phi)
+      return -np.mean(cls.loglik(alpha, model_scale_threshold, data))
+
+    res = minimize(
+      fun=loss, 
+      x0 = x0,
+      method = &#34;BFGS&#34;,
+      args = (mapped_exceedances,))
+
+    if return_opt_results:
+      warn.warnings(&#34;Returning raw results for rescaled exceedance data (sdev ~ 1).&#34;)
+      return res
+    else:
+      phi = res.x[0]
+      alpha = logistic(phi)
+
+    return cls(
+      quantile_threshold = quantile_threshold,
+      alpha = alpha,
+      data = data[exs_idx,:],
+      margin1 = margin1,
+      margin2 = margin2)
+
+  @classmethod
+  def hessian(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+    &#34;&#34;&#34;Calculates loglikelihood&#39;s second deriviative (i.e., negative estimator&#39;s precision)
+    
+    Args:
+        alpha (float): dependence parameter
+        threshold (float): Threshold in standard scale (i.e. Gumbel or Gaussian)
+        data (t.Union[np.ndarray, t.Iterable]): Data in standard scale (i.e. Gumbel or Gaussian)
+    
+    Returns:
+        TYPE: Description
+    
+    &#34;&#34;&#34;
+    delta = 1e-3
+    n = len(data)
+    return (cls.loglik(alpha - delta, threshold, data) -2*cls.loglik(alpha, threshold, data) + cls.loglik(alpha + delta, threshold, data))/(n*delta**2)
+
+  def plot_diagnostics(self):
+    &#34;&#34;&#34;Produce diagnostic plots for fitted model
+
+    &#34;&#34;&#34;
+
+    x, y = self.unbundle(self.data)
+    z1,z2= self.unbundle(self.data_to_model_dist(self.data))
+    n = len(z1)
+
+    fig, axs = plt.subplots(2, 2)
+
+    ####### loglikelihood plot
+
+    model_scale_threshold = self.model_scale_threshold
+    sdev = np.sqrt(-1.0/self.hessian(self.alpha, model_scale_threshold, self.bundle(z1, z2)))
+    grid = np.linspace(self.alpha - sdev, self.alpha + sdev, 100)
+    grid = grid[np.logical_and(grid &gt; 0, grid &lt; 1)]
+    ll = np.array([self.loglik(alpha, model_scale_threshold, self.bundle(z1,z2)) for alpha in grid])
+
+    # filter to almost optimal values
+    max_ll = max(ll)
+    almost_optimal = np.abs(ll - max_ll) &lt; np.abs(2*max_ll)
+    ll = ll[almost_optimal]
+    grid = grid[almost_optimal]
+
+    axs[0,0].plot(grid, ll, color=self._figure_color_palette[0])
+    axs[0,0].vlines(x=self.alpha, ymin=min(ll), ymax = max(ll), linestyle=&#34;dashed&#34;, colors = self._figure_color_palette[1])
+    axs[0,0].title.set_text(&#39;Log-likelihood&#39;)
+    axs[0,0].set_xlabel(&#39;Alpha&#39;)
+    axs[0,0].set_ylabel(&#39;log-likelihood&#39;)
+
+    #print(&#34;loglikelihood plot finished&#34;)
+
+    ####### density plot
+    z1_range = max(z1) - min(z1)
+    z2_range = max(z2) - min(z2)
+
+    x_range = np.linspace(min(z1) - 0.05*z1_range, max(z1) + 0.05*z1_range, 50)
+    y_range = np.linspace(min(z1) - 0.05*z2_range, max(z1) + 0.05*z2_range, 50)
+
+    X, Y = np.meshgrid(x_range, y_range)
+    bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
+    Z = self.logpdf(data=bundled_grid, threshold=model_scale_threshold, alpha=self.alpha).reshape(X.shape)
+    axs[0,1].contourf(X,Y,Z)
+    axs[0,1].scatter(z1,z2, color=self._figure_color_palette[1], s=0.9)
+    axs[0,1].title.set_text(f&#39;Model density ({self._marginal_model_name} scale)&#39;)
+    axs[0,1].set_xlabel(&#39;x&#39;)
+    axs[0,1].set_ylabel(&#39;y&#39;)
+
+    ##### Q-Q plot
+    cdf_values = self.cdf(self.data)
+    model_logodds = np.log(cdf_values/(1-cdf_values))
+    ecdf_values = Empirical.from_data(self.data).cdf(self.data)
+    empirical_logodds = np.log(ecdf_values/(1-ecdf_values))
+
+    axs[1,0].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
+
+    axs[1,0].title.set_text(&#39;Model vs data log-odds&#39;)
+    axs[1,0].set_ylabel(&#39;Data log-odds&#39;)
+    axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
+    axs[1,0].set_xlim(-5,5)
+    min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
+    axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
+
+    plt.tight_layout()
+    plt.show()
+
+    # #print(&#34;density plot finished&#34;)
+    # ####### Pickands function
+    # x_grid = np.linspace(0,1,50)
+    # logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
+    # ## get data for empirical pickands function
+    # # see Statistics of Extremes by Berlaint, page 315
+    # th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
+    # exceedance_data = self.data[np.logical_and(x &gt; th_margin1, y &gt; th_margin2)]
+    # exs1, exs2 = self.unbundle(exceedance_data)
+
+    # tail = self.margin1 &gt; th_margin1
+    # xi = -np.log(tail.cdf(exs1))
+    # #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
+    # tail = self.margin2 &gt; th_margin2
+    # eta = -np.log(tail.cdf(exs2))
+    # #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
+
+    # finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
+    # xi = xi[finite_idx]
+    # eta = eta[finite_idx]
+
+    # def nonparametric_pickands(t):
+    #   return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
+    # empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
+
+    # axs[1,1].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
+    # axs[1,1].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
+    # axs[1,1].plot(x_grid, np.ones((len(x_grid),)), linestyle=&#34;--&#34;, color=&#34;black&#34;)
+    # axs[1,1].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle=&#34;--&#34;, color=&#34;black&#34;)
+    # axs[1,1].title.set_text(&#34;model vs empirical Pickands function&#34;)
+    # axs[1,1].set_xlabel(&#34;t&#34;)
+    # axs[1,1].set_ylabel(&#34;&#34;)
+
+  def simulate(self, size: int):
+    alpha = self.alpha
+    exs_prob = 1 - self.quantile_threshold
+    ### simulate in Gumbel scale maximum component: z = max(x1, x2) ~ Gumbel(loc=alpha*np.log(2)) using inverse function method
+    q0 = gumbel.cdf(self.model_scale_threshold, loc=alpha*np.log(2)) # quantile of model&#39;s threshold in the maximum&#39;s distribution
+    u = np.random.uniform(size=size, low=q0)
+    maxima = gumbel.ppf(q=u, loc=alpha*np.log(2))
+
+    ###simulate difference between maxima and minima r = max(x,y) - min(x,y) using inverse function method
+    u = np.random.uniform(size=size)
+    r = (alpha*np.log((-((alpha - 1)*np.exp(maxima)*lambertw(-(np.exp(-maxima - (2**alpha*np.exp(-maxima)*alpha)/(alpha - 1))*(-2**(alpha - 1)*(u - 1))**(alpha/(alpha - 1))*alpha)/(alpha - 1)))/alpha)**(1/alpha) - 1)).real
+
+    minima = maxima - r
+
+    #allocate maxima randomly between components
+    max_indices= np.random.binomial(1,0.5,size)
+
+    x = np.concatenate([
+      maxima[max_indices==0].reshape((-1,1)),
+      minima[max_indices==1].reshape((-1,1))],
+      axis = 0)
+
+    y = np.concatenate([
+      minima[max_indices==0].reshape((-1,1)),
+      maxima[max_indices==1].reshape((-1,1))],
+      axis = 0)
+
+    return self.model_to_data_dist(self.bundle(x,y))
+
+  def cdf(self, data: np.ndarray):
+    mapped_data = self.data_to_model_dist(data)
+    gumbel_threshold = self.model_scale_threshold
+    u = np.minimum(mapped_data, gumbel_threshold)
+    norm_factor = float(1 - self.logistic_gumbel_cdf(self.alpha, self.bundle(gumbel_threshold, gumbel_threshold)))
+
+    return (self.logistic_gumbel_cdf(self.alpha, mapped_data) - self.logistic_gumbel_cdf(self.alpha,u))/norm_factor
+     
+
+  def dx_dz(self, z: t.Union[float, np.ndarray], component: int):
+    &#34;&#34;&#34;Calculate analytically or otherwise, the derivative of the standardised marginal distributions with respect to original data scale. This is necessary to calculate pdf values in the original data scale
+    
+    Args:
+        z (t.Union[float, np.ndarray]): values in original scale
+        component (int): component index(0 or 1)
+    
+    &#34;&#34;&#34;
+    margin = self.margin1 if component == 0 else self.margin2
+    if isinstance(margin, univar.EmpiricalWithGPTail):
+      mu, sigma, xi = margin.tail.threshold, margin.tail.scale, margin.tail.shape
+      p = self.quantile_threshold
+      dx = -((1 - p)*((xi*(z - mu))/sigma + 1)**(-1/xi - 1))/(sigma*((1 - p)*(1 - ((xi*(z - mu))/sigma + 1)**(-1/xi)) + p)*np.log((1 - p)*(1 - ((xi*(z - mu))/sigma + 1)**(-1/xi)) + p))
+    else:
+      # estimate by finite differences
+      eps = 1e-3
+      dx = (margin.pdf(z+eps) - margin.pdf(z-eps))/(2*eps)
+    return dx
+
+  def pdf(self, data: t.Union[np.ndarray,t.Iterable]):
+    z1, z2 = self.unbundle(data)
+    model_scale_data = self.data_to_model_dist(data)
+    return np.exp(self.logpdf(self.alpha, self.quantile_threshold, model_scale_data))*self.dx_dz(z1,0)*self.dx_dz(z2,1)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.ExceedanceDistribution" href="#riskmodels.bivariate.ExceedanceDistribution">ExceedanceDistribution</a></li>
+<li><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></li>
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.Gaussian" href="#riskmodels.bivariate.Gaussian">Gaussian</a></li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.Logistic.alpha"><code class="name">var <span class="ident">alpha</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.margin1"><code class="name">var <span class="ident">margin1</span> : <a title="riskmodels.univariate.BaseDistribution" href="univariate.html#riskmodels.univariate.BaseDistribution">BaseDistribution</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.margin2"><code class="name">var <span class="ident">margin2</span> : <a title="riskmodels.univariate.BaseDistribution" href="univariate.html#riskmodels.univariate.BaseDistribution">BaseDistribution</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Static methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.Logistic.fit"><code class="name flex">
+<span>def <span class="ident">fit</span></span>(<span>data: t.Union[np.ndarray, t.Iterable], quantile_threshold: float, margin1: univar.BaseDistribution = None, margin2: univar.BaseDistribution = None, return_opt_results=False, x0: float = None) ‑> <a title="riskmodels.bivariate.Logistic" href="#riskmodels.bivariate.Logistic">Logistic</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Fits the model from provided data, threshold and marginal distributons</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt>data (t.Union[np.ndarray, t.Iterable])</dt>
+<dt><strong><code>quantile_threshold</code></strong> :&ensp;<code>float</code></dt>
+<dd>Description</dd>
+<dt>margin1 (univar.BaseDistribution, optional)</dt>
+<dt>margin2 (univar.BaseDistribution, optional)</dt>
+<dt><strong><code>return_opt_results</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, the object from the optimization result is returned</dd>
+<dt><strong><code>x0</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Initial point for the optimisation algorithm. Defaults to 0.5</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code><a title="riskmodels.bivariate.Logistic" href="#riskmodels.bivariate.Logistic">Logistic</a></code></dt>
+<dd>Fitted model</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>ValueError</code></dt>
+<dd>Description</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def fit(
+  cls, 
+  data: t.Union[np.ndarray,t.Iterable], 
+  quantile_threshold: float,
+  margin1: univar.BaseDistribution = None,
+  margin2: univar.BaseDistribution = None,
+  return_opt_results = False,
+  x0: float = None) -&gt; Logistic:
+  &#34;&#34;&#34;Fits the model from provided data, threshold and marginal distributons
+  
+  Args:
+      data (t.Union[np.ndarray, t.Iterable])
+      quantile_threshold (float): Description
+      margin1 (univar.BaseDistribution, optional)
+      margin2 (univar.BaseDistribution, optional)
+      return_opt_results (bool, optional): If True, the object from the optimization result is returned
+      x0 (float, optional): Initial point for the optimisation algorithm. Defaults to 0.5
+  
+  Returns:
+      Logistic: Fitted model
+  
+  
+  Raises:
+      ValueError: Description
+  
+  
+  &#34;&#34;&#34;
+  if margin1 is None:
+    margin1 = univar.empirical.from_data(data[:,0])
+    warnings.warn(&#34;margin1 is None; using an empirical distribution&#34;, stacklevel=2)
+
+  if margin2 is None:
+    margin1 = univar.empirical.from_data(data[:,1])
+    warnings.warn(&#34;margin1 is None; using an empirical distribution&#34;, stacklevel=2)
+
+  if not isinstance(quantile_threshold, float) or quantile_threshold &lt;= 0 or quantile_threshold &gt;= 1:
+    raise ValueError(&#34;quantile_threshold must be in the open interval (0,1)&#34;)
+
+  mapped_data = cls(
+    alpha=0.5, 
+    margin1=margin1, 
+    margin2=margin2, 
+    quantile_threshold=quantile_threshold).data_to_model_dist(data)
+
+  x,y = cls.unbundle(mapped_data)
+
+  # get threshold exceedances
+  model_scale_threshold = cls._model_marginal_dist.ppf(quantile_threshold)
+
+  exs_idx = np.logical_or(x &gt; model_scale_threshold, y &gt; model_scale_threshold)
+  x = x[exs_idx]
+  y = y[exs_idx]
+
+  mapped_exceedances = cls.bundle(x,y)
+
+
+  def logistic(x):
+    return 1.0/(1 + np.exp(-x))
+
+  x0 = 0.5 if x0 is None else x0
+
+  def loss(phi, data):
+    alpha = logistic(phi)
+    return -np.mean(cls.loglik(alpha, model_scale_threshold, data))
+
+  res = minimize(
+    fun=loss, 
+    x0 = x0,
+    method = &#34;BFGS&#34;,
+    args = (mapped_exceedances,))
+
+  if return_opt_results:
+    warn.warnings(&#34;Returning raw results for rescaled exceedance data (sdev ~ 1).&#34;)
+    return res
+  else:
+    phi = res.x[0]
+    alpha = logistic(phi)
+
+  return cls(
+    quantile_threshold = quantile_threshold,
+    alpha = alpha,
+    data = data[exs_idx,:],
+    margin1 = margin1,
+    margin2 = margin2)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.hessian"><code class="name flex">
+<span>def <span class="ident">hessian</span></span>(<span>alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates loglikelihood's second deriviative (i.e., negative estimator's precision)</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>alpha</code></strong> :&ensp;<code>float</code></dt>
+<dd>dependence parameter</dd>
+<dt><strong><code>threshold</code></strong> :&ensp;<code>float</code></dt>
+<dd>Threshold in standard scale (i.e. Gumbel or Gaussian)</dd>
+<dt><strong><code>data</code></strong> :&ensp;<code>t.Union[np.ndarray, t.Iterable]</code></dt>
+<dd>Data in standard scale (i.e. Gumbel or Gaussian)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>TYPE</code></dt>
+<dd>Description</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def hessian(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+  &#34;&#34;&#34;Calculates loglikelihood&#39;s second deriviative (i.e., negative estimator&#39;s precision)
+  
+  Args:
+      alpha (float): dependence parameter
+      threshold (float): Threshold in standard scale (i.e. Gumbel or Gaussian)
+      data (t.Union[np.ndarray, t.Iterable]): Data in standard scale (i.e. Gumbel or Gaussian)
+  
+  Returns:
+      TYPE: Description
+  
+  &#34;&#34;&#34;
+  delta = 1e-3
+  n = len(data)
+  return (cls.loglik(alpha - delta, threshold, data) -2*cls.loglik(alpha, threshold, data) + cls.loglik(alpha + delta, threshold, data))/(n*delta**2)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.logistic_gumbel_cdf"><code class="name flex">
+<span>def <span class="ident">logistic_gumbel_cdf</span></span>(<span>alpha: float, data: t.Union[np.ndarray, t.Iterable])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates unconstrained standard Gumbel CDF</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def logistic_gumbel_cdf(cls, alpha: float, data: t.Union[np.ndarray,t.Iterable]):
+  &#34;&#34;&#34;Calculates unconstrained standard Gumbel CDF
+
+  &#34;&#34;&#34;
+  x, y = cls.unbundle(data)
+  return np.exp(-(np.exp(-x/alpha) + np.exp(-y/alpha))**(alpha))</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.loglik"><code class="name flex">
+<span>def <span class="ident">loglik</span></span>(<span>alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates log-likelihood for Gumbel exceedances</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def loglik(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+  &#34;&#34;&#34;Calculates log-likelihood for Gumbel exceedances
+  
+  &#34;&#34;&#34;
+  return np.sum(cls.logpdf(alpha, threshold, data))</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.logpdf"><code class="name flex">
+<span>def <span class="ident">logpdf</span></span>(<span>alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates logpdf function for Gumbel exceedances</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>alpha</code></strong> :&ensp;<code>float</code></dt>
+<dd>Dependence parameter</dd>
+<dt><strong><code>threshold</code></strong> :&ensp;<code>float</code></dt>
+<dd>Exceedance threshold in Gumbel scale</dd>
+<dt><strong><code>data</code></strong> :&ensp;<code>t.Union[np.ndarray, t.Iterable]</code></dt>
+<dd>Observed data in Gumbel scale</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def logpdf(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Iterable]):
+  &#34;&#34;&#34;Calculates logpdf function for Gumbel exceedances
+  
+  
+  Args:
+      alpha (float): Dependence parameter
+      threshold (float): Exceedance threshold in Gumbel scale
+      data (t.Union[np.ndarray, t.Iterable]): Observed data in Gumbel scale
+
+  &#34;&#34;&#34;
+  x, y = cls.unbundle(data)
+
+  nlogp = (np.exp(-x/alpha) + np.exp(-y/alpha))**alpha
+  lognlogp = alpha*np.log(np.exp(-x/alpha) + np.exp(-y/alpha))
+  rescaler = 1 - cls.logistic_gumbel_cdf(alpha, cls.bundle(threshold,threshold))
+
+  #a = np.exp((x + y - nlogp*alpha)/alpha)
+  log_a = (x + y)/alpha - nlogp
+
+  #b = nlogp
+  log_b = lognlogp
+
+  #c = 1 + alpha*(nlogp - 1)
+  log_c = np.log(1 + alpha*(nlogp - 1))
+
+  #d = 1.0/(alpha*(np.exp(x/alpha) + np.exp(y/alpha))**2)
+  log_d = -(np.log(alpha) + 2*np.log(np.exp(x/alpha) + np.exp(y/alpha)))
+
+  log_density = log_a + log_b + log_c + log_d - np.log(rescaler)
+
+  # density is 0 when both coordinates are below the threshold
+  nil_density_idx = np.logical_and(x &lt;= threshold, y &lt;= threshold)
+  log_density[nil_density_idx] = -np.Inf
+
+  return log_density</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.validate_alpha"><code class="name flex">
+<span>def <span class="ident">validate_alpha</span></span>(<span>alpha)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@validator(&#34;alpha&#34;)
+def validate_alpha(cls, alpha):
+  if alpha &lt; 0 or alpha &gt; 1:
+    raise TypeError(&#34;alpha must be in the open interval (0,1) &#34;)
+  else:
+    return alpha</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.validate_data"><code class="name flex">
+<span>def <span class="ident">validate_data</span></span>(<span>data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@validator(&#34;data&#34;)
+def validate_data(cls, data):
+  if data is None or len(data.shape) != 2 or data.shape[1] != 2:
+    raise ValueError(&#34;Data needs to be an n x 2 matrix array&#34;)
+  else:
+    return data</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.Logistic.data_scale_threshold"><code class="name">var <span class="ident">data_scale_threshold</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def data_scale_threshold(self):
+  return self.model_to_data_dist(self.bundle(self.model_scale_threshold, self.model_scale_threshold))</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.model_scale_threshold"><code class="name">var <span class="ident">model_scale_threshold</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def model_scale_threshold(self):
+  return self._model_marginal_dist.ppf(self.quantile_threshold)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.bivariate.Logistic.data_to_model_dist"><code class="name flex">
+<span>def <span class="ident">data_to_model_dist</span></span>(<span>self, data: t.Union[np.ndarray, t.Iterable]) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Transforms original data scale to standard Gumbel scale</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>data</code></strong> :&ensp;<code>t.Union[np.ndarray, t.Iterable]</code></dt>
+<dd>observations in original scale</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def data_to_model_dist(self, data: t.Union[np.ndarray,t.Iterable]) -&gt; np.ndarray:
+  &#34;&#34;&#34;Transforms original data scale to standard Gumbel scale
+  
+  Args:
+      data (t.Union[np.ndarray, t.Iterable]): observations in original scale
+  
+  &#34;&#34;&#34;
+  x, y = self.unbundle(data)
+
+  ## to copula scale
+  x = self.margin1.cdf(x)
+  y = self.margin2.cdf(y)
+
+  # pass to Gumbel scale 
+  x = self._model_marginal_dist.ppf(x)
+  y = self._model_marginal_dist.ppf(y)
+
+  return self.bundle(x,y)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.dx_dz"><code class="name flex">
+<span>def <span class="ident">dx_dz</span></span>(<span>self, z: t.Union[float, np.ndarray], component: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate analytically or otherwise, the derivative of the standardised marginal distributions with respect to original data scale. This is necessary to calculate pdf values in the original data scale</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>z</code></strong> :&ensp;<code>t.Union[float, np.ndarray]</code></dt>
+<dd>values in original scale</dd>
+<dt><strong><code>component</code></strong> :&ensp;<code>int</code></dt>
+<dd>component index(0 or 1)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dx_dz(self, z: t.Union[float, np.ndarray], component: int):
+  &#34;&#34;&#34;Calculate analytically or otherwise, the derivative of the standardised marginal distributions with respect to original data scale. This is necessary to calculate pdf values in the original data scale
+  
+  Args:
+      z (t.Union[float, np.ndarray]): values in original scale
+      component (int): component index(0 or 1)
+  
+  &#34;&#34;&#34;
+  margin = self.margin1 if component == 0 else self.margin2
+  if isinstance(margin, univar.EmpiricalWithGPTail):
+    mu, sigma, xi = margin.tail.threshold, margin.tail.scale, margin.tail.shape
+    p = self.quantile_threshold
+    dx = -((1 - p)*((xi*(z - mu))/sigma + 1)**(-1/xi - 1))/(sigma*((1 - p)*(1 - ((xi*(z - mu))/sigma + 1)**(-1/xi)) + p)*np.log((1 - p)*(1 - ((xi*(z - mu))/sigma + 1)**(-1/xi)) + p))
+  else:
+    # estimate by finite differences
+    eps = 1e-3
+    dx = (margin.pdf(z+eps) - margin.pdf(z-eps))/(2*eps)
+  return dx</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.model_to_data_dist"><code class="name flex">
+<span>def <span class="ident">model_to_data_dist</span></span>(<span>self, data: t.Union[np.ndarray, t.Iterable]) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Transforms data in standard Gumbel scale to original data scale</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>data from first component</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>data from second component</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>np.ndarray</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def model_to_data_dist(self, data: t.Union[np.ndarray,t.Iterable]) -&gt; np.ndarray:
+  &#34;&#34;&#34;Transforms data in standard Gumbel scale to original data scale
+  
+  Args:
+      x (np.ndarray): data from first component
+      y (np.ndarray): data from second component
+  
+  Returns:
+      np.ndarray
+  &#34;&#34;&#34;
+
+  # copula scale
+  x, y = self.unbundle(data)
+
+  u = self._model_marginal_dist.cdf(x)
+  w = self._model_marginal_dist.cdf(y)
+
+  # data scale
+  u = self.margin1.ppf(u)
+  w = self.margin2.ppf(w)
+
+  return self.bundle(u,w)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Logistic.plot_diagnostics"><code class="name flex">
+<span>def <span class="ident">plot_diagnostics</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Produce diagnostic plots for fitted model</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_diagnostics(self):
+  &#34;&#34;&#34;Produce diagnostic plots for fitted model
+
+  &#34;&#34;&#34;
+
+  x, y = self.unbundle(self.data)
+  z1,z2= self.unbundle(self.data_to_model_dist(self.data))
+  n = len(z1)
+
+  fig, axs = plt.subplots(2, 2)
+
+  ####### loglikelihood plot
+
+  model_scale_threshold = self.model_scale_threshold
+  sdev = np.sqrt(-1.0/self.hessian(self.alpha, model_scale_threshold, self.bundle(z1, z2)))
+  grid = np.linspace(self.alpha - sdev, self.alpha + sdev, 100)
+  grid = grid[np.logical_and(grid &gt; 0, grid &lt; 1)]
+  ll = np.array([self.loglik(alpha, model_scale_threshold, self.bundle(z1,z2)) for alpha in grid])
+
+  # filter to almost optimal values
+  max_ll = max(ll)
+  almost_optimal = np.abs(ll - max_ll) &lt; np.abs(2*max_ll)
+  ll = ll[almost_optimal]
+  grid = grid[almost_optimal]
+
+  axs[0,0].plot(grid, ll, color=self._figure_color_palette[0])
+  axs[0,0].vlines(x=self.alpha, ymin=min(ll), ymax = max(ll), linestyle=&#34;dashed&#34;, colors = self._figure_color_palette[1])
+  axs[0,0].title.set_text(&#39;Log-likelihood&#39;)
+  axs[0,0].set_xlabel(&#39;Alpha&#39;)
+  axs[0,0].set_ylabel(&#39;log-likelihood&#39;)
+
+  #print(&#34;loglikelihood plot finished&#34;)
+
+  ####### density plot
+  z1_range = max(z1) - min(z1)
+  z2_range = max(z2) - min(z2)
+
+  x_range = np.linspace(min(z1) - 0.05*z1_range, max(z1) + 0.05*z1_range, 50)
+  y_range = np.linspace(min(z1) - 0.05*z2_range, max(z1) + 0.05*z2_range, 50)
+
+  X, Y = np.meshgrid(x_range, y_range)
+  bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
+  Z = self.logpdf(data=bundled_grid, threshold=model_scale_threshold, alpha=self.alpha).reshape(X.shape)
+  axs[0,1].contourf(X,Y,Z)
+  axs[0,1].scatter(z1,z2, color=self._figure_color_palette[1], s=0.9)
+  axs[0,1].title.set_text(f&#39;Model density ({self._marginal_model_name} scale)&#39;)
+  axs[0,1].set_xlabel(&#39;x&#39;)
+  axs[0,1].set_ylabel(&#39;y&#39;)
+
+  ##### Q-Q plot
+  cdf_values = self.cdf(self.data)
+  model_logodds = np.log(cdf_values/(1-cdf_values))
+  ecdf_values = Empirical.from_data(self.data).cdf(self.data)
+  empirical_logodds = np.log(ecdf_values/(1-ecdf_values))
+
+  axs[1,0].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
+
+  axs[1,0].title.set_text(&#39;Model vs data log-odds&#39;)
+  axs[1,0].set_ylabel(&#39;Data log-odds&#39;)
+  axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
+  axs[1,0].set_xlim(-5,5)
+  min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
+  axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
+
+  plt.tight_layout()
+  plt.show()
+
+  # #print(&#34;density plot finished&#34;)
+  # ####### Pickands function
+  # x_grid = np.linspace(0,1,50)
+  # logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
+  # ## get data for empirical pickands function
+  # # see Statistics of Extremes by Berlaint, page 315
+  # th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
+  # exceedance_data = self.data[np.logical_and(x &gt; th_margin1, y &gt; th_margin2)]
+  # exs1, exs2 = self.unbundle(exceedance_data)
+
+  # tail = self.margin1 &gt; th_margin1
+  # xi = -np.log(tail.cdf(exs1))
+  # #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
+  # tail = self.margin2 &gt; th_margin2
+  # eta = -np.log(tail.cdf(exs2))
+  # #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
+
+  # finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
+  # xi = xi[finite_idx]
+  # eta = eta[finite_idx]
+
+  # def nonparametric_pickands(t):
+  #   return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
+  # empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
+
+  # axs[1,1].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
+  # axs[1,1].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
+  # axs[1,1].plot(x_grid, np.ones((len(x_grid),)), linestyle=&#34;--&#34;, color=&#34;black&#34;)
+  # axs[1,1].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle=&#34;--&#34;, color=&#34;black&#34;)
+  # axs[1,1].title.set_text(&#34;model vs empirical Pickands function&#34;)
+  # axs[1,1].set_xlabel(&#34;t&#34;)
+  # axs[1,1].set_ylabel(&#34;&#34;)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.bivariate.ExceedanceDistribution" href="#riskmodels.bivariate.ExceedanceDistribution">ExceedanceDistribution</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.bundle" href="#riskmodels.bivariate.ExceedanceDistribution.bundle">bundle</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.simulate" href="#riskmodels.bivariate.BaseDistribution.simulate">simulate</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.unbundle" href="#riskmodels.bivariate.ExceedanceDistribution.unbundle">unbundle</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+<dt id="riskmodels.bivariate.Mixture"><code class="flex name class">
+<span>class <span class="ident">Mixture</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base interface for a bivariate mixture distribution</p>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Mixture(BaseDistribution):
+
+  &#34;&#34;&#34;Base interface for a bivariate mixture distribution
+  &#34;&#34;&#34;
+  
+  distributions: t.List[BaseDistribution]
+  weights: np.ndarray
+
+  def simulate(self, size: int) -&gt; np.ndarray:
+    
+    n_samples = np.random.multinomial(n=size, pvals = self.weights, size=1)[0]
+    indices = (n_samples &gt; 0).nonzero()[0]
+    samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
+    return np.concatenate(samples, axis=0)
+
+  def cdf(self, x:np.ndarray, **kwargs) -&gt; float:
+    vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
+
+  def pdf(self, x:np.ndarray, **kwargs) -&gt; float:
+    
+    vals = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></li>
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li>abc.ABC</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="riskmodels.bivariate.ExceedanceModel" href="#riskmodels.bivariate.ExceedanceModel">ExceedanceModel</a></li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.bivariate.Mixture.distributions"><code class="name">var <span class="ident">distributions</span> : List[<a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.bivariate.Mixture.weights"><code class="name">var <span class="ident">weights</span> : numpy.ndarray</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.bivariate.BaseDistribution.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.simulate" href="#riskmodels.bivariate.BaseDistribution.simulate">simulate</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="riskmodels" href="index.html">riskmodels</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="riskmodels.bivariate.BaseDistribution" href="#riskmodels.bivariate.BaseDistribution">BaseDistribution</a></code></h4>
+<ul class="two-column">
+<li><code><a title="riskmodels.bivariate.BaseDistribution.Config" href="#riskmodels.bivariate.BaseDistribution.Config">Config</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.cdf" href="#riskmodels.bivariate.BaseDistribution.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.data" href="#riskmodels.bivariate.BaseDistribution.data">data</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.pdf" href="#riskmodels.bivariate.BaseDistribution.pdf">pdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.plot" href="#riskmodels.bivariate.BaseDistribution.plot">plot</a></code></li>
+<li><code><a title="riskmodels.bivariate.BaseDistribution.simulate" href="#riskmodels.bivariate.BaseDistribution.simulate">simulate</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="riskmodels.bivariate.Empirical" href="#riskmodels.bivariate.Empirical">Empirical</a></code></h4>
+<ul class="two-column">
+<li><code><a title="riskmodels.bivariate.Empirical.check_pdf_values" href="#riskmodels.bivariate.Empirical.check_pdf_values">check_pdf_values</a></code></li>
+<li><code><a title="riskmodels.bivariate.Empirical.data" href="#riskmodels.bivariate.Empirical.data">data</a></code></li>
+<li><code><a title="riskmodels.bivariate.Empirical.fit_tail_model" href="#riskmodels.bivariate.Empirical.fit_tail_model">fit_tail_model</a></code></li>
+<li><code><a title="riskmodels.bivariate.Empirical.from_data" href="#riskmodels.bivariate.Empirical.from_data">from_data</a></code></li>
+<li><code><a title="riskmodels.bivariate.Empirical.get_marginals" href="#riskmodels.bivariate.Empirical.get_marginals">get_marginals</a></code></li>
+<li><code><a title="riskmodels.bivariate.Empirical.pdf_values" href="#riskmodels.bivariate.Empirical.pdf_values">pdf_values</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="riskmodels.bivariate.ExceedanceDistribution" href="#riskmodels.bivariate.ExceedanceDistribution">ExceedanceDistribution</a></code></h4>
+<ul class="">
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.bundle" href="#riskmodels.bivariate.ExceedanceDistribution.bundle">bundle</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.fit" href="#riskmodels.bivariate.ExceedanceDistribution.fit">fit</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.plot_diagnostics" href="#riskmodels.bivariate.ExceedanceDistribution.plot_diagnostics">plot_diagnostics</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.quantile_threshold" href="#riskmodels.bivariate.ExceedanceDistribution.quantile_threshold">quantile_threshold</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceDistribution.unbundle" href="#riskmodels.bivariate.ExceedanceDistribution.unbundle">unbundle</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="riskmodels.bivariate.ExceedanceModel" href="#riskmodels.bivariate.ExceedanceModel">ExceedanceModel</a></code></h4>
+<ul class="">
+<li><code><a title="riskmodels.bivariate.ExceedanceModel.distributions" href="#riskmodels.bivariate.ExceedanceModel.distributions">distributions</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceModel.empirical" href="#riskmodels.bivariate.ExceedanceModel.empirical">empirical</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceModel.plot_diagnostics" href="#riskmodels.bivariate.ExceedanceModel.plot_diagnostics">plot_diagnostics</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceModel.tail" href="#riskmodels.bivariate.ExceedanceModel.tail">tail</a></code></li>
+<li><code><a title="riskmodels.bivariate.ExceedanceModel.weights" href="#riskmodels.bivariate.ExceedanceModel.weights">weights</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="riskmodels.bivariate.Gaussian" href="#riskmodels.bivariate.Gaussian">Gaussian</a></code></h4>
+<ul class="two-column">
+<li><code><a title="riskmodels.bivariate.Gaussian.alpha" href="#riskmodels.bivariate.Gaussian.alpha">alpha</a></code></li>
+<li><code><a title="riskmodels.bivariate.Gaussian.cov" href="#riskmodels.bivariate.Gaussian.cov">cov</a></code></li>
+<li><code><a title="riskmodels.bivariate.Gaussian.dx_dz" href="#riskmodels.bivariate.Gaussian.dx_dz">dx_dz</a></code></li>
+<li><code><a title="riskmodels.bivariate.Gaussian.logistic_gumbel_cdf" href="#riskmodels.bivariate.Gaussian.logistic_gumbel_cdf">logistic_gumbel_cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Gaussian.logpdf" href="#riskmodels.bivariate.Gaussian.logpdf">logpdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Gaussian.margin1" href="#riskmodels.bivariate.Gaussian.margin1">margin1</a></code></li>
+<li><code><a title="riskmodels.bivariate.Gaussian.margin2" href="#riskmodels.bivariate.Gaussian.margin2">margin2</a></code></li>
+<li><code><a title="riskmodels.bivariate.Gaussian.simulate" href="#riskmodels.bivariate.Gaussian.simulate">simulate</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="riskmodels.bivariate.Independent" href="#riskmodels.bivariate.Independent">Independent</a></code></h4>
+<ul class="">
+<li><code><a title="riskmodels.bivariate.Independent.x" href="#riskmodels.bivariate.Independent.x">x</a></code></li>
+<li><code><a title="riskmodels.bivariate.Independent.y" href="#riskmodels.bivariate.Independent.y">y</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="riskmodels.bivariate.Logistic" href="#riskmodels.bivariate.Logistic">Logistic</a></code></h4>
+<ul class="">
+<li><code><a title="riskmodels.bivariate.Logistic.alpha" href="#riskmodels.bivariate.Logistic.alpha">alpha</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.data_scale_threshold" href="#riskmodels.bivariate.Logistic.data_scale_threshold">data_scale_threshold</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.data_to_model_dist" href="#riskmodels.bivariate.Logistic.data_to_model_dist">data_to_model_dist</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.dx_dz" href="#riskmodels.bivariate.Logistic.dx_dz">dx_dz</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.fit" href="#riskmodels.bivariate.Logistic.fit">fit</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.hessian" href="#riskmodels.bivariate.Logistic.hessian">hessian</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.logistic_gumbel_cdf" href="#riskmodels.bivariate.Logistic.logistic_gumbel_cdf">logistic_gumbel_cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.loglik" href="#riskmodels.bivariate.Logistic.loglik">loglik</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.logpdf" href="#riskmodels.bivariate.Logistic.logpdf">logpdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.margin1" href="#riskmodels.bivariate.Logistic.margin1">margin1</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.margin2" href="#riskmodels.bivariate.Logistic.margin2">margin2</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.model_scale_threshold" href="#riskmodels.bivariate.Logistic.model_scale_threshold">model_scale_threshold</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.model_to_data_dist" href="#riskmodels.bivariate.Logistic.model_to_data_dist">model_to_data_dist</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.plot_diagnostics" href="#riskmodels.bivariate.Logistic.plot_diagnostics">plot_diagnostics</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.validate_alpha" href="#riskmodels.bivariate.Logistic.validate_alpha">validate_alpha</a></code></li>
+<li><code><a title="riskmodels.bivariate.Logistic.validate_data" href="#riskmodels.bivariate.Logistic.validate_data">validate_data</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="riskmodels.bivariate.Mixture" href="#riskmodels.bivariate.Mixture">Mixture</a></code></h4>
+<ul class="">
+<li><code><a title="riskmodels.bivariate.Mixture.distributions" href="#riskmodels.bivariate.Mixture.distributions">distributions</a></code></li>
+<li><code><a title="riskmodels.bivariate.Mixture.weights" href="#riskmodels.bivariate.Mixture.weights">weights</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

@@ -1,3 +1,3 @@
 """
-This module contains functionality for power system reliability modeling under a time-collapsed model, in which temporal correlation between variables is not considered. This is useful when computing expectation-based risk indices such as LOLE or EEU.
+This module contains functionality for power system reliability modeling, including specific models for available conventional generation in both time-collapsed and time dependent settings, and a a 2-area time-collapsed power surplus model
 """

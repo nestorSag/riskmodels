@@ -1,0 +1,1433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>riskmodels.utils.tmvn API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML" integrity="sha256-kZafAc6mZvK3W3v1pHOcUix30OHQN6pU/NO2oFkqZVw=" crossorigin></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>riskmodels.utils.tmvn</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import numpy as np
+import math
+from scipy import special
+from scipy import optimize
+
+EPS = 10e-15
+
+class TruncatedMVN:
+  &#34;&#34;&#34;
+
+
+  *******
+  This code comes from the following repository:
+
+  https://github.com/brunzema/truncated-mvn-sampler
+
+  *******
+
+
+
+  Create a normal distribution :math:`X  \\sim N ({\\mu}, {\\Sigma})` subject to linear inequality constraints
+  :math:`lb &lt; X &lt; ub` and sample from it using minimax tilting. Based on the MATLAB implemention by the authors
+  (reference below).
+  :param np.ndarray mu: (size D) mean of the normal distribution :math:`\\mathbf {\\mu}`.
+  :param np.ndarray cov: (size D x D) covariance of the normal distribution :math:`\\mathbf {\\Sigma}`.
+  :param np.ndarray lb: (size D) lower bound constrain of the multivariate normal distribution :math:`\\mathbf lb`.
+  :param np.ndarray ub: (size D) upper bound constrain of the multivariate normal distribution :math:`\\mathbf ub`.
+  Note that the algorithm may not work if &#39;cov&#39; is close to being rank deficient.
+  Reference:
+  Botev, Z. I., (2016), The normal law under linear restrictions: simulation and estimation via minimax tilting,
+  Journal of the Royal Statistical Society Series B, 79, issue 1, p. 125-148,
+  Example:
+    &gt;&gt;&gt; d = 10  # dimensions
+    &gt;&gt;&gt;
+    &gt;&gt;&gt; # random mu and cov
+    &gt;&gt;&gt; mu = np.random.rand(d)
+    &gt;&gt;&gt; cov = 0.5 - np.random.rand(d ** 2).reshape((d, d))
+    &gt;&gt;&gt; cov = np.triu(cov)
+    &gt;&gt;&gt; cov += cov.T - np.diag(cov.diagonal())
+    &gt;&gt;&gt; cov = np.dot(cov, cov)
+    &gt;&gt;&gt;
+    &gt;&gt;&gt; # constraints
+    &gt;&gt;&gt; lb = np.zeros_like(mu) - 2
+    &gt;&gt;&gt; ub = np.ones_like(mu) * np.inf
+    &gt;&gt;&gt;
+    &gt;&gt;&gt; # create truncated normal and sample from it
+    &gt;&gt;&gt; n_samples = 100000
+    &gt;&gt;&gt; samples = TruncatedMVN(mu, cov, lb, ub).sample(n_samples)
+  Reimplementation by Paul Brunzema
+  &#34;&#34;&#34;
+
+  def __init__(self, mu, cov, lb, ub):
+    self.dim = len(mu)
+    if not cov.shape[0] == cov.shape[1]:
+      raise RuntimeError(&#34;Covariance matrix must be of shape DxD!&#34;)
+    if not (self.dim == cov.shape[0] and self.dim == len(lb) and self.dim == len(ub)):
+      raise RuntimeError(&#34;Dimensions D of mean (mu), covariance matric (cov), lower bound (lb) &#34;
+                 &#34;and upper bound (ub) must be the same!&#34;)
+
+    self.cov = cov
+    self.orig_mu = mu
+    self.orig_lb = lb
+    self.orig_ub = ub
+    
+    # permutated
+    self.lb = lb - mu  # move distr./bounds to have zero mean
+    self.ub = ub - mu  # move distr./bounds to have zero mean
+    if np.any(self.ub &lt;= self.lb):
+      raise RuntimeError(&#34;Upper bound (ub) must be strictly greater than lower bound (lb) for all D dimensions!&#34;)
+
+    # scaled Cholesky with zero diagonal, permutated
+    self.L = np.empty_like(cov)
+    self.unscaled_L = np.empty_like(cov)
+
+    # placeholder for optimization
+    self.perm = None
+    self.x = None
+    self.mu = None
+    self.psistar = None
+
+    # for numerics
+    self.eps = EPS
+
+  def sample(self, n):
+    &#34;&#34;&#34;
+    Create n samples from the truncated normal distribution.
+    :param int n: Number of samples to create.
+    :return: D x n array with the samples.
+    :rtype: np.ndarray
+    &#34;&#34;&#34;
+    if not isinstance(n, int):
+      raise RuntimeError(&#34;Number of samples must be an integer!&#34;)
+
+    # factors (Cholesky, etc.) only need to be computed once!
+    if self.psistar is None:
+      self.compute_factors()
+
+    # start acceptance rejection sampling
+    rv = np.array([], dtype=np.float64).reshape(self.dim, 0)
+    accept, iteration = 0, 0
+    while accept &lt; n:
+      logpr, Z = self.mvnrnd(n, self.mu)  # simulate n proposals
+      idx = -np.log(np.random.rand(n)) &gt; (self.psistar - logpr)  # acceptance tests
+      rv = np.concatenate((rv, Z[:, idx]), axis=1)  # accumulate accepted
+      accept = rv.shape[1]  # keep track of # of accepted
+      iteration += 1
+      if iteration == 10 ** 3:
+        print(&#39;Warning: Acceptance prob. smaller than 0.001.&#39;)
+      elif iteration &gt; 10 ** 4:
+        accept = n
+        rv = np.concatenate((rv, Z), axis=1)
+        print(&#39;Warning: Sample is only approximately distributed.&#39;)
+
+    # finish sampling and postprocess the samples!
+    order = self.perm.argsort(axis=0)
+    rv = rv[:, :n]
+    rv = self.unscaled_L @ rv
+    rv = rv[order, :]
+
+    # retransfer to original mean
+    rv += np.tile(self.orig_mu.reshape(self.dim, 1), (1, rv.shape[-1]))  # Z = X + mu
+    return rv
+  
+  def compute_factors(self):
+    # compute permutated Cholesky factor and solve optimization
+
+    # Cholesky decomposition of matrix with permuation
+    self.unscaled_L, self.perm = self.colperm()
+    D = np.diag(self.unscaled_L)
+    if np.any(D &lt; self.eps):
+      print(&#39;Warning: Method might fail as covariance matrix is singular!&#39;)
+
+    # rescale
+    scaled_L = self.unscaled_L / np.tile(D.reshape(self.dim, 1), (1, self.dim))
+    self.lb = self.lb / D
+    self.ub = self.ub / D
+
+    # remove diagonal
+    self.L = scaled_L - np.eye(self.dim)
+
+    # get gradient/Jacobian function
+    gradpsi = self.get_gradient_function()
+    x0 = np.zeros(2 * (self.dim - 1))
+
+    # find optimal tilting parameter non-linear equation solver
+    sol = optimize.root(gradpsi, x0, args=(self.L, self.lb, self.ub), method=&#39;hybr&#39;, jac=True)
+    if not sol.success:
+      print(&#39;Warning: Method may fail as covariance matrix is close to singular!&#39;)
+    self.x = sol.x[:self.dim - 1]
+    self.mu = sol.x[self.dim - 1:]
+
+    # compute psi star
+    self.psistar = self.psy(self.x, self.mu)
+    
+  def reset(self):
+    # reset factors -&gt; when sampling, optimization for optimal tilting parameters is performed again
+
+    # permutated
+    self.lb = self.orig_lb - self.orig_mu  # move distr./bounds to have zero mean
+    self.ub = self.orig_ub - self.orig_mu
+
+    # scaled Cholesky with zero diagonal, permutated
+    self.L = np.empty_like(self.cov)
+    self.unscaled_L = np.empty_like(self.cov)
+
+    # placeholder for optimization
+    self.perm = None
+    self.x = None
+    self.mu = None
+    self.psistar = None
+
+  def mvnrnd(self, n, mu):
+    # generates the proposals from the exponentially tilted sequential importance sampling pdf
+    # output:   logpr, log-likelihood of sample
+    #       Z, random sample
+    mu = np.append(mu, [0.])
+    Z = np.zeros((self.dim, n))
+    logpr = 0
+    for k in range(self.dim):
+      # compute matrix multiplication L @ Z
+      col = self.L[k, :k] @ Z[:k, :]
+      # compute limits of truncation
+      tl = self.lb[k] - mu[k] - col
+      tu = self.ub[k] - mu[k] - col
+      # simulate N(mu,1) conditional on [tl,tu]
+      Z[k, :] = mu[k] + TruncatedMVN.trandn(tl, tu)
+      # update likelihood ratio
+      logpr += lnNormalProb(tl, tu) + .5 * mu[k] ** 2 - mu[k] * Z[k, :]
+    return logpr, Z
+
+  @staticmethod
+  def trandn(lb, ub):
+    &#34;&#34;&#34;
+    Sample generator for the truncated standard multivariate normal distribution :math:`X \\sim N(0,I)` s.t.
+    :math:`lb&lt;X&lt;ub`.
+    If you wish to simulate a random variable &#39;Z&#39; from the non-standard Gaussian :math:`N(m,s^2)`
+    conditional on :math:`lb&lt;Z&lt;ub`, then first simulate x=TruncatedMVNSampler.trandn((l-m)/s,(u-m)/s) and set
+    Z=m+s*x.
+    Infinite values for &#39;ub&#39; and &#39;lb&#39; are accepted.
+    :param np.ndarray lb: (size D) lower bound constrain of the normal distribution :math:`\\mathbf lb`.
+    :param np.ndarray ub: (size D) upper bound constrain of the normal distribution :math:`\\mathbf lb`.
+    :return: D samples if the truncated normal distribition x ~ N(0, I) subject to lb &lt; x &lt; ub.
+    :rtype: np.ndarray
+    &#34;&#34;&#34;
+    if not len(lb) == len(ub):
+      raise RuntimeError(&#34;Lower bound (lb) and upper bound (ub) must be of the same length!&#34;)
+
+    x = np.empty_like(lb)
+    a = 0.66  # threshold used in MATLAB implementation
+    # three cases to consider
+    # case 1: a&lt;lb&lt;ub
+    I = lb &gt; a
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      x[I] = TruncatedMVN.ntail(tl, tu)
+    # case 2: lb&lt;ub&lt;-a
+    J = ub &lt; -a
+    if np.any(J):
+      tl = -ub[J]
+      tu = -lb[J]
+      x[J] = - TruncatedMVN.ntail(tl, tu)
+    # case 3: otherwise use inverse transform or accept-reject
+    I = ~(I | J)
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      x[I] = TruncatedMVN.tn(tl, tu)
+    return x
+
+  @staticmethod
+  def tn(lb, ub, tol=2):
+    # samples a column vector of length=len(lb)=len(ub) from the standard multivariate normal distribution
+    # truncated over the region [lb,ub], where -a&lt;lb&lt;ub&lt;a for some &#39;a&#39; and lb and ub are column vectors
+    # uses acceptance rejection and inverse-transform method
+
+    sw = tol  # controls switch between methods, threshold can be tuned for maximum speed for each platform
+    x = np.empty_like(lb)
+    # case 1: abs(ub-lb)&gt;tol, uses accept-reject from randn
+    I = abs(ub - lb) &gt; sw
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      x[I] = TruncatedMVN.trnd(tl, tu)
+
+    # case 2: abs(u-l)&lt;tol, uses inverse-transform
+    I = ~I
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      pl = special.erfc(tl / np.sqrt(2)) / 2
+      pu = special.erfc(tu / np.sqrt(2)) / 2
+      x[I] = np.sqrt(2) * special.erfcinv(2 * (pl - (pl - pu) * np.random.rand(len(tl))))
+    return x
+
+  @staticmethod
+  def trnd(lb, ub):
+    # uses acceptance rejection to simulate from truncated normal
+    x = np.random.randn(len(lb))  # sample normal
+    test = (x &lt; lb) | (x &gt; ub)
+    I = np.where(test)[0]
+    d = len(I)
+    while d &gt; 0:  # while there are rejections
+      ly = lb[I]
+      uy = ub[I]
+      y = np.random.randn(len(uy))  # resample
+      idx = (y &gt; ly) &amp; (y &lt; uy)  # accepted
+      x[I[idx]] = y[idx]
+      I = I[~idx]
+      d = len(I)
+    return x
+
+  @staticmethod
+  def ntail(lb, ub):
+    # samples a column vector of length=len(lb)=len(ub) from the standard multivariate normal distribution
+    # truncated over the region [lb,ub], where lb&gt;0 and lb and ub are column vectors
+    # uses acceptance-rejection from Rayleigh distr. similar to Marsaglia (1964)
+    if not len(lb) == len(ub):
+      raise RuntimeError(&#34;Lower bound (lb) and upper bound (ub) must be of the same length!&#34;)
+    c = (lb ** 2) / 2
+    n = len(lb)
+    f = np.expm1(c - ub ** 2 / 2)
+    x = c - np.log(1 + np.random.rand(n) * f)  # sample using Rayleigh
+    # keep list of rejected
+    I = np.where(np.random.rand(n) ** 2 * x &gt; c)[0]
+    d = len(I)
+    while d &gt; 0:  # while there are rejections
+      cy = c[I]
+      y = cy - np.log(1 + np.random.rand(d) * f[I])
+      idx = (np.random.rand(d) ** 2 * y) &lt; cy  # accepted
+      x[I[idx]] = y[idx]  # store the accepted
+      I = I[~idx]  # remove accepted from the list
+      d = len(I)
+    return np.sqrt(2 * x)  # this Rayleigh transform can be delayed till the end
+
+  def psy(self, x, mu):
+    # implements psi(x,mu); assumes scaled &#39;L&#39; without diagonal
+    x = np.append(x, [0.])
+    mu = np.append(mu, [0.])
+    c = self.L @ x
+    lt = self.lb - mu - c
+    ut = self.ub - mu - c
+    p = np.sum(lnNormalProb(lt, ut) + 0.5 * mu ** 2 - x * mu)
+    return p
+
+  def get_gradient_function(self):
+    # wrapper to avoid dependancy on self
+
+    def gradpsi(y, L, l, u):
+      # implements gradient of psi(x) to find optimal exponential twisting, returns also the Jacobian
+      # NOTE: assumes scaled &#39;L&#39; with zero diagonal
+      d = len(u)
+      c = np.zeros(d)
+      mu, x = c.copy(), c.copy()
+      x[0:d - 1] = y[0:d - 1]
+      mu[0:d - 1] = y[d - 1:]
+
+      # compute now ~l and ~u
+      c[1:d] = L[1:d, :] @ x
+      lt = l - mu - c
+      ut = u - mu - c
+
+      # compute gradients avoiding catastrophic cancellation
+      w = lnNormalProb(lt, ut)
+      pl = np.exp(-0.5 * lt ** 2 - w) / np.sqrt(2 * math.pi)
+      pu = np.exp(-0.5 * ut ** 2 - w) / np.sqrt(2 * math.pi)
+      P = pl - pu
+
+      # output the gradient
+      dfdx = - mu[0:d - 1] + (P.T @ L[:, 0:d - 1]).T
+      dfdm = mu - x + P
+      grad = np.concatenate((dfdx, dfdm[:-1]), axis=0)
+
+      # construct jacobian
+      lt[np.isinf(lt)] = 0
+      ut[np.isinf(ut)] = 0
+
+      dP = - P ** 2 + lt * pl - ut * pu
+      DL = np.tile(dP.reshape(d, 1), (1, d)) * L
+      mx = DL - np.eye(d)
+      xx = L.T @ DL
+      mx = mx[:-1, :-1]
+      xx = xx[:-1, :-1]
+      J = np.block([[xx, mx.T],
+              [mx, np.diag(1 + dP[:-1])]])
+      return (grad, J)
+
+    return gradpsi
+
+  def colperm(self):
+    perm = np.arange(self.dim)
+    L = np.zeros_like(self.cov)
+    z = np.zeros_like(self.orig_mu)
+
+    for j in perm.copy():
+      pr = np.ones_like(z) * np.inf  # compute marginal prob.
+      I = np.arange(j, self.dim)  # search remaining dimensions
+      D = np.diag(self.cov)
+      s = D[I] - np.sum(L[I, 0:j] ** 2, axis=1)
+      s[s &lt; 0] = self.eps
+      s = np.sqrt(s)
+      tl = (self.lb[I] - L[I, 0:j] @ z[0:j]) / s
+      tu = (self.ub[I] - L[I, 0:j] @ z[0:j]) / s
+      pr[I] = lnNormalProb(tl, tu)
+      # find smallest marginal dimension
+      k = np.argmin(pr)
+
+      # flip dimensions k--&gt;j
+      jk = [j, k]
+      kj = [k, j]
+      self.cov[jk, :] = self.cov[kj, :]  # update rows of cov
+      self.cov[:, jk] = self.cov[:, kj]  # update cols of cov
+      L[jk, :] = L[kj, :]  # update only rows of L
+      self.lb[jk] = self.lb[kj]  # update integration limits
+      self.ub[jk] = self.ub[kj]  # update integration limits
+      perm[jk] = perm[kj]  # keep track of permutation
+
+      # construct L sequentially via Cholesky computation
+      s = self.cov[j, j] - np.sum(L[j, 0:j] ** 2, axis=0)
+      if s &lt; -0.01:
+        raise RuntimeError(&#34;Sigma is not positive semi-definite&#34;)
+      elif s &lt; 0:
+        s = self.eps
+      L[j, j] = np.sqrt(s)
+      new_L = self.cov[j + 1:self.dim, j] - L[j + 1:self.dim, 0:j] @ L[j, 0:j].T
+      L[j + 1:self.dim, j] = new_L / L[j, j]
+
+      # find mean value, z(j), of truncated normal
+      tl = (self.lb[j] - L[j, 0:j - 1] @ z[0:j - 1]) / L[j, j]
+      tu = (self.ub[j] - L[j, 0:j - 1] @ z[0:j - 1]) / L[j, j]
+      w = lnNormalProb(tl, tu)  # aids in computing expected value of trunc. normal
+      z[j] = (np.exp(-.5 * tl ** 2 - w) - np.exp(-.5 * tu ** 2 - w)) / np.sqrt(2 * math.pi)
+    return L, perm
+
+
+def lnNormalProb(a, b):
+  # computes ln(P(a&lt;Z&lt;b)) where Z~N(0,1) very accurately for any &#39;a&#39;, &#39;b&#39;
+  p = np.zeros_like(a)
+  # case b&gt;a&gt;0
+  I = a &gt; 0
+  if np.any(I):
+    pa = lnPhi(a[I])
+    pb = lnPhi(b[I])
+    p[I] = pa + np.log1p(-np.exp(pb - pa))
+  # case a&lt;b&lt;0
+  idx = b &lt; 0
+  if np.any(idx):
+    pa = lnPhi(-a[idx])  # log of lower tail
+    pb = lnPhi(-b[idx])
+    p[idx] = pb + np.log1p(-np.exp(pa - pb))
+  # case a &lt; 0 &lt; b
+  I = (~I) &amp; (~idx)
+  if np.any(I):
+    pa = special.erfc(-a[I] / np.sqrt(2)) / 2  # lower tail
+    pb = special.erfc(b[I] / np.sqrt(2)) / 2  # upper tail
+    p[I] = np.log1p(-pa - pb)
+  return p
+
+
+def lnPhi(x):
+  # computes logarithm of  tail of Z~N(0,1) mitigating numerical roundoff errors
+  out = -0.5 * x ** 2 - np.log(2) + np.log(special.erfcx(x / np.sqrt(2)) + EPS)  # divide by zeros error -&gt; add eps
+  return out</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="riskmodels.utils.tmvn.lnNormalProb"><code class="name flex">
+<span>def <span class="ident">lnNormalProb</span></span>(<span>a, b)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def lnNormalProb(a, b):
+  # computes ln(P(a&lt;Z&lt;b)) where Z~N(0,1) very accurately for any &#39;a&#39;, &#39;b&#39;
+  p = np.zeros_like(a)
+  # case b&gt;a&gt;0
+  I = a &gt; 0
+  if np.any(I):
+    pa = lnPhi(a[I])
+    pb = lnPhi(b[I])
+    p[I] = pa + np.log1p(-np.exp(pb - pa))
+  # case a&lt;b&lt;0
+  idx = b &lt; 0
+  if np.any(idx):
+    pa = lnPhi(-a[idx])  # log of lower tail
+    pb = lnPhi(-b[idx])
+    p[idx] = pb + np.log1p(-np.exp(pa - pb))
+  # case a &lt; 0 &lt; b
+  I = (~I) &amp; (~idx)
+  if np.any(I):
+    pa = special.erfc(-a[I] / np.sqrt(2)) / 2  # lower tail
+    pb = special.erfc(b[I] / np.sqrt(2)) / 2  # upper tail
+    p[I] = np.log1p(-pa - pb)
+  return p</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.lnPhi"><code class="name flex">
+<span>def <span class="ident">lnPhi</span></span>(<span>x)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def lnPhi(x):
+  # computes logarithm of  tail of Z~N(0,1) mitigating numerical roundoff errors
+  out = -0.5 * x ** 2 - np.log(2) + np.log(special.erfcx(x / np.sqrt(2)) + EPS)  # divide by zeros error -&gt; add eps
+  return out</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN"><code class="flex name class">
+<span>class <span class="ident">TruncatedMVN</span></span>
+<span>(</span><span>mu, cov, lb, ub)</span>
+</code></dt>
+<dd>
+<div class="desc"><hr>
+<p>This code comes from the following repository:</p>
+<p><a href="https://github.com/brunzema/truncated-mvn-sampler">https://github.com/brunzema/truncated-mvn-sampler</a></p>
+<hr>
+<p>Create a normal distribution :math:<code>X
+\sim N ({\mu}, {\Sigma})</code> subject to linear inequality constraints
+:math:<code>lb &lt; X &lt; ub</code> and sample from it using minimax tilting. Based on the MATLAB implemention by the authors
+(reference below).
+:param np.ndarray mu: (size D) mean of the normal distribution :math:<code>\mathbf {\mu}</code>.
+:param np.ndarray cov: (size D x D) covariance of the normal distribution :math:<code>\mathbf {\Sigma}</code>.
+:param np.ndarray lb: (size D) lower bound constrain of the multivariate normal distribution :math:<code>\mathbf lb</code>.
+:param np.ndarray ub: (size D) upper bound constrain of the multivariate normal distribution :math:<code>\mathbf ub</code>.
+Note that the algorithm may not work if 'cov' is close to being rank deficient.
+Reference:
+Botev, Z. I., (2016), The normal law under linear restrictions: simulation and estimation via minimax tilting,
+Journal of the Royal Statistical Society Series B, 79, issue 1, p. 125-148,</p>
+<h2 id="example">Example</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; d = 10  # dimensions
+&gt;&gt;&gt;
+&gt;&gt;&gt; # random mu and cov
+&gt;&gt;&gt; mu = np.random.rand(d)
+&gt;&gt;&gt; cov = 0.5 - np.random.rand(d ** 2).reshape((d, d))
+&gt;&gt;&gt; cov = np.triu(cov)
+&gt;&gt;&gt; cov += cov.T - np.diag(cov.diagonal())
+&gt;&gt;&gt; cov = np.dot(cov, cov)
+&gt;&gt;&gt;
+&gt;&gt;&gt; # constraints
+&gt;&gt;&gt; lb = np.zeros_like(mu) - 2
+&gt;&gt;&gt; ub = np.ones_like(mu) * np.inf
+&gt;&gt;&gt;
+&gt;&gt;&gt; # create truncated normal and sample from it
+&gt;&gt;&gt; n_samples = 100000
+&gt;&gt;&gt; samples = TruncatedMVN(mu, cov, lb, ub).sample(n_samples)
+Reimplementation by Paul Brunzema
+</code></pre></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TruncatedMVN:
+  &#34;&#34;&#34;
+
+
+  *******
+  This code comes from the following repository:
+
+  https://github.com/brunzema/truncated-mvn-sampler
+
+  *******
+
+
+
+  Create a normal distribution :math:`X  \\sim N ({\\mu}, {\\Sigma})` subject to linear inequality constraints
+  :math:`lb &lt; X &lt; ub` and sample from it using minimax tilting. Based on the MATLAB implemention by the authors
+  (reference below).
+  :param np.ndarray mu: (size D) mean of the normal distribution :math:`\\mathbf {\\mu}`.
+  :param np.ndarray cov: (size D x D) covariance of the normal distribution :math:`\\mathbf {\\Sigma}`.
+  :param np.ndarray lb: (size D) lower bound constrain of the multivariate normal distribution :math:`\\mathbf lb`.
+  :param np.ndarray ub: (size D) upper bound constrain of the multivariate normal distribution :math:`\\mathbf ub`.
+  Note that the algorithm may not work if &#39;cov&#39; is close to being rank deficient.
+  Reference:
+  Botev, Z. I., (2016), The normal law under linear restrictions: simulation and estimation via minimax tilting,
+  Journal of the Royal Statistical Society Series B, 79, issue 1, p. 125-148,
+  Example:
+    &gt;&gt;&gt; d = 10  # dimensions
+    &gt;&gt;&gt;
+    &gt;&gt;&gt; # random mu and cov
+    &gt;&gt;&gt; mu = np.random.rand(d)
+    &gt;&gt;&gt; cov = 0.5 - np.random.rand(d ** 2).reshape((d, d))
+    &gt;&gt;&gt; cov = np.triu(cov)
+    &gt;&gt;&gt; cov += cov.T - np.diag(cov.diagonal())
+    &gt;&gt;&gt; cov = np.dot(cov, cov)
+    &gt;&gt;&gt;
+    &gt;&gt;&gt; # constraints
+    &gt;&gt;&gt; lb = np.zeros_like(mu) - 2
+    &gt;&gt;&gt; ub = np.ones_like(mu) * np.inf
+    &gt;&gt;&gt;
+    &gt;&gt;&gt; # create truncated normal and sample from it
+    &gt;&gt;&gt; n_samples = 100000
+    &gt;&gt;&gt; samples = TruncatedMVN(mu, cov, lb, ub).sample(n_samples)
+  Reimplementation by Paul Brunzema
+  &#34;&#34;&#34;
+
+  def __init__(self, mu, cov, lb, ub):
+    self.dim = len(mu)
+    if not cov.shape[0] == cov.shape[1]:
+      raise RuntimeError(&#34;Covariance matrix must be of shape DxD!&#34;)
+    if not (self.dim == cov.shape[0] and self.dim == len(lb) and self.dim == len(ub)):
+      raise RuntimeError(&#34;Dimensions D of mean (mu), covariance matric (cov), lower bound (lb) &#34;
+                 &#34;and upper bound (ub) must be the same!&#34;)
+
+    self.cov = cov
+    self.orig_mu = mu
+    self.orig_lb = lb
+    self.orig_ub = ub
+    
+    # permutated
+    self.lb = lb - mu  # move distr./bounds to have zero mean
+    self.ub = ub - mu  # move distr./bounds to have zero mean
+    if np.any(self.ub &lt;= self.lb):
+      raise RuntimeError(&#34;Upper bound (ub) must be strictly greater than lower bound (lb) for all D dimensions!&#34;)
+
+    # scaled Cholesky with zero diagonal, permutated
+    self.L = np.empty_like(cov)
+    self.unscaled_L = np.empty_like(cov)
+
+    # placeholder for optimization
+    self.perm = None
+    self.x = None
+    self.mu = None
+    self.psistar = None
+
+    # for numerics
+    self.eps = EPS
+
+  def sample(self, n):
+    &#34;&#34;&#34;
+    Create n samples from the truncated normal distribution.
+    :param int n: Number of samples to create.
+    :return: D x n array with the samples.
+    :rtype: np.ndarray
+    &#34;&#34;&#34;
+    if not isinstance(n, int):
+      raise RuntimeError(&#34;Number of samples must be an integer!&#34;)
+
+    # factors (Cholesky, etc.) only need to be computed once!
+    if self.psistar is None:
+      self.compute_factors()
+
+    # start acceptance rejection sampling
+    rv = np.array([], dtype=np.float64).reshape(self.dim, 0)
+    accept, iteration = 0, 0
+    while accept &lt; n:
+      logpr, Z = self.mvnrnd(n, self.mu)  # simulate n proposals
+      idx = -np.log(np.random.rand(n)) &gt; (self.psistar - logpr)  # acceptance tests
+      rv = np.concatenate((rv, Z[:, idx]), axis=1)  # accumulate accepted
+      accept = rv.shape[1]  # keep track of # of accepted
+      iteration += 1
+      if iteration == 10 ** 3:
+        print(&#39;Warning: Acceptance prob. smaller than 0.001.&#39;)
+      elif iteration &gt; 10 ** 4:
+        accept = n
+        rv = np.concatenate((rv, Z), axis=1)
+        print(&#39;Warning: Sample is only approximately distributed.&#39;)
+
+    # finish sampling and postprocess the samples!
+    order = self.perm.argsort(axis=0)
+    rv = rv[:, :n]
+    rv = self.unscaled_L @ rv
+    rv = rv[order, :]
+
+    # retransfer to original mean
+    rv += np.tile(self.orig_mu.reshape(self.dim, 1), (1, rv.shape[-1]))  # Z = X + mu
+    return rv
+  
+  def compute_factors(self):
+    # compute permutated Cholesky factor and solve optimization
+
+    # Cholesky decomposition of matrix with permuation
+    self.unscaled_L, self.perm = self.colperm()
+    D = np.diag(self.unscaled_L)
+    if np.any(D &lt; self.eps):
+      print(&#39;Warning: Method might fail as covariance matrix is singular!&#39;)
+
+    # rescale
+    scaled_L = self.unscaled_L / np.tile(D.reshape(self.dim, 1), (1, self.dim))
+    self.lb = self.lb / D
+    self.ub = self.ub / D
+
+    # remove diagonal
+    self.L = scaled_L - np.eye(self.dim)
+
+    # get gradient/Jacobian function
+    gradpsi = self.get_gradient_function()
+    x0 = np.zeros(2 * (self.dim - 1))
+
+    # find optimal tilting parameter non-linear equation solver
+    sol = optimize.root(gradpsi, x0, args=(self.L, self.lb, self.ub), method=&#39;hybr&#39;, jac=True)
+    if not sol.success:
+      print(&#39;Warning: Method may fail as covariance matrix is close to singular!&#39;)
+    self.x = sol.x[:self.dim - 1]
+    self.mu = sol.x[self.dim - 1:]
+
+    # compute psi star
+    self.psistar = self.psy(self.x, self.mu)
+    
+  def reset(self):
+    # reset factors -&gt; when sampling, optimization for optimal tilting parameters is performed again
+
+    # permutated
+    self.lb = self.orig_lb - self.orig_mu  # move distr./bounds to have zero mean
+    self.ub = self.orig_ub - self.orig_mu
+
+    # scaled Cholesky with zero diagonal, permutated
+    self.L = np.empty_like(self.cov)
+    self.unscaled_L = np.empty_like(self.cov)
+
+    # placeholder for optimization
+    self.perm = None
+    self.x = None
+    self.mu = None
+    self.psistar = None
+
+  def mvnrnd(self, n, mu):
+    # generates the proposals from the exponentially tilted sequential importance sampling pdf
+    # output:   logpr, log-likelihood of sample
+    #       Z, random sample
+    mu = np.append(mu, [0.])
+    Z = np.zeros((self.dim, n))
+    logpr = 0
+    for k in range(self.dim):
+      # compute matrix multiplication L @ Z
+      col = self.L[k, :k] @ Z[:k, :]
+      # compute limits of truncation
+      tl = self.lb[k] - mu[k] - col
+      tu = self.ub[k] - mu[k] - col
+      # simulate N(mu,1) conditional on [tl,tu]
+      Z[k, :] = mu[k] + TruncatedMVN.trandn(tl, tu)
+      # update likelihood ratio
+      logpr += lnNormalProb(tl, tu) + .5 * mu[k] ** 2 - mu[k] * Z[k, :]
+    return logpr, Z
+
+  @staticmethod
+  def trandn(lb, ub):
+    &#34;&#34;&#34;
+    Sample generator for the truncated standard multivariate normal distribution :math:`X \\sim N(0,I)` s.t.
+    :math:`lb&lt;X&lt;ub`.
+    If you wish to simulate a random variable &#39;Z&#39; from the non-standard Gaussian :math:`N(m,s^2)`
+    conditional on :math:`lb&lt;Z&lt;ub`, then first simulate x=TruncatedMVNSampler.trandn((l-m)/s,(u-m)/s) and set
+    Z=m+s*x.
+    Infinite values for &#39;ub&#39; and &#39;lb&#39; are accepted.
+    :param np.ndarray lb: (size D) lower bound constrain of the normal distribution :math:`\\mathbf lb`.
+    :param np.ndarray ub: (size D) upper bound constrain of the normal distribution :math:`\\mathbf lb`.
+    :return: D samples if the truncated normal distribition x ~ N(0, I) subject to lb &lt; x &lt; ub.
+    :rtype: np.ndarray
+    &#34;&#34;&#34;
+    if not len(lb) == len(ub):
+      raise RuntimeError(&#34;Lower bound (lb) and upper bound (ub) must be of the same length!&#34;)
+
+    x = np.empty_like(lb)
+    a = 0.66  # threshold used in MATLAB implementation
+    # three cases to consider
+    # case 1: a&lt;lb&lt;ub
+    I = lb &gt; a
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      x[I] = TruncatedMVN.ntail(tl, tu)
+    # case 2: lb&lt;ub&lt;-a
+    J = ub &lt; -a
+    if np.any(J):
+      tl = -ub[J]
+      tu = -lb[J]
+      x[J] = - TruncatedMVN.ntail(tl, tu)
+    # case 3: otherwise use inverse transform or accept-reject
+    I = ~(I | J)
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      x[I] = TruncatedMVN.tn(tl, tu)
+    return x
+
+  @staticmethod
+  def tn(lb, ub, tol=2):
+    # samples a column vector of length=len(lb)=len(ub) from the standard multivariate normal distribution
+    # truncated over the region [lb,ub], where -a&lt;lb&lt;ub&lt;a for some &#39;a&#39; and lb and ub are column vectors
+    # uses acceptance rejection and inverse-transform method
+
+    sw = tol  # controls switch between methods, threshold can be tuned for maximum speed for each platform
+    x = np.empty_like(lb)
+    # case 1: abs(ub-lb)&gt;tol, uses accept-reject from randn
+    I = abs(ub - lb) &gt; sw
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      x[I] = TruncatedMVN.trnd(tl, tu)
+
+    # case 2: abs(u-l)&lt;tol, uses inverse-transform
+    I = ~I
+    if np.any(I):
+      tl = lb[I]
+      tu = ub[I]
+      pl = special.erfc(tl / np.sqrt(2)) / 2
+      pu = special.erfc(tu / np.sqrt(2)) / 2
+      x[I] = np.sqrt(2) * special.erfcinv(2 * (pl - (pl - pu) * np.random.rand(len(tl))))
+    return x
+
+  @staticmethod
+  def trnd(lb, ub):
+    # uses acceptance rejection to simulate from truncated normal
+    x = np.random.randn(len(lb))  # sample normal
+    test = (x &lt; lb) | (x &gt; ub)
+    I = np.where(test)[0]
+    d = len(I)
+    while d &gt; 0:  # while there are rejections
+      ly = lb[I]
+      uy = ub[I]
+      y = np.random.randn(len(uy))  # resample
+      idx = (y &gt; ly) &amp; (y &lt; uy)  # accepted
+      x[I[idx]] = y[idx]
+      I = I[~idx]
+      d = len(I)
+    return x
+
+  @staticmethod
+  def ntail(lb, ub):
+    # samples a column vector of length=len(lb)=len(ub) from the standard multivariate normal distribution
+    # truncated over the region [lb,ub], where lb&gt;0 and lb and ub are column vectors
+    # uses acceptance-rejection from Rayleigh distr. similar to Marsaglia (1964)
+    if not len(lb) == len(ub):
+      raise RuntimeError(&#34;Lower bound (lb) and upper bound (ub) must be of the same length!&#34;)
+    c = (lb ** 2) / 2
+    n = len(lb)
+    f = np.expm1(c - ub ** 2 / 2)
+    x = c - np.log(1 + np.random.rand(n) * f)  # sample using Rayleigh
+    # keep list of rejected
+    I = np.where(np.random.rand(n) ** 2 * x &gt; c)[0]
+    d = len(I)
+    while d &gt; 0:  # while there are rejections
+      cy = c[I]
+      y = cy - np.log(1 + np.random.rand(d) * f[I])
+      idx = (np.random.rand(d) ** 2 * y) &lt; cy  # accepted
+      x[I[idx]] = y[idx]  # store the accepted
+      I = I[~idx]  # remove accepted from the list
+      d = len(I)
+    return np.sqrt(2 * x)  # this Rayleigh transform can be delayed till the end
+
+  def psy(self, x, mu):
+    # implements psi(x,mu); assumes scaled &#39;L&#39; without diagonal
+    x = np.append(x, [0.])
+    mu = np.append(mu, [0.])
+    c = self.L @ x
+    lt = self.lb - mu - c
+    ut = self.ub - mu - c
+    p = np.sum(lnNormalProb(lt, ut) + 0.5 * mu ** 2 - x * mu)
+    return p
+
+  def get_gradient_function(self):
+    # wrapper to avoid dependancy on self
+
+    def gradpsi(y, L, l, u):
+      # implements gradient of psi(x) to find optimal exponential twisting, returns also the Jacobian
+      # NOTE: assumes scaled &#39;L&#39; with zero diagonal
+      d = len(u)
+      c = np.zeros(d)
+      mu, x = c.copy(), c.copy()
+      x[0:d - 1] = y[0:d - 1]
+      mu[0:d - 1] = y[d - 1:]
+
+      # compute now ~l and ~u
+      c[1:d] = L[1:d, :] @ x
+      lt = l - mu - c
+      ut = u - mu - c
+
+      # compute gradients avoiding catastrophic cancellation
+      w = lnNormalProb(lt, ut)
+      pl = np.exp(-0.5 * lt ** 2 - w) / np.sqrt(2 * math.pi)
+      pu = np.exp(-0.5 * ut ** 2 - w) / np.sqrt(2 * math.pi)
+      P = pl - pu
+
+      # output the gradient
+      dfdx = - mu[0:d - 1] + (P.T @ L[:, 0:d - 1]).T
+      dfdm = mu - x + P
+      grad = np.concatenate((dfdx, dfdm[:-1]), axis=0)
+
+      # construct jacobian
+      lt[np.isinf(lt)] = 0
+      ut[np.isinf(ut)] = 0
+
+      dP = - P ** 2 + lt * pl - ut * pu
+      DL = np.tile(dP.reshape(d, 1), (1, d)) * L
+      mx = DL - np.eye(d)
+      xx = L.T @ DL
+      mx = mx[:-1, :-1]
+      xx = xx[:-1, :-1]
+      J = np.block([[xx, mx.T],
+              [mx, np.diag(1 + dP[:-1])]])
+      return (grad, J)
+
+    return gradpsi
+
+  def colperm(self):
+    perm = np.arange(self.dim)
+    L = np.zeros_like(self.cov)
+    z = np.zeros_like(self.orig_mu)
+
+    for j in perm.copy():
+      pr = np.ones_like(z) * np.inf  # compute marginal prob.
+      I = np.arange(j, self.dim)  # search remaining dimensions
+      D = np.diag(self.cov)
+      s = D[I] - np.sum(L[I, 0:j] ** 2, axis=1)
+      s[s &lt; 0] = self.eps
+      s = np.sqrt(s)
+      tl = (self.lb[I] - L[I, 0:j] @ z[0:j]) / s
+      tu = (self.ub[I] - L[I, 0:j] @ z[0:j]) / s
+      pr[I] = lnNormalProb(tl, tu)
+      # find smallest marginal dimension
+      k = np.argmin(pr)
+
+      # flip dimensions k--&gt;j
+      jk = [j, k]
+      kj = [k, j]
+      self.cov[jk, :] = self.cov[kj, :]  # update rows of cov
+      self.cov[:, jk] = self.cov[:, kj]  # update cols of cov
+      L[jk, :] = L[kj, :]  # update only rows of L
+      self.lb[jk] = self.lb[kj]  # update integration limits
+      self.ub[jk] = self.ub[kj]  # update integration limits
+      perm[jk] = perm[kj]  # keep track of permutation
+
+      # construct L sequentially via Cholesky computation
+      s = self.cov[j, j] - np.sum(L[j, 0:j] ** 2, axis=0)
+      if s &lt; -0.01:
+        raise RuntimeError(&#34;Sigma is not positive semi-definite&#34;)
+      elif s &lt; 0:
+        s = self.eps
+      L[j, j] = np.sqrt(s)
+      new_L = self.cov[j + 1:self.dim, j] - L[j + 1:self.dim, 0:j] @ L[j, 0:j].T
+      L[j + 1:self.dim, j] = new_L / L[j, j]
+
+      # find mean value, z(j), of truncated normal
+      tl = (self.lb[j] - L[j, 0:j - 1] @ z[0:j - 1]) / L[j, j]
+      tu = (self.ub[j] - L[j, 0:j - 1] @ z[0:j - 1]) / L[j, j]
+      w = lnNormalProb(tl, tu)  # aids in computing expected value of trunc. normal
+      z[j] = (np.exp(-.5 * tl ** 2 - w) - np.exp(-.5 * tu ** 2 - w)) / np.sqrt(2 * math.pi)
+    return L, perm</code></pre>
+</details>
+<h3>Static methods</h3>
+<dl>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.ntail"><code class="name flex">
+<span>def <span class="ident">ntail</span></span>(<span>lb, ub)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def ntail(lb, ub):
+  # samples a column vector of length=len(lb)=len(ub) from the standard multivariate normal distribution
+  # truncated over the region [lb,ub], where lb&gt;0 and lb and ub are column vectors
+  # uses acceptance-rejection from Rayleigh distr. similar to Marsaglia (1964)
+  if not len(lb) == len(ub):
+    raise RuntimeError(&#34;Lower bound (lb) and upper bound (ub) must be of the same length!&#34;)
+  c = (lb ** 2) / 2
+  n = len(lb)
+  f = np.expm1(c - ub ** 2 / 2)
+  x = c - np.log(1 + np.random.rand(n) * f)  # sample using Rayleigh
+  # keep list of rejected
+  I = np.where(np.random.rand(n) ** 2 * x &gt; c)[0]
+  d = len(I)
+  while d &gt; 0:  # while there are rejections
+    cy = c[I]
+    y = cy - np.log(1 + np.random.rand(d) * f[I])
+    idx = (np.random.rand(d) ** 2 * y) &lt; cy  # accepted
+    x[I[idx]] = y[idx]  # store the accepted
+    I = I[~idx]  # remove accepted from the list
+    d = len(I)
+  return np.sqrt(2 * x)  # this Rayleigh transform can be delayed till the end</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.tn"><code class="name flex">
+<span>def <span class="ident">tn</span></span>(<span>lb, ub, tol=2)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def tn(lb, ub, tol=2):
+  # samples a column vector of length=len(lb)=len(ub) from the standard multivariate normal distribution
+  # truncated over the region [lb,ub], where -a&lt;lb&lt;ub&lt;a for some &#39;a&#39; and lb and ub are column vectors
+  # uses acceptance rejection and inverse-transform method
+
+  sw = tol  # controls switch between methods, threshold can be tuned for maximum speed for each platform
+  x = np.empty_like(lb)
+  # case 1: abs(ub-lb)&gt;tol, uses accept-reject from randn
+  I = abs(ub - lb) &gt; sw
+  if np.any(I):
+    tl = lb[I]
+    tu = ub[I]
+    x[I] = TruncatedMVN.trnd(tl, tu)
+
+  # case 2: abs(u-l)&lt;tol, uses inverse-transform
+  I = ~I
+  if np.any(I):
+    tl = lb[I]
+    tu = ub[I]
+    pl = special.erfc(tl / np.sqrt(2)) / 2
+    pu = special.erfc(tu / np.sqrt(2)) / 2
+    x[I] = np.sqrt(2) * special.erfcinv(2 * (pl - (pl - pu) * np.random.rand(len(tl))))
+  return x</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.trandn"><code class="name flex">
+<span>def <span class="ident">trandn</span></span>(<span>lb, ub)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample generator for the truncated standard multivariate normal distribution :math:<code>X \sim N(0,I)</code> s.t.
+:math:<code>lb&lt;X&lt;ub</code>.
+If you wish to simulate a random variable 'Z' from the non-standard Gaussian :math:<code>N(m,s^2)</code>
+conditional on :math:<code>lb&lt;Z&lt;ub</code>, then first simulate x=TruncatedMVNSampler.trandn((l-m)/s,(u-m)/s) and set
+Z=m+s*x.
+Infinite values for 'ub' and 'lb' are accepted.
+:param np.ndarray lb: (size D) lower bound constrain of the normal distribution :math:<code>\mathbf lb</code>.
+:param np.ndarray ub: (size D) upper bound constrain of the normal distribution :math:<code>\mathbf lb</code>.
+:return: D samples if the truncated normal distribition x ~ N(0, I) subject to lb &lt; x &lt; ub.
+:rtype: np.ndarray</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def trandn(lb, ub):
+  &#34;&#34;&#34;
+  Sample generator for the truncated standard multivariate normal distribution :math:`X \\sim N(0,I)` s.t.
+  :math:`lb&lt;X&lt;ub`.
+  If you wish to simulate a random variable &#39;Z&#39; from the non-standard Gaussian :math:`N(m,s^2)`
+  conditional on :math:`lb&lt;Z&lt;ub`, then first simulate x=TruncatedMVNSampler.trandn((l-m)/s,(u-m)/s) and set
+  Z=m+s*x.
+  Infinite values for &#39;ub&#39; and &#39;lb&#39; are accepted.
+  :param np.ndarray lb: (size D) lower bound constrain of the normal distribution :math:`\\mathbf lb`.
+  :param np.ndarray ub: (size D) upper bound constrain of the normal distribution :math:`\\mathbf lb`.
+  :return: D samples if the truncated normal distribition x ~ N(0, I) subject to lb &lt; x &lt; ub.
+  :rtype: np.ndarray
+  &#34;&#34;&#34;
+  if not len(lb) == len(ub):
+    raise RuntimeError(&#34;Lower bound (lb) and upper bound (ub) must be of the same length!&#34;)
+
+  x = np.empty_like(lb)
+  a = 0.66  # threshold used in MATLAB implementation
+  # three cases to consider
+  # case 1: a&lt;lb&lt;ub
+  I = lb &gt; a
+  if np.any(I):
+    tl = lb[I]
+    tu = ub[I]
+    x[I] = TruncatedMVN.ntail(tl, tu)
+  # case 2: lb&lt;ub&lt;-a
+  J = ub &lt; -a
+  if np.any(J):
+    tl = -ub[J]
+    tu = -lb[J]
+    x[J] = - TruncatedMVN.ntail(tl, tu)
+  # case 3: otherwise use inverse transform or accept-reject
+  I = ~(I | J)
+  if np.any(I):
+    tl = lb[I]
+    tu = ub[I]
+    x[I] = TruncatedMVN.tn(tl, tu)
+  return x</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.trnd"><code class="name flex">
+<span>def <span class="ident">trnd</span></span>(<span>lb, ub)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def trnd(lb, ub):
+  # uses acceptance rejection to simulate from truncated normal
+  x = np.random.randn(len(lb))  # sample normal
+  test = (x &lt; lb) | (x &gt; ub)
+  I = np.where(test)[0]
+  d = len(I)
+  while d &gt; 0:  # while there are rejections
+    ly = lb[I]
+    uy = ub[I]
+    y = np.random.randn(len(uy))  # resample
+    idx = (y &gt; ly) &amp; (y &lt; uy)  # accepted
+    x[I[idx]] = y[idx]
+    I = I[~idx]
+    d = len(I)
+  return x</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.colperm"><code class="name flex">
+<span>def <span class="ident">colperm</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def colperm(self):
+  perm = np.arange(self.dim)
+  L = np.zeros_like(self.cov)
+  z = np.zeros_like(self.orig_mu)
+
+  for j in perm.copy():
+    pr = np.ones_like(z) * np.inf  # compute marginal prob.
+    I = np.arange(j, self.dim)  # search remaining dimensions
+    D = np.diag(self.cov)
+    s = D[I] - np.sum(L[I, 0:j] ** 2, axis=1)
+    s[s &lt; 0] = self.eps
+    s = np.sqrt(s)
+    tl = (self.lb[I] - L[I, 0:j] @ z[0:j]) / s
+    tu = (self.ub[I] - L[I, 0:j] @ z[0:j]) / s
+    pr[I] = lnNormalProb(tl, tu)
+    # find smallest marginal dimension
+    k = np.argmin(pr)
+
+    # flip dimensions k--&gt;j
+    jk = [j, k]
+    kj = [k, j]
+    self.cov[jk, :] = self.cov[kj, :]  # update rows of cov
+    self.cov[:, jk] = self.cov[:, kj]  # update cols of cov
+    L[jk, :] = L[kj, :]  # update only rows of L
+    self.lb[jk] = self.lb[kj]  # update integration limits
+    self.ub[jk] = self.ub[kj]  # update integration limits
+    perm[jk] = perm[kj]  # keep track of permutation
+
+    # construct L sequentially via Cholesky computation
+    s = self.cov[j, j] - np.sum(L[j, 0:j] ** 2, axis=0)
+    if s &lt; -0.01:
+      raise RuntimeError(&#34;Sigma is not positive semi-definite&#34;)
+    elif s &lt; 0:
+      s = self.eps
+    L[j, j] = np.sqrt(s)
+    new_L = self.cov[j + 1:self.dim, j] - L[j + 1:self.dim, 0:j] @ L[j, 0:j].T
+    L[j + 1:self.dim, j] = new_L / L[j, j]
+
+    # find mean value, z(j), of truncated normal
+    tl = (self.lb[j] - L[j, 0:j - 1] @ z[0:j - 1]) / L[j, j]
+    tu = (self.ub[j] - L[j, 0:j - 1] @ z[0:j - 1]) / L[j, j]
+    w = lnNormalProb(tl, tu)  # aids in computing expected value of trunc. normal
+    z[j] = (np.exp(-.5 * tl ** 2 - w) - np.exp(-.5 * tu ** 2 - w)) / np.sqrt(2 * math.pi)
+  return L, perm</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.compute_factors"><code class="name flex">
+<span>def <span class="ident">compute_factors</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def compute_factors(self):
+  # compute permutated Cholesky factor and solve optimization
+
+  # Cholesky decomposition of matrix with permuation
+  self.unscaled_L, self.perm = self.colperm()
+  D = np.diag(self.unscaled_L)
+  if np.any(D &lt; self.eps):
+    print(&#39;Warning: Method might fail as covariance matrix is singular!&#39;)
+
+  # rescale
+  scaled_L = self.unscaled_L / np.tile(D.reshape(self.dim, 1), (1, self.dim))
+  self.lb = self.lb / D
+  self.ub = self.ub / D
+
+  # remove diagonal
+  self.L = scaled_L - np.eye(self.dim)
+
+  # get gradient/Jacobian function
+  gradpsi = self.get_gradient_function()
+  x0 = np.zeros(2 * (self.dim - 1))
+
+  # find optimal tilting parameter non-linear equation solver
+  sol = optimize.root(gradpsi, x0, args=(self.L, self.lb, self.ub), method=&#39;hybr&#39;, jac=True)
+  if not sol.success:
+    print(&#39;Warning: Method may fail as covariance matrix is close to singular!&#39;)
+  self.x = sol.x[:self.dim - 1]
+  self.mu = sol.x[self.dim - 1:]
+
+  # compute psi star
+  self.psistar = self.psy(self.x, self.mu)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.get_gradient_function"><code class="name flex">
+<span>def <span class="ident">get_gradient_function</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_gradient_function(self):
+  # wrapper to avoid dependancy on self
+
+  def gradpsi(y, L, l, u):
+    # implements gradient of psi(x) to find optimal exponential twisting, returns also the Jacobian
+    # NOTE: assumes scaled &#39;L&#39; with zero diagonal
+    d = len(u)
+    c = np.zeros(d)
+    mu, x = c.copy(), c.copy()
+    x[0:d - 1] = y[0:d - 1]
+    mu[0:d - 1] = y[d - 1:]
+
+    # compute now ~l and ~u
+    c[1:d] = L[1:d, :] @ x
+    lt = l - mu - c
+    ut = u - mu - c
+
+    # compute gradients avoiding catastrophic cancellation
+    w = lnNormalProb(lt, ut)
+    pl = np.exp(-0.5 * lt ** 2 - w) / np.sqrt(2 * math.pi)
+    pu = np.exp(-0.5 * ut ** 2 - w) / np.sqrt(2 * math.pi)
+    P = pl - pu
+
+    # output the gradient
+    dfdx = - mu[0:d - 1] + (P.T @ L[:, 0:d - 1]).T
+    dfdm = mu - x + P
+    grad = np.concatenate((dfdx, dfdm[:-1]), axis=0)
+
+    # construct jacobian
+    lt[np.isinf(lt)] = 0
+    ut[np.isinf(ut)] = 0
+
+    dP = - P ** 2 + lt * pl - ut * pu
+    DL = np.tile(dP.reshape(d, 1), (1, d)) * L
+    mx = DL - np.eye(d)
+    xx = L.T @ DL
+    mx = mx[:-1, :-1]
+    xx = xx[:-1, :-1]
+    J = np.block([[xx, mx.T],
+            [mx, np.diag(1 + dP[:-1])]])
+    return (grad, J)
+
+  return gradpsi</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.mvnrnd"><code class="name flex">
+<span>def <span class="ident">mvnrnd</span></span>(<span>self, n, mu)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mvnrnd(self, n, mu):
+  # generates the proposals from the exponentially tilted sequential importance sampling pdf
+  # output:   logpr, log-likelihood of sample
+  #       Z, random sample
+  mu = np.append(mu, [0.])
+  Z = np.zeros((self.dim, n))
+  logpr = 0
+  for k in range(self.dim):
+    # compute matrix multiplication L @ Z
+    col = self.L[k, :k] @ Z[:k, :]
+    # compute limits of truncation
+    tl = self.lb[k] - mu[k] - col
+    tu = self.ub[k] - mu[k] - col
+    # simulate N(mu,1) conditional on [tl,tu]
+    Z[k, :] = mu[k] + TruncatedMVN.trandn(tl, tu)
+    # update likelihood ratio
+    logpr += lnNormalProb(tl, tu) + .5 * mu[k] ** 2 - mu[k] * Z[k, :]
+  return logpr, Z</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.psy"><code class="name flex">
+<span>def <span class="ident">psy</span></span>(<span>self, x, mu)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def psy(self, x, mu):
+  # implements psi(x,mu); assumes scaled &#39;L&#39; without diagonal
+  x = np.append(x, [0.])
+  mu = np.append(mu, [0.])
+  c = self.L @ x
+  lt = self.lb - mu - c
+  ut = self.ub - mu - c
+  p = np.sum(lnNormalProb(lt, ut) + 0.5 * mu ** 2 - x * mu)
+  return p</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.reset"><code class="name flex">
+<span>def <span class="ident">reset</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reset(self):
+  # reset factors -&gt; when sampling, optimization for optimal tilting parameters is performed again
+
+  # permutated
+  self.lb = self.orig_lb - self.orig_mu  # move distr./bounds to have zero mean
+  self.ub = self.orig_ub - self.orig_mu
+
+  # scaled Cholesky with zero diagonal, permutated
+  self.L = np.empty_like(self.cov)
+  self.unscaled_L = np.empty_like(self.cov)
+
+  # placeholder for optimization
+  self.perm = None
+  self.x = None
+  self.mu = None
+  self.psistar = None</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.utils.tmvn.TruncatedMVN.sample"><code class="name flex">
+<span>def <span class="ident">sample</span></span>(<span>self, n)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create n samples from the truncated normal distribution.
+:param int n: Number of samples to create.
+:return: D x n array with the samples.
+:rtype: np.ndarray</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sample(self, n):
+  &#34;&#34;&#34;
+  Create n samples from the truncated normal distribution.
+  :param int n: Number of samples to create.
+  :return: D x n array with the samples.
+  :rtype: np.ndarray
+  &#34;&#34;&#34;
+  if not isinstance(n, int):
+    raise RuntimeError(&#34;Number of samples must be an integer!&#34;)
+
+  # factors (Cholesky, etc.) only need to be computed once!
+  if self.psistar is None:
+    self.compute_factors()
+
+  # start acceptance rejection sampling
+  rv = np.array([], dtype=np.float64).reshape(self.dim, 0)
+  accept, iteration = 0, 0
+  while accept &lt; n:
+    logpr, Z = self.mvnrnd(n, self.mu)  # simulate n proposals
+    idx = -np.log(np.random.rand(n)) &gt; (self.psistar - logpr)  # acceptance tests
+    rv = np.concatenate((rv, Z[:, idx]), axis=1)  # accumulate accepted
+    accept = rv.shape[1]  # keep track of # of accepted
+    iteration += 1
+    if iteration == 10 ** 3:
+      print(&#39;Warning: Acceptance prob. smaller than 0.001.&#39;)
+    elif iteration &gt; 10 ** 4:
+      accept = n
+      rv = np.concatenate((rv, Z), axis=1)
+      print(&#39;Warning: Sample is only approximately distributed.&#39;)
+
+  # finish sampling and postprocess the samples!
+  order = self.perm.argsort(axis=0)
+  rv = rv[:, :n]
+  rv = self.unscaled_L @ rv
+  rv = rv[order, :]
+
+  # retransfer to original mean
+  rv += np.tile(self.orig_mu.reshape(self.dim, 1), (1, rv.shape[-1]))  # Z = X + mu
+  return rv</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="riskmodels.utils" href="index.html">riskmodels.utils</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="riskmodels.utils.tmvn.lnNormalProb" href="#riskmodels.utils.tmvn.lnNormalProb">lnNormalProb</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.lnPhi" href="#riskmodels.utils.tmvn.lnPhi">lnPhi</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="riskmodels.utils.tmvn.TruncatedMVN" href="#riskmodels.utils.tmvn.TruncatedMVN">TruncatedMVN</a></code></h4>
+<ul class="">
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.colperm" href="#riskmodels.utils.tmvn.TruncatedMVN.colperm">colperm</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.compute_factors" href="#riskmodels.utils.tmvn.TruncatedMVN.compute_factors">compute_factors</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.get_gradient_function" href="#riskmodels.utils.tmvn.TruncatedMVN.get_gradient_function">get_gradient_function</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.mvnrnd" href="#riskmodels.utils.tmvn.TruncatedMVN.mvnrnd">mvnrnd</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.ntail" href="#riskmodels.utils.tmvn.TruncatedMVN.ntail">ntail</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.psy" href="#riskmodels.utils.tmvn.TruncatedMVN.psy">psy</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.reset" href="#riskmodels.utils.tmvn.TruncatedMVN.reset">reset</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.sample" href="#riskmodels.utils.tmvn.TruncatedMVN.sample">sample</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.tn" href="#riskmodels.utils.tmvn.TruncatedMVN.tn">tn</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.trandn" href="#riskmodels.utils.tmvn.TruncatedMVN.trandn">trandn</a></code></li>
+<li><code><a title="riskmodels.utils.tmvn.TruncatedMVN.trnd" href="#riskmodels.utils.tmvn.TruncatedMVN.trnd">trnd</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

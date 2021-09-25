@@ -1,3 +1,6 @@
+"""
+This module provides a model for available conventional generation for risk evaluation in energy procurement. Generators are assumed to be independent, and each one them is modeled as a binary variable whose states correspond to broken down and operational states. No serial correlation is assumed between states, which means this is a time-collapsed generation model.
+"""
 from __future__ import annotations
 import warnings
 
@@ -8,7 +11,7 @@ import pandas as pd
 
 class IndependentFleetModel(Binned):
 
-  """Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time.
+  """Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.
   """
   
   @classmethod
@@ -16,7 +19,7 @@ class IndependentFleetModel(Binned):
     """Takes a dataframe object and builds the generation model from it.
     
     Args:
-        df (pd.DataFrame): dataframe with colums 'availability' and 'capacity', where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+        df (pd.DataFrame): dataframe with colums 'availability' and 'capacity', where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
     
     Returns:
         IndependentFleetModel: fitted model
@@ -34,23 +37,23 @@ class IndependentFleetModel(Binned):
     min_gen = int(np.sum(capacity_values[capacity_values<0]))
 
     zero_idx = np.abs(min_gen) #this is in case there are generators with negative generation
-    f_length = max_gen+1 - min_gen
-    f = np.zeros((f_length,),dtype=np.float64)
-    f[zero_idx] = 1.0
+    pdf_length = max_gen+1 - min_gen
+    pdf = np.zeros((pdf_length,),dtype=np.float64) # initialise pdf values
+    pdf[zero_idx] = 1.0
 
     i = 0
     for c,p in zip(capacity_values,availability_values):
       if c >= 0:
-        suffix = f[0:f_length-c]
+        suffix = pdf[0:pdf_length-c]
         preffix = np.zeros((c,))
       else:
-        preffix = f[np.abs(c):f_length]
+        preffix = pdf[np.abs(c):pdf_length]
         suffix = np.zeros((np.abs(c),))
-      f = (1-p) * f + p * np.concatenate([preffix,suffix])
+      pdf = (1-p) * pdf + p * np.concatenate([preffix,suffix])
       i += 1
 
     support = np.arange(min_gen, max_gen+1)
-    return Binned(support=support, pdf_values=f, data=None)
+    return Binned(support=support, pdf_values=pdf, data=None)
 
   @classmethod
   def from_generator_csv_file(cls, file_path: str, **kwargs) -> IndependentFleetModel:
