@@ -66,7 +66,7 @@ class IndependentFleetModel(Binned):
     Returns:
         IndependentFleetModel: fitted model
     """
-    df = pd.read_csv(gen_data,**kwargs)
+    df = pd.read_csv(file_path,**kwargs)
     return cls.from_generator_df(df)
 
     
