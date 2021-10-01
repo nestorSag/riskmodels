@@ -231,7 +231,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         size (int): number of traces to sample
         season_length (int): peak season length
         seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
-        burn_in (int, optional): burn-in period between individual season traces; this is needed because in order to sample traces, a large sequence is sampled and subsequently subdivided, thus making trace endpoints correlated without a burn-in period.
+        burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
     
     Returns:
         np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
