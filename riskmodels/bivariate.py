@@ -398,19 +398,15 @@ class Logistic(ExceedanceDistribution):
     """Fits the model from provided data, threshold and marginal distributons
     
     Args:
-        data (t.Union[np.ndarray, t.Iterable])
-        quantile_threshold (float): Description
-        margin1 (univar.BaseDistribution, optional)
-        margin2 (univar.BaseDistribution, optional)
+        data (t.Union[np.ndarray, t.Iterable]): input data
+        quantile_threshold (float): Description: quantile threshold over which observations are classified as extreme
+        margin1 (univar.BaseDistribution, optional): Marginal distribution for first component
+        margin2 (univar.BaseDistribution, optional): Marginal distribution for second component
         return_opt_results (bool, optional): If True, the object from the optimization result is returned
         x0 (float, optional): Initial point for the optimisation algorithm. Defaults to 0.5
     
     Returns:
         Logistic: Fitted model
-    
-    
-    Raises:
-        ValueError: Description
     
     
     """
@@ -555,39 +551,6 @@ class Logistic(ExceedanceDistribution):
 
     plt.tight_layout()
     plt.show()
-
-    # #print("density plot finished")
-    # ####### Pickands function
-    # x_grid = np.linspace(0,1,50)
-    # logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
-    # ## get data for empirical pickands function
-    # # see Statistics of Extremes by Berlaint, page 315
-    # th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
-    # exceedance_data = self.data[np.logical_and(x > th_margin1, y > th_margin2)]
-    # exs1, exs2 = self.unbundle(exceedance_data)
-
-    # tail = self.margin1 > th_margin1
-    # xi = -np.log(tail.cdf(exs1))
-    # #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
-    # tail = self.margin2 > th_margin2
-    # eta = -np.log(tail.cdf(exs2))
-    # #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
-
-    # finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
-    # xi = xi[finite_idx]
-    # eta = eta[finite_idx]
-
-    # def nonparametric_pickands(t):
-    #   return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
-    # empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
-
-    # axs[1,1].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
-    # axs[1,1].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
-    # axs[1,1].plot(x_grid, np.ones((len(x_grid),)), linestyle="--", color="black")
-    # axs[1,1].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle="--", color="black")
-    # axs[1,1].title.set_text("model vs empirical Pickands function")
-    # axs[1,1].set_xlabel("t")
-    # axs[1,1].set_ylabel("")
 
   def simulate(self, size: int):
     alpha = self.alpha

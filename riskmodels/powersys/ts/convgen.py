@@ -20,6 +20,9 @@ class MarkovChainGenerationModel(IndependentFleetModel):
 
   """Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
   """
+  def __str__(self):
+    max_cap = np.sum([s[0] for s in self.chain_states])
+    return f"Markov chain generation model with {len(self.transition_matrices)} generators and {max_cap} maximum capacity"
   
   @property
   def stationary_distributions(self):

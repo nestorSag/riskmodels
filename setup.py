@@ -33,7 +33,8 @@ setuptools.setup(
         'matplotlib>=3.4.3',
         'pandas',
         'statsmodels>=0.12',
-        'cffi>=1.0.0'
+        'cffi>=1.0.0',
+        'tqdm'
     ],
 
      #long_description=long_description,

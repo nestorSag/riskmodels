@@ -376,8 +376,8 @@ class BivariateEmpirical(BaseSurplus):
 
     return eeu
 
-  def get_pointwise_cdfs(self, x: np.ndarray, itc_cap: int = 1000, policy:str = "veto"):
-    """Calculates the post-interconnection shortfall probability for each one of the demand-wind observations
+  def get_pointwise_risk(self, x: np.ndarray, itc_cap: int = 1000, policy:str = "veto"):
+    """Calculates the post-interconnection shortfall probability for each one of the net demand observations
     
     Args:
         x (np.ndarray): point to evaluate CDF at
@@ -433,12 +433,12 @@ class BivariateEmpirical(BaseSurplus):
     ### calculate conditional probability of each historical observation conditioned to the region of interest
     if shortfall_region:
       warnings.warn("Simulating from shortfall region; ignoring passed upper bounds.", stacklevel=2)
-      pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
-        self.get_pointwise_cdfs(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
-        self.get_pointwise_cdfs(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
+      pointwise_cdfs = self.get_pointwise_risk(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
+        self.get_pointwise_risk(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
+        self.get_pointwise_risk(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
       intersection = False
     else:
-      pointwise_cdfs = self.get_pointwise_cdfs(x=upper_bounds,itc_cap=itc_cap,policy=policy)
+      pointwise_cdfs = self.get_pointwise_risk(x=upper_bounds,itc_cap=itc_cap,policy=policy)
       intersection = True
     
     # numerical rounding error sometimes output negative probabilities of the order of 1e-30
@@ -517,8 +517,8 @@ class BivariateEmpirical(BaseSurplus):
       x = np.array([np.Inf, fixed_value])
       y = x - 1
 
-    pointwise_cdfs = self.get_pointwise_cdfs(x=x,itc_cap=itc_cap,policy=policy) - \
-      self.get_pointwise_cdfs(x=y,itc_cap=itc_cap,policy=policy)
+    pointwise_cdfs = self.get_pointwise_risk(x=x,itc_cap=itc_cap,policy=policy) - \
+      self.get_pointwise_risk(x=y,itc_cap=itc_cap,policy=policy)
 
     pointwise_cdfs = np.clip(pointwise_cdfs, a_min=0.0, a_max=np.Inf)
   
