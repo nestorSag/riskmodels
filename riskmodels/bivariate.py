@@ -20,6 +20,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib import cm
+import matplotlib
 
 import numpy as np
 import emcee
@@ -75,11 +76,14 @@ class BaseDistribution(BaseModel, ABC):
     """
     pass
 
-  def plot(self, size: int = 1000):
+  def plot(self, size: int = 1000) -> matplotlib.figure.Figure:
     """Sample distribution and produce scatterplots and histograms
     
     Args:
         size (int, optional): Sample size
+    
+    Returns:
+        matplotlib.figure.Figure: figure
     """
     sample = self.simulate(size)
 
@@ -97,7 +101,7 @@ class BaseDistribution(BaseModel, ABC):
     rect_histy = [left + width + spacing, bottom, 0.2, height]
 
     # start with a rectangular Figure
-    plt.figure(figsize=(8, 8))
+    fig = plt.figure(figsize=(8, 8))
 
     ax_scatter = plt.axes(rect_scatter)
     ax_scatter.tick_params(direction='in', top=True, right=True)
@@ -123,7 +127,7 @@ class BaseDistribution(BaseModel, ABC):
     #ax_histx.set_xlim(ax_scatter.get_xlim())
     #ax_histy.set_ylim(ax_scatter.get_ylim())
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
 
@@ -159,7 +163,7 @@ class ExceedanceModel(Mixture):
   
   def plot_diagnostics(self):
 
-    self.distributions[1].plot_diagnostics()
+    return self.distributions[1].plot_diagnostics()
 
   @property
   def tail(self):
@@ -485,9 +489,12 @@ class Logistic(ExceedanceDistribution):
     n = len(data)
     return (cls.loglik(alpha - delta, threshold, data) -2*cls.loglik(alpha, threshold, data) + cls.loglik(alpha + delta, threshold, data))/(n*delta**2)
 
-  def plot_diagnostics(self):
-    """Produce diagnostic plots for fitted model
-
+  def plot_diagnostics(self) -> matplotlib.figure.Figure:
+    """Returns diagnostic plots for the fitted model
+    
+    Returns:
+        matplotlib.figure.Figure: figure
+    
     """
 
     x, y = self.unbundle(self.data)
@@ -550,7 +557,7 @@ class Logistic(ExceedanceDistribution):
     axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle="--", color="black")
 
     plt.tight_layout()
-    plt.show()
+    return fig
 
   def simulate(self, size: int):
     alpha = self.alpha

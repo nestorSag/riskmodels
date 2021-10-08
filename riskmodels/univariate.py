@@ -19,6 +19,7 @@ import scipy as sp
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib import cm
+import matplotlib
 
 import numpy as np
 import emcee
@@ -653,7 +654,7 @@ class GPTail(BaseDistribution):
         data = sdev*norm_exceedances)
 
   def plot_diagnostics(self) -> None:
-    """Produces fit diagnostic plots for the GP model
+    """Returns a figure with fit diagnostic for the GP model
     
     """
     if self.data is None:
@@ -773,49 +774,62 @@ class GPTail(BaseDistribution):
     axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
 
     ############ Mean return plot ###############
-    scale, shape = self.scale, self.shape
+    # scale, shape = self.scale, self.shape
 
-    n_obs = len(self.data)
-    exs_prob = 1 #carried over from older code
+    # n_obs = len(self.data)
+    # exceedance_frequency = 1/np.logspace(1,4,20)
+    # return_levels = self.ppf(1 - exceedance_frequency)
 
-    m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
-    return_levels = self.ppf(1 - 1/(exs_prob*m))
+    # axs[2,1].plot(1.0/exceedance_frequency,return_levels,color=self._figure_color_palette[0])
+    # axs[2,1].set_xscale("log")
+    # axs[2,1].title.set_text("Exceedance model's return levels")
+    # axs[2,1].set_xlabel('1/frequency')
+    # axs[2,1].set_ylabel('Return level')
+    # axs[2,1].grid()
 
-    axs[2,1].plot(m,return_levels,color=self._figure_color_palette[0])
-    axs[2,1].set_xscale("log")
-    axs[2,1].title.set_text('Exceedance return levels')
-    axs[2,1].set_xlabel('1/frequency')
-    axs[2,1].set_ylabel('Return level')
-    axs[2,1].grid()
 
-    try:
-      #for this bit, look at An Introduction to Statistical selfing of Extreme Values, p.82
-      mle_cov = self.mle_cov()
-      eigenvals, eigenvecs = np.linalg.eig(mle_cov)
-      if np.all(eigenvals > 0):
-        covariance = np.eye(3)
-        covariance[1::,1::] = mle_cov
-        covariance[0,0] = exs_prob*(1-exs_prob)/n_obs
-        #
-        return_stdevs = []
-        for m_ in m:
-          quantile_grad = np.array([
-            scale*m_**(shape)*exs_prob**(shape-1),
-            shape**(-1)*((exs_prob*m_)**shape-1),
-            -scale*shape**(-2)*((exs_prob*m_)**shape-1)+scale*shape**(-1)*(exs_prob*m_)**shape*np.log(exs_prob*m_)
-            ])
-          #
-          sdev = np.sqrt(quantile_grad.T.dot(covariance).dot(quantile_grad))
-          return_stdevs.append(sdev)
-        #
-        axs[2,1].fill_between(m, return_levels - return_stdevs, return_levels + return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
-      else:
-        warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned", stacklevel=2)
-    except Exception as e:
-      warnings.warn(f"Confidence bands for return level could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}", stacklevel=2)
+
+
+    # exs_prob = 1 #carried over from older code
+
+    # m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
+    # return_levels = self.ppf(1 - 1/(exs_prob*m))
+
+    # axs[2,1].plot(m,return_levels,color=self._figure_color_palette[0])
+    # axs[2,1].set_xscale("log")
+    # axs[2,1].title.set_text('Exceedance return levels')
+    # axs[2,1].set_xlabel('1/frequency')
+    # axs[2,1].set_ylabel('Return level')
+    # axs[2,1].grid()
+
+    # try:
+    #   #for this bit, look at An Introduction to Statistical selfing of Extreme Values, p.82
+    #   mle_cov = self.mle_cov()
+    #   eigenvals, eigenvecs = np.linalg.eig(mle_cov)
+    #   if np.all(eigenvals > 0):
+    #     covariance = np.eye(3)
+    #     covariance[1::,1::] = mle_cov
+    #     covariance[0,0] = exs_prob*(1-exs_prob)/n_obs
+    #     #
+    #     return_stdevs = []
+    #     for m_ in m:
+    #       quantile_grad = np.array([
+    #         scale*m_**(shape)*exs_prob**(shape-1),
+    #         shape**(-1)*((exs_prob*m_)**shape-1),
+    #         -scale*shape**(-2)*((exs_prob*m_)**shape-1)+scale*shape**(-1)*(exs_prob*m_)**shape*np.log(exs_prob*m_)
+    #         ])
+    #       #
+    #       sdev = np.sqrt(quantile_grad.T.dot(covariance).dot(quantile_grad))
+    #       return_stdevs.append(sdev)
+    #     #
+    #     axs[2,1].fill_between(m, return_levels - return_stdevs, return_levels + return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
+    #   else:
+    #     warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned", stacklevel=2)
+    # except Exception as e:
+    #   warnings.warn(f"Confidence bands for return level could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}", stacklevel=2)
 
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
 
@@ -1277,13 +1291,18 @@ class Empirical(BaseDistribution):
       pdf_values=unnorm_pdf/n, 
       data=data)
 
-  def plot_mean_residual_life(self, threshold: float) -> None:
+  def plot_mean_residual_life(self, threshold: float) -> matplotlib.figure.Figure:
     """Produces a mean residual life plot for the tail of the distribution above a given threshold
     
     Args:
         threshold (float): threshold value
     
+    Returns:
+        matplotlib.figure.Figure: figure
+    
+    
     """
+    fig = plt.figure()
     fitted = self.fit_tail_model(threshold)
     scale, shape = fitted.tail.scale, fitted.tail.shape
 
@@ -1297,7 +1316,7 @@ class Empirical(BaseDistribution):
     plt.title("Mean residual life plot")
     plt.xlabel("Threshold")
     plt.ylabel("Mean exceedance")
-    plt.show()
+    return fig
 
   def fit_tail_model(self, threshold: float, bayesian=False, **kwargs) -> t.Union[EmpiricalWithGPTail, EmpiricalWithBayesianGPTail]:
     """Fits a tail GP model above a specified threshold and return the fitted semiparametric model
@@ -1557,10 +1576,63 @@ class EmpiricalWithGPTail(Mixture):
       distributions = [empirical, tail],
       weights = np.array([1 - exs_prob, exs_prob]))
 
-  def plot_diagnostics(self):
-    self.tail.plot_diagnostics()
+  def plot_diagnostics(self) -> matplotlib.figure.Figure:
+    return self.tail.plot_diagnostics()
 
+  def plot_return_levels(self) -> matplotlib.figure.Figure:
+    """Returns a figure with a return level plot using the fitted tail model
+    
+    Returns:
+        matplotlib.figure.Figure: figure
+    
+    """
+    fig = plt.figure()
+    scale, shape = self.tail.scale, self.tail.shape
+    exs_prob = self.exs_prob
+    
+    if self.tail.data is None:
+      n_obs = np.Inf # this only means that threshold estimation variance is ignored in figure confidence bounds
+    else:
+      n_obs = len(self.tail.data)
 
+    exceedance_frequency = 1/np.logspace(1,4,20)
+    exceedance_frequency = exceedance_frequency[exceedance_frequency < exs_prob] #plot only levels inside fitted tail model
+    return_levels = self.ppf(1 - exceedance_frequency)
+
+    plt.plot(1.0/exceedance_frequency,return_levels,color=self._figure_color_palette[0])
+    plt.xscale("log")
+    plt.title(" Return levels")
+    plt.xlabel('1/frequency')
+    plt.ylabel('Return level')
+    plt.grid()
+
+    try:
+      #for this bit, look at An Introduction to Statistical selfing of Extreme Values, p.82
+      mle_cov = self.tail.mle_cov()
+      eigenvals, eigenvecs = np.linalg.eig(mle_cov)
+      if np.all(eigenvals > 0):
+        covariance = np.eye(3)
+        covariance[1::,1::] = mle_cov
+        covariance[0,0] = exs_prob*(1-exs_prob)/n_obs
+        #
+        return_stdevs = []
+        for m in 1.0/exceedance_frequency:
+          quantile_grad = np.array([
+            scale*m**shape*exs_prob**(shape),
+            1/shape*((exs_prob*m)**shape-1),
+            -scale/shape**2*((exs_prob*m)**shape-1)+scale/shape*(exs_prob*m)**shape*np.log(exs_prob*m)
+            ])
+          #
+          sdev = np.sqrt(quantile_grad.T.dot(covariance).dot(quantile_grad))
+          return_stdevs.append(sdev)
+        #
+        plt.fill_between(1.0/exceedance_frequency, return_levels - return_stdevs, return_levels + return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
+      else:
+        warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned", stacklevel=2)
+    except Exception as e:
+      warnings.warn(f"Confidence bands for return level could not be calculated; covariance matrix might be ill-conditioned; full trace: {traceback.format_exc()}", stacklevel=2)
+
+    return fig
 
 
 class BayesianGPTail(GPTailMixture):
@@ -1665,7 +1737,7 @@ class BayesianGPTail(GPTailMixture):
           if i == 0:
             ax.set_title("Chain mixing")
           ax.yaxis.set_label_coords(-0.1, 0.5)
-      plt.show()
+      print("Use pyplot.show() to view chain diagnostics.")
 
 
     scale_posterior = flat_samples[:,0]
@@ -1678,8 +1750,11 @@ class BayesianGPTail(GPTailMixture):
       shapes = shape_posterior,
       scales = scale_posterior)
 
-  def plot_diagnostics(self) -> None:
-    """Produces fit diagnostic plots for the GP model
+  def plot_diagnostics(self) -> matplotlib.figure.Figure:
+    """Returns a figure with fit diagnostic plots for the GP model
+    
+    Returns:
+        matplotlib.figure.Figure: figure
     
     """
     if self.data is None:
@@ -1757,32 +1832,32 @@ class BayesianGPTail(GPTailMixture):
 
     ############ Mean return plot ###############
 
-    n_obs = len(self.data)
-    exs_prob = 1 #carried over from an older code version
+    # n_obs = len(self.data)
+    # exs_prob = 1 #carried over from an older code version
 
-    m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
+    # m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
     
-    return_levels = [self.ppf(1-1/x, return_all=True) for x in exs_prob*m]
+    # return_levels = [self.ppf(1-1/x, return_all=True) for x in exs_prob*m]
 
-    #hat_return_levels are not the mean of posterior return level samples, as the mean is not an unbiased estimator
-    hat_return_levels = np.array([self.ppf(1-1/x) for x in exs_prob*m])
-    q025_return_levels = np.array([np.quantile(r, 0.025) for r in return_levels])
-    q975_return_levels = np.array([np.quantile(r, 0.975) for r in return_levels])
+    # #hat_return_levels are not the mean of posterior return level samples, as the mean is not an unbiased estimator
+    # hat_return_levels = np.array([self.ppf(1-1/x) for x in exs_prob*m])
+    # q025_return_levels = np.array([np.quantile(r, 0.025) for r in return_levels])
+    # q975_return_levels = np.array([np.quantile(r, 0.975) for r in return_levels])
 
-    # hat_return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
-    # q025_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.025) for x in exs_prob*m])
-    # q975_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.975) for x in exs_prob*m])
+    # # hat_return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
+    # # q025_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.025) for x in exs_prob*m])
+    # # q975_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.975) for x in exs_prob*m])
 
-    axs[2,1].plot(m,hat_return_levels,color=self._figure_color_palette[0])
-    axs[2,1].fill_between(m, q025_return_levels, q975_return_levels, alpha=0.2, color=self._figure_color_palette[1])
-    axs[2,1].set_xscale("log")
-    axs[2,1].title.set_text('Exceedance return levels')
-    axs[2,1].set_xlabel('1/frequency')
-    axs[2,1].set_ylabel('Return level')
-    axs[2,1].grid()
+    # axs[2,1].plot(m,hat_return_levels,color=self._figure_color_palette[0])
+    # axs[2,1].fill_between(m, q025_return_levels, q975_return_levels, alpha=0.2, color=self._figure_color_palette[1])
+    # axs[2,1].set_xscale("log")
+    # axs[2,1].title.set_text('Exceedance return levels')
+    # axs[2,1].set_xlabel('1/frequency')
+    # axs[2,1].set_ylabel('Return level')
+    # axs[2,1].grid()
 
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
 
@@ -1844,3 +1919,37 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
         return val
     else:
       return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob, **kwargs)
+
+  def plot_return_levels(self) -> matplotlib.figure.Figure:
+    """Returns a figure with a return level plot using the fitted tail model
+    
+    Returns:
+        matplotlib.figure.Figure: figure
+    
+    """
+    fig = plt.figure()
+    exs_prob = self.exs_prob
+
+    exceedance_frequency = 1/np.logspace(1,4,20)
+    exceedance_frequency = exceedance_frequency[exceedance_frequency < exs_prob] #plot only levels inside fitted tail model
+
+    return_levels = [self.ppf(1-x, return_all=True) for x in exceedance_frequency]
+
+    #hat_return_levels are not the mean of posterior return level samples, as the mean is not an unbiased estimator
+    hat_return_levels = np.array([self.ppf(1-x, return_all=False) for x in exceedance_frequency])
+    q025_return_levels = np.array([np.quantile(r, 0.025) for r in return_levels])
+    q975_return_levels = np.array([np.quantile(r, 0.975) for r in return_levels])
+
+    # hat_return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
+    # q025_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.025) for x in exs_prob*m])
+    # q975_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.975) for x in exs_prob*m])
+
+    plt.plot(1.0/exceedance_frequency,hat_return_levels,color=self._figure_color_palette[0])
+    plt.fill_between(1.0/exceedance_frequency, q025_return_levels, q975_return_levels, alpha=0.2, color=self._figure_color_palette[1])
+    plt.xscale("log")
+    plt.title('Exceedance return levels')
+    plt.xlabel('1/frequency')
+    plt.ylabel('Return level')
+    plt.grid()
+
+    return fig
