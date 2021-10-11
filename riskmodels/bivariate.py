@@ -530,7 +530,7 @@ class Logistic(ExceedanceDistribution):
     z2_range = max(z2) - min(z2)
 
     x_range = np.linspace(min(z1) - 0.05*z1_range, max(z1) + 0.05*z1_range, 50)
-    y_range = np.linspace(min(z1) - 0.05*z2_range, max(z1) + 0.05*z2_range, 50)
+    y_range = np.linspace(min(z2) - 0.05*z2_range, max(z2) + 0.05*z2_range, 50)
 
     X, Y = np.meshgrid(x_range, y_range)
     bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
@@ -550,7 +550,7 @@ class Logistic(ExceedanceDistribution):
     axs[1,0].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
 
     axs[1,0].title.set_text('Model vs data log-odds')
-    axs[1,0].set_ylabel('Data log-odds')
+    axs[1,0].set_xlabel('Empirical log-odds')
     axs[1,0].set_ylabel('Model log-odds')
     axs[1,0].set_xlim(-5,5)
     min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))

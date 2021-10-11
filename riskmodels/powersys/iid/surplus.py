@@ -35,28 +35,20 @@ class BaseSurplus(ABC):
   @abstractmethod
   def eeu(self):
     pass
-    
-class BivariateMonteCarlo(BaseModel, BaseSurplus):
+   
 
-  """General bivariate power surplus distribution formed by a power generation distribution and a net demand distribution. It calculates risk metrics by simulation and only implements a veto policy between areas, this is, areas will only export spare available capacity. 
+class BaseBivariateMonteCarlo(BaseModel, BaseSurplus):
+
+  """Base class for calculating time-collapsed risk indices for bivariate power surplus distributions using Monte Carlo. Implements calculations based on an assumed surplus trace, but crucially leaves unimplemented the method to compute this surplus trace; subclasses inheriting from this one can implement different ways to calculate this, such as simulation from bivariate distribution objects or loading traces from a file in the case of sequential Monte Carlo models. Only veto policies are implemented.
   
   Args:
-      gen_distribution (BaseDistribution): available conventional generation distribution
-      net_demand (BaseDistribution): net demand distribution
-      size (BaseDistribution): Sample size for Monte Carlo estimation
-      
+      season_length (int): Length of individual peak seasons
   """
 
-  gen_distribution: BaseDistribution
-  net_demand: BaseDistribution
-  size: int
   season_length: int  
 
-  class Config:
-    arbitrary_types_allowed = True
-
   def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -> np.ndarray:
-    """Returns the interconnector flow from a sample of bivariate pre inerconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
+    """Returns the interconnector flow from a sample of bivariate pre interconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
     
     Args:
         sample (np.ndarray): Bivariate surplus sample
@@ -86,7 +78,7 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
         itc_cap (int, optional): Interconnection capacity
     
     """
-    pre_itc_sample = self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)
+    pre_itc_sample = self.get_pre_itc_sample()
     flow = self.itc_flow(pre_itc_sample, itc_cap)
     # add flow to pre itc sample
     pre_itc_sample[:,0] += flow
@@ -136,6 +128,44 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
       return -self.season_length * (np.mean(np.minimum(samples[:,0], 0)) + np.mean(np.minimum(samples[:,1], 0)))
     else:
       raise ValueError("Area index not recognised")
+
+  @abstractmethod
+  def get_pre_itc_sample(self) -> np.ndarray:
+    """Returns a pre-interconnection surplus sample
+    
+    Returns:
+        np.ndarray: Sample
+    """
+    pass
+
+
+
+class BivariateMonteCarlo(BaseBivariateMonteCarlo):
+
+  """General bivariate power surplus distribution formed by a power generation distribution and a net demand distribution. It calculates risk metrics by simulation and only implements a veto policy between areas, this is, areas will only export spare available capacity. 
+  
+  Args:
+      gen_distribution (BaseDistribution): available conventional generation distribution
+      net_demand (BaseDistribution): net demand distribution
+      size (BaseDistribution): Sample size for Monte Carlo estimation
+      
+  """
+
+  gen_distribution: BaseDistribution
+  net_demand: BaseDistribution
+  size: int
+
+  class Config:
+    arbitrary_types_allowed = True
+
+  def get_pre_itc_sample(self) -> np.ndarray:
+    """Returns a pre-interconnection surplus sample by simulating the passed bivariate distributions for available conventional generation and net demand
+    
+    Returns:
+        np.ndarray: Sample
+    """
+    return self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)
+
 
 
 class BivariateEmpirical(BaseSurplus):
