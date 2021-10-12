@@ -107,11 +107,13 @@ class BaseBivariateMonteCarlo(BaseModel, BaseSurplus):
     """
     # take as loss of load when shortfalls are at least 0.1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
     x = np.array([-1e-1,-1e-1], dtype=np.float32)
-    if area >= 0:
+    if area in [0,1]:
       x[1-area] = np.Inf
       return self.season_length * self.cdf(x, itc_cap)
-    else:
+    elif area == -1:
       return self.season_length * (self.cdf(np.array([np.Inf,0]), itc_cap) + self.cdf(np.array([0,np.Inf]), itc_cap) - self.cdf(np.array([0,0]), itc_cap))
+    else:
+      raise ValueError("area must be in [-1,0,1]")
 
   def eeu(self, itc_cap: int = 1000, area: int = 0):
     """Calculates expected energy unserved for one of the areas in the system
@@ -122,12 +124,12 @@ class BaseBivariateMonteCarlo(BaseModel, BaseSurplus):
 
     """
     samples = self.simulate(itc_cap)
-    if area >= 0:
+    if area in [0,1]:
       return -self.season_length * np.mean(np.minimum(samples[:,area], 0))
     elif area == -1:
       return -self.season_length * (np.mean(np.minimum(samples[:,0], 0)) + np.mean(np.minimum(samples[:,1], 0)))
     else:
-      raise ValueError("Area index not recognised")
+      raise ValueError("area must be in [-1,0,1]")
 
   @abstractmethod
   def get_pre_itc_sample(self) -> np.ndarray:
