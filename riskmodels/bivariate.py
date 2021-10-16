@@ -25,12 +25,10 @@ import matplotlib
 import numpy as np
 import emcee
 
-from scipy.stats import genpareto as gpdist, gumbel_r as gumbel, norm as gaussian, multivariate_normal as mv_gaussian
 from scipy.optimize import LinearConstraint, minimize, root_scalar
-from scipy.stats import gaussian_kde as kde
 from scipy.signal import fftconvolve
 from scipy.special import lambertw
-
+from scipy.stats import genpareto as gpdist, gumbel_r as gumbel, norm as gaussian, multivariate_normal as mv_gaussian, gaussian_kde
 
 from pydantic import BaseModel, ValidationError, validator, PositiveFloat
 from functools import reduce
@@ -857,36 +855,40 @@ class Empirical(BaseDistribution):
       distributions = [empirical_model, exceedance_model],
       weights = np.array([p, 1-p]))
 
-  # def test_exceedance_dependence(self):
+  def test_asymptotic_dependence(self, quantile_threshold: float = 0.95) -> float:
+    """Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta =1$\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). A 50-50% prior is placed on the asymptotic dependence vs asymptotic independence hypotheses, with asymptotic dependence corresponding to \\($\\eta = 1$\\) and asymptotic independence having a prior of \\($\\eta \\sim \\text{Uniform}(0,1)$\\). The posterior density is approximated through Kernel density estimation.
+    
+    Args:
+        quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
+    
+    Returns:
+        float: Savage-Dickey ratio. If larger than 1, this favors the asymptotic dependence hypothesis and vice versa.
+    """
 
-  #   def tegpd_logp(x,eta,sigma):
-  #     #returns the sum of log-liklihoods
-  #     return tt.sum(-tt.log(sigma) - (1.0/eta+1)*tt.log(1+eta/sigma*x))
+    # Use generalised pareto to fit tails
+    x, y = self.data.T
+    x_dist, y_dist = univar.Empirical.from_data(x), univar.Empirical.from_data(y)
+    x_dist, y_dist = x_dist.fit_tail_model(x_dist.ppf(quantile_threshold)), y_dist.fit_tail_model(y_dist.ppf(quantile_threshold))
 
-  #   def get_eta_posterior(obs,n_samples = 2500):
-      
-  #     if isinstance(obs,list):
-  #       obs = numpy.array(obs)
-        
-  #     #Bayesian specification and inference
-  #     eta_model = pm.Model()
+    # transform to approximate standard Frechet margins and map to test data t
+    u1, u2 = x_dist.cdf(x), y_dist.cdf(y)
+    z1, z2 = -1/np.log(u1), -1/np.log(u2)
+    t = np.minimum(z1,z2)
 
-  #     with eta_model:
-  #       #uniform eta prior in (0,1)
-  #       eta = pm.Uniform("eta",lower=0,upper=1)
-  #       #flat sigma prior in positive line
-  #       sigma = pm.HalfFlat("sigma")
-  #       X = pm.DensityDist("tegpd",tegpd_logp,observed={"eta":eta,"sigma":sigma,"x":obs})
-  #       trace = pm.sample(n_samples,random_seed = 1)
-  #       #plots = pm.traceplot(trace)
-        
-  #     eta_samples = trace.get_values("eta")
-  #     #sigma_samples = trace.get_values("sigma")
-      
-  #     #posterior_kde = arviz.plot_kde(eta_samples)
-  #     posterior_AD_prob = sp.stats.gaussian_kde(eta_samples).evaluate(1)
-      
-  #     # get mean kernel density estimator for density at eta = 1
-  #     #eta_posterior = posterior_kde.lines[0].get_ydata()[-1]
-  #     #return 1
-  #     return 1.0/(1+1.0/posterior_AD_prob) if posterior_AD_prob > 0 else 0
+    ### compute savage-dickey density ratio
+
+    # log prior for this particular problem, since we know the tail index to be in [0,1].
+    def log_prior(theta):
+      scale, shape = theta
+      if scale > 0 and shape >= 0 and shape <= 1:
+        return 0.0
+      else:
+        return -np.Inf
+
+    # sample posterior
+    t_dist = univar.Empirical.from_data(t)
+    t_dist = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold), bayesian=True, log_prior=log_prior)
+
+    #approximate posterior distribution through Kernel density estimation. Evaluating it on 1 gives us the savage-dickey ratio
+    return gaussian_kde(t_dist.tail.shapes).evaluate(1)
+

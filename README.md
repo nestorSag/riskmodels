@@ -16,7 +16,7 @@ The Github pages of this repo contains the package's documentation
 
 ### Extreme value analysis
 
-Because this library stemmed from research in energy procurement, this example is related to that but the `univariate` and `bivariate` modules are quite general and can be applied to any kind of data. The following example analyses the dependence of critically low wind generation occurrences between Great Britain and France. 
+Because this library stemmed from research in energy procurement, this example is related to that but the `univariate` and `bivariate` modules are quite general and can be applied to any kind of data. The following example analyses the co-occurrence of low wind generation between Great Britain and France. 
 
 ```py
 

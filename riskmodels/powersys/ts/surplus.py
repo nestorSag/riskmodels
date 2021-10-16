@@ -85,7 +85,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
         t.Tuple[float, int]: A tuple with the estimated value and the number of seasons used to calculate it.
     """
     trace = self.surplus_trace
-    return np.mean(trace < 0)
+    return np.mean(trace < x)
 
   def simulate(self) -> float:
     return self.surplus_trace
@@ -140,14 +140,15 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
     trace = self.surplus_trace
     df = pd.DataFrame({"surplus": trace.reshape(-1)})
     df["time"] = np.arange(len(df))
-    df["file_id"] = Path(self.gen_filepath).name
     # filter by shortfall
     if shortfalls_only:
       df = df.query("surplus < 0")
     # add season features
-    df["season_time"] = df["time"]%self.season_length
-    df["season"] = (df["time"]/self.season_length).astype(np.int32)
+    raw_time = np.array(df["time"])
+    df["season_time"] = raw_time%self.season_length
+    df["season"] = (raw_time/self.season_length).astype(np.int32)
     df = df.drop(columns=["time"])
+    df["file_id"] = Path(self.gen_filepath).name
     return df
 
 
@@ -277,7 +278,8 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     renewables: np.ndarray,
     season_length: int,
     n_threads: int = 4,
-    burn_in: int = 100) -> UnivariateEmpiricalMapReduce:
+    burn_in: int = 100,
+    seeds: t.List[int] = None) -> UnivariateEmpiricalMapReduce:
     """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
     
     Args:
@@ -286,19 +288,19 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably optimal.
         gen (MarkovChainGenerationModel): Sequential conventional generation instance.
         demand (np.ndarray): Demand data
-        renwables (np.ndarray): Renewables data
+        renewables (np.ndarray): renewable generation data
         season_length (int): Peak season length. 
         n_threads (int, optional): Number of threads to use.
         burn_in (int, optional): Parameter passed to MarkovChainGenerationModel.simulate_seasons.
+        seeds (t.List[int], optional): If passed, it is used as a random seed for both numpy and C random number generation; if not passed, a seed for C is sampled from numpy's random number generators.
     
     Returns:
         UnivariateEmpiricalMapReduce: Sequential surplus model
     
-    
     """
     def persist_gen_traces(args):
-      gen, call_args, filename = args
-      traces = gen.simulate_seasons(*call_args)
+      gen, call_kwargs, filename = args
+      traces = gen.simulate_seasons(**call_kwargs)
       np.save(filename, traces)
 
     # create dir if it doesn't exist
@@ -318,6 +320,12 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     if n_files <= 0 or not isinstance(n_files, int):
       raise ValueError("n_files must be a positive integer")
 
+    if c_seeds is None:
+      c_seeds = [None for i in range(n_files)] #do not fix seed for any file
+
+    if len(seeds) != n_files:
+      raise ValueError("c_seeds length must be equal to n_files.")
+
     # compute file size (in terms of number of traces)
     file_sizes = [int(n_traces/n_files) for k in range(n_files)]
     file_sizes[-1] += n_traces - sum(file_sizes)
@@ -327,8 +335,15 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     seasons_per_trace = int(trace_length/season_length)
     for k, file_size in enumerate(file_sizes):
       output_path = Path(output_dir) / str(k)
-      call_args = (file_size, season_length, seasons_per_trace, burn_in)
-      arglist.append((gen, call_args, output_path))
+      c_seed = seeds[k]
+      call_kwargs = {
+        "file_size": file_size,
+        "season_length": season_length,
+        "seasons_per_trace": seasons_per_trace,
+        "burn_in": burn_in,
+        "c_seed": c_seed
+      }
+      arglist.append((gen, call_kwargs, output_path))
 
     #create files in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:

@@ -1427,7 +1427,7 @@ class Binned(Empirical):
 
       return Binned(
         support = new_support, 
-        pdf_values = pdf_vals,
+        pdf_values = np.abs(pdf_vals), #some negative values persist
         data = None)
 
     else:
@@ -1435,7 +1435,7 @@ class Binned(Empirical):
 
   def __sub__(self, other: float):
 
-    if isinstance(other, (int, binned)):
+    if isinstance(other, (int, Binned)):
       return self + (-other)
     else:
       super().__sub__(other)
@@ -1659,7 +1659,8 @@ class BayesianGPTail(GPTailMixture):
     n_walkers: int = 32,
     n_cores: int = 4,
     burn_in: int = 100,
-    thinning: int = None) -> BayesianGPTail:
+    thinning: int = None,
+    log_prior: t.Callable = None) -> BayesianGPTail:
     """Fits a Generalised Pareto model through Bayesian inference using exceedance data, starting with flat, uninformative priors for both and sampling from posterior shape and scale parameter distributions.
     
     Args:
@@ -1672,6 +1673,7 @@ class BayesianGPTail(GPTailMixture):
         n_cores (int, optional): Number of cores to use in parallelization
         burn_in (int, optional): Number of initial samples to discard
         thinning (int, optional): Thinning factor to reduce autocorrelation; if None, an automatic estimate from emcee's get_autocorr_time is used.
+        log_prior (t.Callable, optional): Function that takes as input a single length-2 iterable with scale and shape parameters and outputs the prior log-likelihood. If None, a non-informative constant prior on the valid parameter support is used.
     
     Returns:
         BayesianGPTail: fitted model
@@ -1684,17 +1686,20 @@ class BayesianGPTail(GPTailMixture):
     #   scale, shape = theta
     #   return np.sum(gpdist.logpdf(data, c=shape, scale=scale, loc=threshold))
 
-    def log_prior(theta):
-      scale, shape = theta
-      if shape > -scale/(x_max):
-        return 0.0
-      else:
-        return -np.Inf
+    if log_prior is None:
+      def log_prior(theta):
+        scale, shape = theta
+        if scale > 0 and shape > -scale/(x_max):
+          return 0.0
+        else:
+          return -np.Inf
 
     def log_probability(theta, data):
       prior = log_prior(theta)
       if np.isfinite(prior):
-        return prior + GPTail.loglik(theta, threshold, data)#log_likelihood(theta, data)
+        ll = prior + GPTail.loglik(theta, threshold, data)#log_likelihood(theta, data)
+        #print(theta, ll)
+        return ll
       else:
         return -np.Inf
 
