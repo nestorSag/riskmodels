@@ -890,5 +890,5 @@ class Empirical(BaseDistribution):
     t_dist = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold), bayesian=True, log_prior=log_prior)
 
     #approximate posterior distribution through Kernel density estimation. Evaluating it on 1 gives us the savage-dickey ratio
-    return gaussian_kde(t_dist.tail.shapes).evaluate(1)
+    return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]
 
