@@ -3,9 +3,9 @@ This module implements surplus distribution models for sequential conventional g
 """
 from __future__ import annotations
 
-import concurrent.futures
 from pathlib import Path
 import typing as t
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -268,6 +268,17 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     arbitrary_types_allowed = True
 
   @classmethod
+  def _persist_gen_traces(cls, args: t.Tuple[MarkovChainGenerationModel, t.Dict, Path]) -> None:
+    """Persists a sequence of traces according to specified arguments as a numpy file
+    
+    Args:
+        args (t.Tuple[MarkovChainGenerationModel, t.Dict, Path]): trace generation parameters
+    """
+    gen, call_kwargs, filename = args
+    traces = gen.simulate_seasons(**call_kwargs)
+    np.save(filename, traces)
+
+  @classmethod
   def init(
     cls,
     output_dir: str,
@@ -277,7 +288,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     demand: np.ndarray,
     renewables: np.ndarray,
     season_length: int,
-    n_threads: int = 4,
+    n_cores: int = 4,
     burn_in: int = 100,
     seeds: t.List[int] = None) -> UnivariateEmpiricalMapReduce:
     """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
@@ -290,7 +301,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         demand (np.ndarray): Demand data
         renewables (np.ndarray): renewable generation data
         season_length (int): Peak season length. 
-        n_threads (int, optional): Number of threads to use.
+        n_cores (int, optional): Number of cores to use.
         burn_in (int, optional): Parameter passed to MarkovChainGenerationModel.simulate_seasons.
         seeds (t.List[int], optional): If passed, it is used as a random seed for both numpy and C random number generation; if not passed, a seed for C is sampled from numpy's random number generators.
     
@@ -298,10 +309,6 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         UnivariateEmpiricalMapReduce: Sequential surplus model
     
     """
-    def persist_gen_traces(args):
-      gen, call_kwargs, filename = args
-      traces = gen.simulate_seasons(**call_kwargs)
-      np.save(filename, traces)
 
     # create dir if it doesn't exist
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -320,11 +327,11 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     if n_files <= 0 or not isinstance(n_files, int):
       raise ValueError("n_files must be a positive integer")
 
-    if c_seeds is None:
-      c_seeds = [None for i in range(n_files)] #do not fix seed for any file
+    if seeds is None:
+      seeds = [None for i in range(n_files)] #do not fix seed for any file
 
     if len(seeds) != n_files:
-      raise ValueError("c_seeds length must be equal to n_files.")
+      raise ValueError("seeds length must equal n_files.")
 
     # compute file size (in terms of number of traces)
     file_sizes = [int(n_traces/n_files) for k in range(n_files)]
@@ -335,19 +342,19 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     seasons_per_trace = int(trace_length/season_length)
     for k, file_size in enumerate(file_sizes):
       output_path = Path(output_dir) / str(k)
-      c_seed = seeds[k]
+      seed = seeds[k]
       call_kwargs = {
-        "file_size": file_size,
+        "size": file_size,
         "season_length": season_length,
         "seasons_per_trace": seasons_per_trace,
         "burn_in": burn_in,
-        "c_seed": c_seed
+        "seed": seed
       }
       arglist.append((gen, call_kwargs, output_path))
 
     #create files in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-      jobs = list(tqdm(executor.map(persist_gen_traces, arglist), total=len(arglist)))
+    with Pool(n_cores) as executor:
+      jobs = list(tqdm(executor.imap(cls._persist_gen_traces, arglist), total=len(arglist)))
     
     return cls(
       gen_dir=output_dir,
@@ -400,14 +407,14 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     mapper: t.Union[str, t.Callable], 
     reducer: t.Optional[t.Callable], 
     str_map_kwargs: t.Dict = {},
-    n_threads: int = 4) -> t.Any:
+    n_cores: int = 4) -> t.Any:
     """Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
     
     Args:
         mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance. If a function, it must take as only argument a worker instance.
         reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
         str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
-        n_threads (int, optional): Number of threads to use.
+        n_cores (int, optional): Number of cores to use.
     
     Returns:
         t.Any: Map-reduce output
@@ -416,8 +423,10 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
     arglist = self.create_mapred_arglist(mapper, str_map_kwargs)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-      mapped = list(tqdm(executor.map(self.execute_map, arglist), total=len(arglist)))
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
+    #   mapped = list(tqdm(executor.map(self.execute_map, arglist), total=len(arglist)))
+    with Pool(n_cores) as executor:
+      mapped = list(tqdm(executor.imap(self.execute_map, arglist), total=len(arglist)))
     
     if reducer is not None:
       return reducer(mapped)
@@ -512,7 +521,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
     demand: np.ndarray,
     renewables: np.ndarray,
     season_length: int,
-    n_threads: int = 4,
+    n_cores: int = 4,
     burn_in: int = 100) -> UnivariateEmpiricalMapReduce:
     """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
     
@@ -524,7 +533,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         demand (np.ndarray): Demand data
         renewables (np.ndarray): Renewables data
         season_length (int): Peak season length. 
-        n_threads (int, optional): Number of threads to use.
+        n_cores (int, optional): Number of cores to use.
         burn_in (int, optional): Parameter passed to MarkovChainGenerationModel.simulate_seasons.
     
     Returns:
@@ -543,7 +552,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         demand = univar_demand,
         renewables = univar_renewables,
         season_length = season_length,
-        n_threads = n_threads,
+        n_cores = n_cores,
         burn_in = burn_in)
 
     return cls(
@@ -598,7 +607,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
     str_map_kwargs: t.Dict = {},
     policy: str = "veto",
     itc_cap: float = 1000.0,
-    n_threads: int = 4) -> t.Any:
+    n_cores: int = 4) -> t.Any:
     """Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
     
     Args:
@@ -607,7 +616,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
         policy (str, optional): shortfall-sharing interconnection policy
         itc_cap (float, optional): Description
-        n_threads (int, optional): Number of threads to use.
+        n_cores (int, optional): Number of cores to use.
     
     Returns:
         t.Any: Description
@@ -620,8 +629,8 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
     # policy is passed as an argument at worker instantiation time to avoid code duplication. See comments on the create_mapred_arglist method.
     arglist = self.create_mapred_arglist(mapper, str_map_kwargs, policy)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-      mapped = list(tqdm(executor.map(self.execute_map, arglist), total=len(arglist)))
+    with Pool(n_cores) as executor:
+      mapped = list(tqdm(executor.imap(self.execute_map, arglist), total=len(arglist)))
     
     if reducer is not None:
       return reducer(mapped)

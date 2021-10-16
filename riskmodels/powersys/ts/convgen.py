@@ -172,8 +172,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         return_output = True
 
       if seed is None:
-        seed = np.random.randint(low=0,high=2**31-1)%5000 #reproducibility for C code based on an external numpy seed
-        # not every random seed is good quality, so seeds are kept close to zero
+        seed = np.random.randint(low=0,high=2**31-1)
       else:
         np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
 
