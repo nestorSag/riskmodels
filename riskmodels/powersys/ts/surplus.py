@@ -289,8 +289,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     renewables: np.ndarray,
     season_length: int,
     n_cores: int = 4,
-    burn_in: int = 100,
-    seeds: t.List[int] = None) -> UnivariateEmpiricalMapReduce:
+    burn_in: int = 100) -> UnivariateEmpiricalMapReduce:
     """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
     
     Args:
@@ -303,7 +302,6 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         season_length (int): Peak season length. 
         n_cores (int, optional): Number of cores to use.
         burn_in (int, optional): Parameter passed to MarkovChainGenerationModel.simulate_seasons.
-        seeds (t.List[int], optional): If passed, it is used as a random seed for both numpy and C random number generation; if not passed, a seed for C is sampled from numpy's random number generators.
     
     Returns:
         UnivariateEmpiricalMapReduce: Sequential surplus model
@@ -327,12 +325,6 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     if n_files <= 0 or not isinstance(n_files, int):
       raise ValueError("n_files must be a positive integer")
 
-    if seeds is None:
-      seeds = [None for i in range(n_files)] #do not fix seed for any file
-
-    if len(seeds) != n_files:
-      raise ValueError("seeds length must equal n_files.")
-
     # compute file size (in terms of number of traces)
     file_sizes = [int(n_traces/n_files) for k in range(n_files)]
     file_sizes[-1] += n_traces - sum(file_sizes)
@@ -342,13 +334,11 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     seasons_per_trace = int(trace_length/season_length)
     for k, file_size in enumerate(file_sizes):
       output_path = Path(output_dir) / str(k)
-      seed = seeds[k]
       call_kwargs = {
         "size": file_size,
         "season_length": season_length,
         "seasons_per_trace": seasons_per_trace,
-        "burn_in": burn_in,
-        "seed": seed
+        "burn_in": burn_in
       }
       arglist.append((gen, call_kwargs, output_path))
 
