@@ -8,7 +8,10 @@ import typing as t
 from multiprocessing import Pool
 
 import numpy as np
+
 import pandas as pd
+pd.options.mode.chained_assignment = None  # default='warn'
+
 from pydantic import BaseModel, validator
 
 from c_sequential_models_api import ffi, lib as C_CALL
@@ -137,6 +140,8 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
         pd.DataFrame: A data frame with the surplus values, a 'season_time' column with the within-season time of occurrence (0,1,...,season_length-1), a 'file_id' column that indicates which file was used to compute the value, and a 'season' column to indicate which season the value was observed in.
     
     """
+    pd.options.mode.chained_assignment = None  # supress false positive warnings
+
     trace = self.surplus_trace
     df = pd.DataFrame({"surplus": trace.reshape(-1)})
     df["time"] = np.arange(len(df))
@@ -149,6 +154,9 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
     df["season"] = (raw_time/self.season_length).astype(np.int32)
     df = df.drop(columns=["time"])
     df["file_id"] = Path(self.gen_filepath).name
+
+    pd.options.mode.chained_assignment = 'warn'  # reset default
+
     return df
 
 
