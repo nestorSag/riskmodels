@@ -96,7 +96,7 @@ class IndependentFleetModel(Binned):
     Returns:
         IndependentFleetModel: fitted model
     &#34;&#34;&#34;
-    df = pd.read_csv(gen_data,**kwargs)
+    df = pd.read_csv(file_path,**kwargs)
     return cls.from_generator_df(df)
 
     
@@ -181,7 +181,7 @@ class IndependentFleetModel(Binned):
     Returns:
         IndependentFleetModel: fitted model
     &#34;&#34;&#34;
-    df = pd.read_csv(gen_data,**kwargs)
+    df = pd.read_csv(file_path,**kwargs)
     return cls.from_generator_df(df)</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -191,6 +191,10 @@ class IndependentFleetModel(Binned):
 <li><a title="riskmodels.univariate.BaseDistribution" href="../../univariate.html#riskmodels.univariate.BaseDistribution">BaseDistribution</a></li>
 <li>pydantic.main.BaseModel</li>
 <li>pydantic.utils.Representation</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel" href="../ts/convgen.html#riskmodels.powersys.ts.convgen.MarkovChainGenerationModel">MarkovChainGenerationModel</a></li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -241,7 +245,7 @@ def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFlee
   Returns:
       IndependentFleetModel: fitted model
   &#34;&#34;&#34;
-  df = pd.read_csv(gen_data,**kwargs)
+  df = pd.read_csv(file_path,**kwargs)
   return cls.from_generator_df(df)</code></pre>
 </details>
 </dd>

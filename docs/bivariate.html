@@ -50,16 +50,15 @@ import scipy as sp
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib import cm
+import matplotlib
 
 import numpy as np
 import emcee
 
-from scipy.stats import genpareto as gpdist, gumbel_r as gumbel, norm as gaussian, multivariate_normal as mv_gaussian
 from scipy.optimize import LinearConstraint, minimize, root_scalar
-from scipy.stats import gaussian_kde as kde
 from scipy.signal import fftconvolve
 from scipy.special import lambertw
-
+from scipy.stats import genpareto as gpdist, gumbel_r as gumbel, norm as gaussian, multivariate_normal as mv_gaussian, gaussian_kde
 
 from pydantic import BaseModel, ValidationError, validator, PositiveFloat
 from functools import reduce
@@ -105,11 +104,14 @@ class BaseDistribution(BaseModel, ABC):
     &#34;&#34;&#34;
     pass
 
-  def plot(self, size: int = 1000):
+  def plot(self, size: int = 1000) -&gt; matplotlib.figure.Figure:
     &#34;&#34;&#34;Sample distribution and produce scatterplots and histograms
     
     Args:
         size (int, optional): Sample size
+    
+    Returns:
+        matplotlib.figure.Figure: figure
     &#34;&#34;&#34;
     sample = self.simulate(size)
 
@@ -127,7 +129,7 @@ class BaseDistribution(BaseModel, ABC):
     rect_histy = [left + width + spacing, bottom, 0.2, height]
 
     # start with a rectangular Figure
-    plt.figure(figsize=(8, 8))
+    fig = plt.figure(figsize=(8, 8))
 
     ax_scatter = plt.axes(rect_scatter)
     ax_scatter.tick_params(direction=&#39;in&#39;, top=True, right=True)
@@ -153,7 +155,7 @@ class BaseDistribution(BaseModel, ABC):
     #ax_histx.set_xlim(ax_scatter.get_xlim())
     #ax_histy.set_ylim(ax_scatter.get_ylim())
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
 
@@ -189,7 +191,7 @@ class ExceedanceModel(Mixture):
   
   def plot_diagnostics(self):
 
-    self.distributions[1].plot_diagnostics()
+    return self.distributions[1].plot_diagnostics()
 
   @property
   def tail(self):
@@ -428,19 +430,15 @@ class Logistic(ExceedanceDistribution):
     &#34;&#34;&#34;Fits the model from provided data, threshold and marginal distributons
     
     Args:
-        data (t.Union[np.ndarray, t.Iterable])
-        quantile_threshold (float): Description
-        margin1 (univar.BaseDistribution, optional)
-        margin2 (univar.BaseDistribution, optional)
+        data (t.Union[np.ndarray, t.Iterable]): input data
+        quantile_threshold (float): Description: quantile threshold over which observations are classified as extreme
+        margin1 (univar.BaseDistribution, optional): Marginal distribution for first component
+        margin2 (univar.BaseDistribution, optional): Marginal distribution for second component
         return_opt_results (bool, optional): If True, the object from the optimization result is returned
         x0 (float, optional): Initial point for the optimisation algorithm. Defaults to 0.5
     
     Returns:
         Logistic: Fitted model
-    
-    
-    Raises:
-        ValueError: Description
     
     
     &#34;&#34;&#34;
@@ -519,9 +517,12 @@ class Logistic(ExceedanceDistribution):
     n = len(data)
     return (cls.loglik(alpha - delta, threshold, data) -2*cls.loglik(alpha, threshold, data) + cls.loglik(alpha + delta, threshold, data))/(n*delta**2)
 
-  def plot_diagnostics(self):
-    &#34;&#34;&#34;Produce diagnostic plots for fitted model
-
+  def plot_diagnostics(self) -&gt; matplotlib.figure.Figure:
+    &#34;&#34;&#34;Returns diagnostic plots for the fitted model
+    
+    Returns:
+        matplotlib.figure.Figure: figure
+    
     &#34;&#34;&#34;
 
     x, y = self.unbundle(self.data)
@@ -557,7 +558,7 @@ class Logistic(ExceedanceDistribution):
     z2_range = max(z2) - min(z2)
 
     x_range = np.linspace(min(z1) - 0.05*z1_range, max(z1) + 0.05*z1_range, 50)
-    y_range = np.linspace(min(z1) - 0.05*z2_range, max(z1) + 0.05*z2_range, 50)
+    y_range = np.linspace(min(z2) - 0.05*z2_range, max(z2) + 0.05*z2_range, 50)
 
     X, Y = np.meshgrid(x_range, y_range)
     bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
@@ -577,47 +578,14 @@ class Logistic(ExceedanceDistribution):
     axs[1,0].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
 
     axs[1,0].title.set_text(&#39;Model vs data log-odds&#39;)
-    axs[1,0].set_ylabel(&#39;Data log-odds&#39;)
+    axs[1,0].set_xlabel(&#39;Empirical log-odds&#39;)
     axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
     axs[1,0].set_xlim(-5,5)
     min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
     axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
 
     plt.tight_layout()
-    plt.show()
-
-    # #print(&#34;density plot finished&#34;)
-    # ####### Pickands function
-    # x_grid = np.linspace(0,1,50)
-    # logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
-    # ## get data for empirical pickands function
-    # # see Statistics of Extremes by Berlaint, page 315
-    # th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
-    # exceedance_data = self.data[np.logical_and(x &gt; th_margin1, y &gt; th_margin2)]
-    # exs1, exs2 = self.unbundle(exceedance_data)
-
-    # tail = self.margin1 &gt; th_margin1
-    # xi = -np.log(tail.cdf(exs1))
-    # #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
-    # tail = self.margin2 &gt; th_margin2
-    # eta = -np.log(tail.cdf(exs2))
-    # #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
-
-    # finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
-    # xi = xi[finite_idx]
-    # eta = eta[finite_idx]
-
-    # def nonparametric_pickands(t):
-    #   return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
-    # empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
-
-    # axs[1,1].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
-    # axs[1,1].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
-    # axs[1,1].plot(x_grid, np.ones((len(x_grid),)), linestyle=&#34;--&#34;, color=&#34;black&#34;)
-    # axs[1,1].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle=&#34;--&#34;, color=&#34;black&#34;)
-    # axs[1,1].title.set_text(&#34;model vs empirical Pickands function&#34;)
-    # axs[1,1].set_xlabel(&#34;t&#34;)
-    # axs[1,1].set_ylabel(&#34;&#34;)
+    return fig
 
   def simulate(self, size: int):
     alpha = self.alpha
@@ -917,39 +885,42 @@ class Empirical(BaseDistribution):
       distributions = [empirical_model, exceedance_model],
       weights = np.array([p, 1-p]))
 
-  # def test_exceedance_dependence(self):
+  def test_asymptotic_dependence(self, quantile_threshold: float = 0.95) -&gt; float:
+    &#34;&#34;&#34;Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta =1$\\) to test the hypothesis of asymptotic dependence (See &#39;Statistics of Extremes&#39; by Beirlant, page 345-346). A 50-50% prior is placed on the asymptotic dependence vs asymptotic independence hypotheses, with asymptotic dependence corresponding to \\($\\eta = 1$\\) and asymptotic independence having a prior of \\($\\eta \\sim \\text{Uniform}(0,1)$\\). The posterior density is approximated through Kernel density estimation.
+    
+    Args:
+        quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
+    
+    Returns:
+        float: Savage-Dickey ratio. If larger than 1, this favors the asymptotic dependence hypothesis and vice versa.
+    &#34;&#34;&#34;
 
-  #   def tegpd_logp(x,eta,sigma):
-  #     #returns the sum of log-liklihoods
-  #     return tt.sum(-tt.log(sigma) - (1.0/eta+1)*tt.log(1+eta/sigma*x))
+    # Use generalised pareto to fit tails
+    x, y = self.data.T
+    x_dist, y_dist = univar.Empirical.from_data(x), univar.Empirical.from_data(y)
+    x_dist, y_dist = x_dist.fit_tail_model(x_dist.ppf(quantile_threshold)), y_dist.fit_tail_model(y_dist.ppf(quantile_threshold))
 
-  #   def get_eta_posterior(obs,n_samples = 2500):
-      
-  #     if isinstance(obs,list):
-  #       obs = numpy.array(obs)
-        
-  #     #Bayesian specification and inference
-  #     eta_model = pm.Model()
+    # transform to approximate standard Frechet margins and map to test data t
+    u1, u2 = x_dist.cdf(x), y_dist.cdf(y)
+    z1, z2 = -1/np.log(u1), -1/np.log(u2)
+    t = np.minimum(z1,z2)
 
-  #     with eta_model:
-  #       #uniform eta prior in (0,1)
-  #       eta = pm.Uniform(&#34;eta&#34;,lower=0,upper=1)
-  #       #flat sigma prior in positive line
-  #       sigma = pm.HalfFlat(&#34;sigma&#34;)
-  #       X = pm.DensityDist(&#34;tegpd&#34;,tegpd_logp,observed={&#34;eta&#34;:eta,&#34;sigma&#34;:sigma,&#34;x&#34;:obs})
-  #       trace = pm.sample(n_samples,random_seed = 1)
-  #       #plots = pm.traceplot(trace)
-        
-  #     eta_samples = trace.get_values(&#34;eta&#34;)
-  #     #sigma_samples = trace.get_values(&#34;sigma&#34;)
-      
-  #     #posterior_kde = arviz.plot_kde(eta_samples)
-  #     posterior_AD_prob = sp.stats.gaussian_kde(eta_samples).evaluate(1)
-      
-  #     # get mean kernel density estimator for density at eta = 1
-  #     #eta_posterior = posterior_kde.lines[0].get_ydata()[-1]
-  #     #return 1
-  #     return 1.0/(1+1.0/posterior_AD_prob) if posterior_AD_prob &gt; 0 else 0</code></pre>
+    ### compute savage-dickey density ratio
+
+    # log prior for this particular problem, since we know the tail index to be in [0,1].
+    def log_prior(theta):
+      scale, shape = theta
+      if scale &gt; 0 and shape &gt;= 0 and shape &lt;= 1:
+        return 0.0
+      else:
+        return -np.Inf
+
+    # sample posterior
+    t_dist = univar.Empirical.from_data(t)
+    t_dist = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold), bayesian=True, log_prior=log_prior)
+
+    #approximate posterior distribution through Kernel density estimation. Evaluating it on 1 gives us the savage-dickey ratio
+    return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]</code></pre>
 </details>
 </section>
 <section>
@@ -1008,11 +979,14 @@ class Empirical(BaseDistribution):
     &#34;&#34;&#34;
     pass
 
-  def plot(self, size: int = 1000):
+  def plot(self, size: int = 1000) -&gt; matplotlib.figure.Figure:
     &#34;&#34;&#34;Sample distribution and produce scatterplots and histograms
     
     Args:
         size (int, optional): Sample size
+    
+    Returns:
+        matplotlib.figure.Figure: figure
     &#34;&#34;&#34;
     sample = self.simulate(size)
 
@@ -1030,7 +1004,7 @@ class Empirical(BaseDistribution):
     rect_histy = [left + width + spacing, bottom, 0.2, height]
 
     # start with a rectangular Figure
-    plt.figure(figsize=(8, 8))
+    fig = plt.figure(figsize=(8, 8))
 
     ax_scatter = plt.axes(rect_scatter)
     ax_scatter.tick_params(direction=&#39;in&#39;, top=True, right=True)
@@ -1056,7 +1030,7 @@ class Empirical(BaseDistribution):
     #ax_histx.set_xlim(ax_scatter.get_xlim())
     #ax_histy.set_ylim(ax_scatter.get_ylim())
     plt.tight_layout()
-    plt.show()</code></pre>
+    return fig</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1119,7 +1093,7 @@ def pdf(self, x: np.ndarray) -&gt; float:
 </details>
 </dd>
 <dt id="riskmodels.bivariate.BaseDistribution.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>self, size: int = 1000)</span>
+<span>def <span class="ident">plot</span></span>(<span>self, size: int = 1000) ‑> matplotlib.figure.Figure</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Sample distribution and produce scatterplots and histograms</p>
@@ -1127,16 +1101,24 @@ def pdf(self, x: np.ndarray) -&gt; float:
 <dl>
 <dt><strong><code>size</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Sample size</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>figure</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(self, size: int = 1000):
+<pre><code class="python">def plot(self, size: int = 1000) -&gt; matplotlib.figure.Figure:
   &#34;&#34;&#34;Sample distribution and produce scatterplots and histograms
   
   Args:
       size (int, optional): Sample size
+  
+  Returns:
+      matplotlib.figure.Figure: figure
   &#34;&#34;&#34;
   sample = self.simulate(size)
 
@@ -1154,7 +1136,7 @@ def pdf(self, x: np.ndarray) -&gt; float:
   rect_histy = [left + width + spacing, bottom, 0.2, height]
 
   # start with a rectangular Figure
-  plt.figure(figsize=(8, 8))
+  fig = plt.figure(figsize=(8, 8))
 
   ax_scatter = plt.axes(rect_scatter)
   ax_scatter.tick_params(direction=&#39;in&#39;, top=True, right=True)
@@ -1180,7 +1162,7 @@ def pdf(self, x: np.ndarray) -&gt; float:
   #ax_histx.set_xlim(ax_scatter.get_xlim())
   #ax_histy.set_ylim(ax_scatter.get_ylim())
   plt.tight_layout()
-  plt.show()</code></pre>
+  return fig</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.bivariate.BaseDistribution.simulate"><code class="name flex">
@@ -1335,39 +1317,42 @@ def simulate(self, size: int):
       distributions = [empirical_model, exceedance_model],
       weights = np.array([p, 1-p]))
 
-  # def test_exceedance_dependence(self):
+  def test_asymptotic_dependence(self, quantile_threshold: float = 0.95) -&gt; float:
+    &#34;&#34;&#34;Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta =1$\\) to test the hypothesis of asymptotic dependence (See &#39;Statistics of Extremes&#39; by Beirlant, page 345-346). A 50-50% prior is placed on the asymptotic dependence vs asymptotic independence hypotheses, with asymptotic dependence corresponding to \\($\\eta = 1$\\) and asymptotic independence having a prior of \\($\\eta \\sim \\text{Uniform}(0,1)$\\). The posterior density is approximated through Kernel density estimation.
+    
+    Args:
+        quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
+    
+    Returns:
+        float: Savage-Dickey ratio. If larger than 1, this favors the asymptotic dependence hypothesis and vice versa.
+    &#34;&#34;&#34;
 
-  #   def tegpd_logp(x,eta,sigma):
-  #     #returns the sum of log-liklihoods
-  #     return tt.sum(-tt.log(sigma) - (1.0/eta+1)*tt.log(1+eta/sigma*x))
+    # Use generalised pareto to fit tails
+    x, y = self.data.T
+    x_dist, y_dist = univar.Empirical.from_data(x), univar.Empirical.from_data(y)
+    x_dist, y_dist = x_dist.fit_tail_model(x_dist.ppf(quantile_threshold)), y_dist.fit_tail_model(y_dist.ppf(quantile_threshold))
 
-  #   def get_eta_posterior(obs,n_samples = 2500):
-      
-  #     if isinstance(obs,list):
-  #       obs = numpy.array(obs)
-        
-  #     #Bayesian specification and inference
-  #     eta_model = pm.Model()
+    # transform to approximate standard Frechet margins and map to test data t
+    u1, u2 = x_dist.cdf(x), y_dist.cdf(y)
+    z1, z2 = -1/np.log(u1), -1/np.log(u2)
+    t = np.minimum(z1,z2)
 
-  #     with eta_model:
-  #       #uniform eta prior in (0,1)
-  #       eta = pm.Uniform(&#34;eta&#34;,lower=0,upper=1)
-  #       #flat sigma prior in positive line
-  #       sigma = pm.HalfFlat(&#34;sigma&#34;)
-  #       X = pm.DensityDist(&#34;tegpd&#34;,tegpd_logp,observed={&#34;eta&#34;:eta,&#34;sigma&#34;:sigma,&#34;x&#34;:obs})
-  #       trace = pm.sample(n_samples,random_seed = 1)
-  #       #plots = pm.traceplot(trace)
-        
-  #     eta_samples = trace.get_values(&#34;eta&#34;)
-  #     #sigma_samples = trace.get_values(&#34;sigma&#34;)
-      
-  #     #posterior_kde = arviz.plot_kde(eta_samples)
-  #     posterior_AD_prob = sp.stats.gaussian_kde(eta_samples).evaluate(1)
-      
-  #     # get mean kernel density estimator for density at eta = 1
-  #     #eta_posterior = posterior_kde.lines[0].get_ydata()[-1]
-  #     #return 1
-  #     return 1.0/(1+1.0/posterior_AD_prob) if posterior_AD_prob &gt; 0 else 0</code></pre>
+    ### compute savage-dickey density ratio
+
+    # log prior for this particular problem, since we know the tail index to be in [0,1].
+    def log_prior(theta):
+      scale, shape = theta
+      if scale &gt; 0 and shape &gt;= 0 and shape &lt;= 1:
+        return 0.0
+      else:
+        return -np.Inf
+
+    # sample posterior
+    t_dist = univar.Empirical.from_data(t)
+    t_dist = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold), bayesian=True, log_prior=log_prior)
+
+    #approximate posterior distribution through Kernel density estimation. Evaluating it on 1 gives us the savage-dickey ratio
+    return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1538,6 +1523,63 @@ Currently, logistic and Gaussian models are available, with the former exhibitin
 <pre><code class="python">def get_marginals(self):
 
   return univar.Empirical.from_data(self.data[:,0]), univar.Empirical.from_data(self.data[:,1])</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.bivariate.Empirical.test_asymptotic_dependence"><code class="name flex">
+<span>def <span class="ident">test_asymptotic_dependence</span></span>(<span>self, quantile_threshold: float = 0.95) ‑> float</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the Savage-Dickey ratio for the coefficient of tail dependence <span><span class="MathJax_Preview">$\eta =1$</span><script type="math/tex">$\eta =1$</script></span> to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). A 50-50% prior is placed on the asymptotic dependence vs asymptotic independence hypotheses, with asymptotic dependence corresponding to <span><span class="MathJax_Preview">$\eta = 1$</span><script type="math/tex">$\eta = 1$</script></span> and asymptotic independence having a prior of <span><span class="MathJax_Preview">$\eta \sim \text{Uniform}(0,1)$</span><script type="math/tex">$\eta \sim \text{Uniform}(0,1)$</script></span>. The posterior density is approximated through Kernel density estimation.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>quantile_threshold</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>Quantile threshold over which the coefficient of tail dependence is to be estimated.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>Savage-Dickey ratio. If larger than 1, this favors the asymptotic dependence hypothesis and vice versa.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def test_asymptotic_dependence(self, quantile_threshold: float = 0.95) -&gt; float:
+  &#34;&#34;&#34;Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta =1$\\) to test the hypothesis of asymptotic dependence (See &#39;Statistics of Extremes&#39; by Beirlant, page 345-346). A 50-50% prior is placed on the asymptotic dependence vs asymptotic independence hypotheses, with asymptotic dependence corresponding to \\($\\eta = 1$\\) and asymptotic independence having a prior of \\($\\eta \\sim \\text{Uniform}(0,1)$\\). The posterior density is approximated through Kernel density estimation.
+  
+  Args:
+      quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
+  
+  Returns:
+      float: Savage-Dickey ratio. If larger than 1, this favors the asymptotic dependence hypothesis and vice versa.
+  &#34;&#34;&#34;
+
+  # Use generalised pareto to fit tails
+  x, y = self.data.T
+  x_dist, y_dist = univar.Empirical.from_data(x), univar.Empirical.from_data(y)
+  x_dist, y_dist = x_dist.fit_tail_model(x_dist.ppf(quantile_threshold)), y_dist.fit_tail_model(y_dist.ppf(quantile_threshold))
+
+  # transform to approximate standard Frechet margins and map to test data t
+  u1, u2 = x_dist.cdf(x), y_dist.cdf(y)
+  z1, z2 = -1/np.log(u1), -1/np.log(u2)
+  t = np.minimum(z1,z2)
+
+  ### compute savage-dickey density ratio
+
+  # log prior for this particular problem, since we know the tail index to be in [0,1].
+  def log_prior(theta):
+    scale, shape = theta
+    if scale &gt; 0 and shape &gt;= 0 and shape &lt;= 1:
+      return 0.0
+    else:
+      return -np.Inf
+
+  # sample posterior
+  t_dist = univar.Empirical.from_data(t)
+  t_dist = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold), bayesian=True, log_prior=log_prior)
+
+  #approximate posterior distribution through Kernel density estimation. Evaluating it on 1 gives us the savage-dickey ratio
+  return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]</code></pre>
 </details>
 </dd>
 </dl>
@@ -1782,7 +1824,7 @@ def plot_diagnostics(self):
   
   def plot_diagnostics(self):
 
-    self.distributions[1].plot_diagnostics()
+    return self.distributions[1].plot_diagnostics()
 
   @property
   def tail(self):
@@ -1851,7 +1893,7 @@ def tail(self):
 </summary>
 <pre><code class="python">def plot_diagnostics(self):
 
-  self.distributions[1].plot_diagnostics()</code></pre>
+  return self.distributions[1].plot_diagnostics()</code></pre>
 </details>
 </dd>
 </dl>
@@ -2406,19 +2448,15 @@ def cov(self):
     &#34;&#34;&#34;Fits the model from provided data, threshold and marginal distributons
     
     Args:
-        data (t.Union[np.ndarray, t.Iterable])
-        quantile_threshold (float): Description
-        margin1 (univar.BaseDistribution, optional)
-        margin2 (univar.BaseDistribution, optional)
+        data (t.Union[np.ndarray, t.Iterable]): input data
+        quantile_threshold (float): Description: quantile threshold over which observations are classified as extreme
+        margin1 (univar.BaseDistribution, optional): Marginal distribution for first component
+        margin2 (univar.BaseDistribution, optional): Marginal distribution for second component
         return_opt_results (bool, optional): If True, the object from the optimization result is returned
         x0 (float, optional): Initial point for the optimisation algorithm. Defaults to 0.5
     
     Returns:
         Logistic: Fitted model
-    
-    
-    Raises:
-        ValueError: Description
     
     
     &#34;&#34;&#34;
@@ -2497,9 +2535,12 @@ def cov(self):
     n = len(data)
     return (cls.loglik(alpha - delta, threshold, data) -2*cls.loglik(alpha, threshold, data) + cls.loglik(alpha + delta, threshold, data))/(n*delta**2)
 
-  def plot_diagnostics(self):
-    &#34;&#34;&#34;Produce diagnostic plots for fitted model
-
+  def plot_diagnostics(self) -&gt; matplotlib.figure.Figure:
+    &#34;&#34;&#34;Returns diagnostic plots for the fitted model
+    
+    Returns:
+        matplotlib.figure.Figure: figure
+    
     &#34;&#34;&#34;
 
     x, y = self.unbundle(self.data)
@@ -2535,7 +2576,7 @@ def cov(self):
     z2_range = max(z2) - min(z2)
 
     x_range = np.linspace(min(z1) - 0.05*z1_range, max(z1) + 0.05*z1_range, 50)
-    y_range = np.linspace(min(z1) - 0.05*z2_range, max(z1) + 0.05*z2_range, 50)
+    y_range = np.linspace(min(z2) - 0.05*z2_range, max(z2) + 0.05*z2_range, 50)
 
     X, Y = np.meshgrid(x_range, y_range)
     bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
@@ -2555,47 +2596,14 @@ def cov(self):
     axs[1,0].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
 
     axs[1,0].title.set_text(&#39;Model vs data log-odds&#39;)
-    axs[1,0].set_ylabel(&#39;Data log-odds&#39;)
+    axs[1,0].set_xlabel(&#39;Empirical log-odds&#39;)
     axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
     axs[1,0].set_xlim(-5,5)
     min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
     axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
 
     plt.tight_layout()
-    plt.show()
-
-    # #print(&#34;density plot finished&#34;)
-    # ####### Pickands function
-    # x_grid = np.linspace(0,1,50)
-    # logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
-    # ## get data for empirical pickands function
-    # # see Statistics of Extremes by Berlaint, page 315
-    # th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
-    # exceedance_data = self.data[np.logical_and(x &gt; th_margin1, y &gt; th_margin2)]
-    # exs1, exs2 = self.unbundle(exceedance_data)
-
-    # tail = self.margin1 &gt; th_margin1
-    # xi = -np.log(tail.cdf(exs1))
-    # #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
-    # tail = self.margin2 &gt; th_margin2
-    # eta = -np.log(tail.cdf(exs2))
-    # #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
-
-    # finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
-    # xi = xi[finite_idx]
-    # eta = eta[finite_idx]
-
-    # def nonparametric_pickands(t):
-    #   return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
-    # empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
-
-    # axs[1,1].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
-    # axs[1,1].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
-    # axs[1,1].plot(x_grid, np.ones((len(x_grid),)), linestyle=&#34;--&#34;, color=&#34;black&#34;)
-    # axs[1,1].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle=&#34;--&#34;, color=&#34;black&#34;)
-    # axs[1,1].title.set_text(&#34;model vs empirical Pickands function&#34;)
-    # axs[1,1].set_xlabel(&#34;t&#34;)
-    # axs[1,1].set_ylabel(&#34;&#34;)
+    return fig
 
   def simulate(self, size: int):
     alpha = self.alpha
@@ -2695,11 +2703,14 @@ def cov(self):
 <div class="desc"><p>Fits the model from provided data, threshold and marginal distributons</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt>data (t.Union[np.ndarray, t.Iterable])</dt>
+<dt><strong><code>data</code></strong> :&ensp;<code>t.Union[np.ndarray, t.Iterable]</code></dt>
+<dd>input data</dd>
 <dt><strong><code>quantile_threshold</code></strong> :&ensp;<code>float</code></dt>
-<dd>Description</dd>
-<dt>margin1 (univar.BaseDistribution, optional)</dt>
-<dt>margin2 (univar.BaseDistribution, optional)</dt>
+<dd>Description: quantile threshold over which observations are classified as extreme</dd>
+<dt><strong><code>margin1</code></strong> :&ensp;<code>univar.BaseDistribution</code>, optional</dt>
+<dd>Marginal distribution for first component</dd>
+<dt><strong><code>margin2</code></strong> :&ensp;<code>univar.BaseDistribution</code>, optional</dt>
+<dd>Marginal distribution for second component</dd>
 <dt><strong><code>return_opt_results</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>If True, the object from the optimization result is returned</dd>
 <dt><strong><code>x0</code></strong> :&ensp;<code>float</code>, optional</dt>
@@ -2709,11 +2720,6 @@ def cov(self):
 <dl>
 <dt><code><a title="riskmodels.bivariate.Logistic" href="#riskmodels.bivariate.Logistic">Logistic</a></code></dt>
 <dd>Fitted model</dd>
-</dl>
-<h2 id="raises">Raises</h2>
-<dl>
-<dt><code>ValueError</code></dt>
-<dd>Description</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2731,19 +2737,15 @@ def fit(
   &#34;&#34;&#34;Fits the model from provided data, threshold and marginal distributons
   
   Args:
-      data (t.Union[np.ndarray, t.Iterable])
-      quantile_threshold (float): Description
-      margin1 (univar.BaseDistribution, optional)
-      margin2 (univar.BaseDistribution, optional)
+      data (t.Union[np.ndarray, t.Iterable]): input data
+      quantile_threshold (float): Description: quantile threshold over which observations are classified as extreme
+      margin1 (univar.BaseDistribution, optional): Marginal distribution for first component
+      margin2 (univar.BaseDistribution, optional): Marginal distribution for second component
       return_opt_results (bool, optional): If True, the object from the optimization result is returned
       x0 (float, optional): Initial point for the optimisation algorithm. Defaults to 0.5
   
   Returns:
       Logistic: Fitted model
-  
-  
-  Raises:
-      ValueError: Description
   
   
   &#34;&#34;&#34;
@@ -3115,17 +3117,25 @@ def model_scale_threshold(self):
 </details>
 </dd>
 <dt id="riskmodels.bivariate.Logistic.plot_diagnostics"><code class="name flex">
-<span>def <span class="ident">plot_diagnostics</span></span>(<span>self)</span>
+<span>def <span class="ident">plot_diagnostics</span></span>(<span>self) ‑> matplotlib.figure.Figure</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Produce diagnostic plots for fitted model</p></div>
+<div class="desc"><p>Returns diagnostic plots for the fitted model</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>figure</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_diagnostics(self):
-  &#34;&#34;&#34;Produce diagnostic plots for fitted model
-
+<pre><code class="python">def plot_diagnostics(self) -&gt; matplotlib.figure.Figure:
+  &#34;&#34;&#34;Returns diagnostic plots for the fitted model
+  
+  Returns:
+      matplotlib.figure.Figure: figure
+  
   &#34;&#34;&#34;
 
   x, y = self.unbundle(self.data)
@@ -3161,7 +3171,7 @@ def model_scale_threshold(self):
   z2_range = max(z2) - min(z2)
 
   x_range = np.linspace(min(z1) - 0.05*z1_range, max(z1) + 0.05*z1_range, 50)
-  y_range = np.linspace(min(z1) - 0.05*z2_range, max(z1) + 0.05*z2_range, 50)
+  y_range = np.linspace(min(z2) - 0.05*z2_range, max(z2) + 0.05*z2_range, 50)
 
   X, Y = np.meshgrid(x_range, y_range)
   bundled_grid = self.bundle(X.reshape((-1,1)), Y.reshape((-1,1)))
@@ -3181,47 +3191,14 @@ def model_scale_threshold(self):
   axs[1,0].scatter(model_logodds, empirical_logodds, color=self._figure_color_palette[0])
 
   axs[1,0].title.set_text(&#39;Model vs data log-odds&#39;)
-  axs[1,0].set_ylabel(&#39;Data log-odds&#39;)
+  axs[1,0].set_xlabel(&#39;Empirical log-odds&#39;)
   axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
   axs[1,0].set_xlim(-5,5)
   min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
   axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
 
   plt.tight_layout()
-  plt.show()
-
-  # #print(&#34;density plot finished&#34;)
-  # ####### Pickands function
-  # x_grid = np.linspace(0,1,50)
-  # logistic_pickands = (x_grid**(1.0/self.alpha) + (1-x_grid)**(1.0/self.alpha))**(self.alpha)
-  # ## get data for empirical pickands function
-  # # see Statistics of Extremes by Berlaint, page 315
-  # th_margin1, th_margin2 = self.margin1.ppf(self.quantile_threshold), self.margin2.ppf(self.quantile_threshold)
-  # exceedance_data = self.data[np.logical_and(x &gt; th_margin1, y &gt; th_margin2)]
-  # exs1, exs2 = self.unbundle(exceedance_data)
-
-  # tail = self.margin1 &gt; th_margin1
-  # xi = -np.log(tail.cdf(exs1))
-  # #xi = -np.log(np.array([tail.cdf(x_) for x_ in exs1])) #list comprehension
-  # tail = self.margin2 &gt; th_margin2
-  # eta = -np.log(tail.cdf(exs2))
-  # #eta = -np.log(np.array([tail.cdf(y_) for y_ in exs2])) #list comprehension
-
-  # finite_idx = np.logical_and(np.isfinite(xi), np.isfinite(eta))
-  # xi = xi[finite_idx]
-  # eta = eta[finite_idx]
-
-  # def nonparametric_pickands(t):
-  #   return 1.0/np.mean(np.minimum(xi/(np.mean(xi)*(1-t)), eta/(np.mean(eta)*t)))
-  # empirical_pickands = np.array([nonparametric_pickands(t) for t in x_grid])
-
-  # axs[1,1].plot(x_grid, logistic_pickands, color = self._figure_color_palette[0])
-  # axs[1,1].plot(x_grid, empirical_pickands, color = self._figure_color_palette[1])
-  # axs[1,1].plot(x_grid, np.ones((len(x_grid),)), linestyle=&#34;--&#34;, color=&#34;black&#34;)
-  # axs[1,1].plot(x_grid, np.maximum(1-2*x_grid,2*x_grid-1), linestyle=&#34;--&#34;, color=&#34;black&#34;)
-  # axs[1,1].title.set_text(&#34;model vs empirical Pickands function&#34;)
-  # axs[1,1].set_xlabel(&#34;t&#34;)
-  # axs[1,1].set_ylabel(&#34;&#34;)</code></pre>
+  return fig</code></pre>
 </details>
 </dd>
 </dl>
@@ -3338,13 +3315,14 @@ def model_scale_threshold(self):
 </li>
 <li>
 <h4><code><a title="riskmodels.bivariate.Empirical" href="#riskmodels.bivariate.Empirical">Empirical</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="riskmodels.bivariate.Empirical.check_pdf_values" href="#riskmodels.bivariate.Empirical.check_pdf_values">check_pdf_values</a></code></li>
 <li><code><a title="riskmodels.bivariate.Empirical.data" href="#riskmodels.bivariate.Empirical.data">data</a></code></li>
 <li><code><a title="riskmodels.bivariate.Empirical.fit_tail_model" href="#riskmodels.bivariate.Empirical.fit_tail_model">fit_tail_model</a></code></li>
 <li><code><a title="riskmodels.bivariate.Empirical.from_data" href="#riskmodels.bivariate.Empirical.from_data">from_data</a></code></li>
 <li><code><a title="riskmodels.bivariate.Empirical.get_marginals" href="#riskmodels.bivariate.Empirical.get_marginals">get_marginals</a></code></li>
 <li><code><a title="riskmodels.bivariate.Empirical.pdf_values" href="#riskmodels.bivariate.Empirical.pdf_values">pdf_values</a></code></li>
+<li><code><a title="riskmodels.bivariate.Empirical.test_asymptotic_dependence" href="#riskmodels.bivariate.Empirical.test_asymptotic_dependence">test_asymptotic_dependence</a></code></li>
 </ul>
 </li>
 <li>

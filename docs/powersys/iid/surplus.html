@@ -66,28 +66,20 @@ class BaseSurplus(ABC):
   @abstractmethod
   def eeu(self):
     pass
-    
-class BivariateMonteCarlo(BaseModel, BaseSurplus):
+   
 
-  &#34;&#34;&#34;General bivariate power surplus distribution formed by a power generation distribution and a net demand distribution. It calculates risk metrics by simulation and only implements a veto policy between areas, this is, areas will only export spare available capacity. 
+class BaseBivariateMonteCarlo(BaseModel, BaseSurplus):
+
+  &#34;&#34;&#34;Base class for calculating time-collapsed risk indices for bivariate power surplus distributions using Monte Carlo. Implements calculations based on an assumed surplus trace, but crucially leaves unimplemented the method to compute this surplus trace; subclasses inheriting from this one can implement different ways to calculate this, such as simulation from bivariate distribution objects or loading traces from a file in the case of sequential Monte Carlo models. Only veto policies are implemented.
   
   Args:
-      gen_distribution (BaseDistribution): available conventional generation distribution
-      net_demand (BaseDistribution): net demand distribution
-      size (BaseDistribution): Sample size for Monte Carlo estimation
-      
+      season_length (int): Length of individual peak seasons
   &#34;&#34;&#34;
 
-  gen_distribution: BaseDistribution
-  net_demand: BaseDistribution
-  size: int
   season_length: int  
 
-  class Config:
-    arbitrary_types_allowed = True
-
   def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -&gt; np.ndarray:
-    &#34;&#34;&#34;Returns the interconnector flow from a sample of bivariate pre inerconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
+    &#34;&#34;&#34;Returns the interconnector flow from a sample of bivariate pre interconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
     
     Args:
         sample (np.ndarray): Bivariate surplus sample
@@ -117,7 +109,7 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
         itc_cap (int, optional): Interconnection capacity
     
     &#34;&#34;&#34;
-    pre_itc_sample = self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)
+    pre_itc_sample = self.get_pre_itc_sample()
     flow = self.itc_flow(pre_itc_sample, itc_cap)
     # add flow to pre itc sample
     pre_itc_sample[:,0] += flow
@@ -146,11 +138,13 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
     &#34;&#34;&#34;
     # take as loss of load when shortfalls are at least 0.1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
     x = np.array([-1e-1,-1e-1], dtype=np.float32)
-    if area &gt;= 0:
+    if area in [0,1]:
       x[1-area] = np.Inf
       return self.season_length * self.cdf(x, itc_cap)
-    else:
+    elif area == -1:
       return self.season_length * (self.cdf(np.array([np.Inf,0]), itc_cap) + self.cdf(np.array([0,np.Inf]), itc_cap) - self.cdf(np.array([0,0]), itc_cap))
+    else:
+      raise ValueError(&#34;area must be in [-1,0,1]&#34;)
 
   def eeu(self, itc_cap: int = 1000, area: int = 0):
     &#34;&#34;&#34;Calculates expected energy unserved for one of the areas in the system
@@ -161,12 +155,50 @@ class BivariateMonteCarlo(BaseModel, BaseSurplus):
 
     &#34;&#34;&#34;
     samples = self.simulate(itc_cap)
-    if area &gt;= 0:
+    if area in [0,1]:
       return -self.season_length * np.mean(np.minimum(samples[:,area], 0))
     elif area == -1:
       return -self.season_length * (np.mean(np.minimum(samples[:,0], 0)) + np.mean(np.minimum(samples[:,1], 0)))
     else:
-      raise ValueError(&#34;Area index not recognised&#34;)
+      raise ValueError(&#34;area must be in [-1,0,1]&#34;)
+
+  @abstractmethod
+  def get_pre_itc_sample(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a pre-interconnection surplus sample
+    
+    Returns:
+        np.ndarray: Sample
+    &#34;&#34;&#34;
+    pass
+
+
+
+class BivariateMonteCarlo(BaseBivariateMonteCarlo):
+
+  &#34;&#34;&#34;General bivariate power surplus distribution formed by a power generation distribution and a net demand distribution. It calculates risk metrics by simulation and only implements a veto policy between areas, this is, areas will only export spare available capacity. 
+  
+  Args:
+      gen_distribution (BaseDistribution): available conventional generation distribution
+      net_demand (BaseDistribution): net demand distribution
+      size (BaseDistribution): Sample size for Monte Carlo estimation
+      
+  &#34;&#34;&#34;
+
+  gen_distribution: BaseDistribution
+  net_demand: BaseDistribution
+  size: int
+
+  class Config:
+    arbitrary_types_allowed = True
+
+  def get_pre_itc_sample(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a pre-interconnection surplus sample by simulating the passed bivariate distributions for available conventional generation and net demand
+    
+    Returns:
+        np.ndarray: Sample
+    &#34;&#34;&#34;
+    return self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)
+
 
 
 class BivariateEmpirical(BaseSurplus):
@@ -407,8 +439,8 @@ class BivariateEmpirical(BaseSurplus):
 
     return eeu
 
-  def get_pointwise_cdfs(self, x: np.ndarray, itc_cap: int = 1000, policy:str = &#34;veto&#34;):
-    &#34;&#34;&#34;Calculates the post-interconnection shortfall probability for each one of the demand-wind observations
+  def get_pointwise_risk(self, x: np.ndarray, itc_cap: int = 1000, policy:str = &#34;veto&#34;):
+    &#34;&#34;&#34;Calculates the post-interconnection shortfall probability for each one of the net demand observations
     
     Args:
         x (np.ndarray): point to evaluate CDF at
@@ -464,12 +496,12 @@ class BivariateEmpirical(BaseSurplus):
     ### calculate conditional probability of each historical observation conditioned to the region of interest
     if shortfall_region:
       warnings.warn(&#34;Simulating from shortfall region; ignoring passed upper bounds.&#34;, stacklevel=2)
-      pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
-        self.get_pointwise_cdfs(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
-        self.get_pointwise_cdfs(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
+      pointwise_cdfs = self.get_pointwise_risk(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
+        self.get_pointwise_risk(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
+        self.get_pointwise_risk(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
       intersection = False
     else:
-      pointwise_cdfs = self.get_pointwise_cdfs(x=upper_bounds,itc_cap=itc_cap,policy=policy)
+      pointwise_cdfs = self.get_pointwise_risk(x=upper_bounds,itc_cap=itc_cap,policy=policy)
       intersection = True
     
     # numerical rounding error sometimes output negative probabilities of the order of 1e-30
@@ -548,8 +580,8 @@ class BivariateEmpirical(BaseSurplus):
       x = np.array([np.Inf, fixed_value])
       y = x - 1
 
-    pointwise_cdfs = self.get_pointwise_cdfs(x=x,itc_cap=itc_cap,policy=policy) - \
-      self.get_pointwise_cdfs(x=y,itc_cap=itc_cap,policy=policy)
+    pointwise_cdfs = self.get_pointwise_risk(x=x,itc_cap=itc_cap,policy=policy) - \
+      self.get_pointwise_risk(x=y,itc_cap=itc_cap,policy=policy)
 
     pointwise_cdfs = np.clip(pointwise_cdfs, a_min=0.0, a_max=np.Inf)
   
@@ -606,6 +638,343 @@ class BivariateEmpirical(BaseSurplus):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo"><code class="flex name class">
+<span>class <span class="ident">BaseBivariateMonteCarlo</span></span>
+<span>(</span><span>**data: Any)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Base class for calculating time-collapsed risk indices for bivariate power surplus distributions using Monte Carlo. Implements calculations based on an assumed surplus trace, but crucially leaves unimplemented the method to compute this surplus trace; subclasses inheriting from this one can implement different ways to calculate this, such as simulation from bivariate distribution objects or loading traces from a file in the case of sequential Monte Carlo models. Only veto policies are implemented.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>season_length</code></strong> :&ensp;<code>int</code></dt>
+<dd>Length of individual peak seasons</dd>
+</dl>
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class BaseBivariateMonteCarlo(BaseModel, BaseSurplus):
+
+  &#34;&#34;&#34;Base class for calculating time-collapsed risk indices for bivariate power surplus distributions using Monte Carlo. Implements calculations based on an assumed surplus trace, but crucially leaves unimplemented the method to compute this surplus trace; subclasses inheriting from this one can implement different ways to calculate this, such as simulation from bivariate distribution objects or loading traces from a file in the case of sequential Monte Carlo models. Only veto policies are implemented.
+  
+  Args:
+      season_length (int): Length of individual peak seasons
+  &#34;&#34;&#34;
+
+  season_length: int  
+
+  def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns the interconnector flow from a sample of bivariate pre interconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
+    
+    Args:
+        sample (np.ndarray): Bivariate surplus sample
+        itc_cap (int, optional): Interconnection capacity
+    
+    Returns:
+        np.ndarray
+    &#34;&#34;&#34;
+    flow = np.zeros((len(sample, )), dtype=np.float32)
+
+    if itc_cap == 0:
+      return flow
+
+    flow_from_area_1_idx = np.logical_and(sample[:,0] &gt; 0, sample[:,1] &lt; 0)
+    flow_to_area_1_idx = np.logical_and(sample[:,0] &lt; 0, sample[:,1] &gt; 0)
+
+    # flows are bounded by interconnection capacity, shortfall size and spare available capacity in each area.
+    flow[flow_from_area_1_idx] = -np.minimum(itc_cap, np.minimum(sample[:,0][flow_from_area_1_idx], -sample[:,1][flow_from_area_1_idx]))
+    flow[flow_to_area_1_idx] = np.minimum(itc_cap, np.minimum(-sample[:,0][flow_to_area_1_idx], sample[:,1][flow_to_area_1_idx]))
+
+    return flow
+
+  def simulate(self, itc_cap: int = 1000):
+    &#34;&#34;&#34;Simulate from post-interconnection surplus distribution
+    
+    Args:
+        itc_cap (int, optional): Interconnection capacity
+    
+    &#34;&#34;&#34;
+    pre_itc_sample = self.get_pre_itc_sample()
+    flow = self.itc_flow(pre_itc_sample, itc_cap)
+    # add flow to pre itc sample
+    pre_itc_sample[:,0] += flow
+    pre_itc_sample[:,1] -= flow
+    return pre_itc_sample
+
+  def cdf(self, x: np.ndarray, itc_cap: int = 1000):
+    &#34;&#34;&#34;Estimate the CDF of bivariate post-interconnection surplus evaluated at x
+    
+    Args:
+        x (np.ndarray): point to be evaluated
+        itc_cap (int, optional): interconnection capacity
+    
+    &#34;&#34;&#34;
+    samples = self.simulate(itc_cap)
+    u = samples &lt;= x.reshape((1,2)) # componentwise comparison
+    v = u.dot(np.ones((2,1))) &gt;= 2 #equals 1 if and only if both components fulfill the above condition
+    return np.mean(v) #return empirical CDF estimate
+
+  def lole(self, itc_cap: int = 1000, area: int = 0):
+    &#34;&#34;&#34;Calculates loss of load expectation for one of the areas in the system    
+    Args:
+        itc_cap (int, optional): Interconnection capacity
+        area (int, optional): Area index (0 or 1); if area=-1, systemwide lole is returned.
+
+    &#34;&#34;&#34;
+    # take as loss of load when shortfalls are at least 0.1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
+    x = np.array([-1e-1,-1e-1], dtype=np.float32)
+    if area in [0,1]:
+      x[1-area] = np.Inf
+      return self.season_length * self.cdf(x, itc_cap)
+    elif area == -1:
+      return self.season_length * (self.cdf(np.array([np.Inf,0]), itc_cap) + self.cdf(np.array([0,np.Inf]), itc_cap) - self.cdf(np.array([0,0]), itc_cap))
+    else:
+      raise ValueError(&#34;area must be in [-1,0,1]&#34;)
+
+  def eeu(self, itc_cap: int = 1000, area: int = 0):
+    &#34;&#34;&#34;Calculates expected energy unserved for one of the areas in the system
+    
+    Args:
+        itc_cap (int, optional): Interconnection capacity
+        area (int, optional): Area index (0 or 1).
+
+    &#34;&#34;&#34;
+    samples = self.simulate(itc_cap)
+    if area in [0,1]:
+      return -self.season_length * np.mean(np.minimum(samples[:,area], 0))
+    elif area == -1:
+      return -self.season_length * (np.mean(np.minimum(samples[:,0], 0)) + np.mean(np.minimum(samples[:,1], 0)))
+    else:
+      raise ValueError(&#34;area must be in [-1,0,1]&#34;)
+
+  @abstractmethod
+  def get_pre_itc_sample(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a pre-interconnection surplus sample
+    
+    Returns:
+        np.ndarray: Sample
+    &#34;&#34;&#34;
+    pass</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pydantic.main.BaseModel</li>
+<li>pydantic.utils.Representation</li>
+<li><a title="riskmodels.powersys.iid.surplus.BaseSurplus" href="#riskmodels.powersys.iid.surplus.BaseSurplus">BaseSurplus</a></li>
+<li>abc.ABC</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo">BivariateMonteCarlo</a></li>
+<li><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces" href="../ts/surplus.html#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces">BivariateEmpiricalTraces</a></li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.season_length"><code class="name">var <span class="ident">season_length</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.cdf"><code class="name flex">
+<span>def <span class="ident">cdf</span></span>(<span>self, x: np.ndarray, itc_cap: int = 1000)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Estimate the CDF of bivariate post-interconnection surplus evaluated at x</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>x</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>point to be evaluated</dd>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>interconnection capacity</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cdf(self, x: np.ndarray, itc_cap: int = 1000):
+  &#34;&#34;&#34;Estimate the CDF of bivariate post-interconnection surplus evaluated at x
+  
+  Args:
+      x (np.ndarray): point to be evaluated
+      itc_cap (int, optional): interconnection capacity
+  
+  &#34;&#34;&#34;
+  samples = self.simulate(itc_cap)
+  u = samples &lt;= x.reshape((1,2)) # componentwise comparison
+  v = u.dot(np.ones((2,1))) &gt;= 2 #equals 1 if and only if both components fulfill the above condition
+  return np.mean(v) #return empirical CDF estimate</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.eeu"><code class="name flex">
+<span>def <span class="ident">eeu</span></span>(<span>self, itc_cap: int = 1000, area: int = 0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates expected energy unserved for one of the areas in the system</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Interconnection capacity</dd>
+<dt><strong><code>area</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Area index (0 or 1).</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def eeu(self, itc_cap: int = 1000, area: int = 0):
+  &#34;&#34;&#34;Calculates expected energy unserved for one of the areas in the system
+  
+  Args:
+      itc_cap (int, optional): Interconnection capacity
+      area (int, optional): Area index (0 or 1).
+
+  &#34;&#34;&#34;
+  samples = self.simulate(itc_cap)
+  if area in [0,1]:
+    return -self.season_length * np.mean(np.minimum(samples[:,area], 0))
+  elif area == -1:
+    return -self.season_length * (np.mean(np.minimum(samples[:,0], 0)) + np.mean(np.minimum(samples[:,1], 0)))
+  else:
+    raise ValueError(&#34;area must be in [-1,0,1]&#34;)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.get_pre_itc_sample"><code class="name flex">
+<span>def <span class="ident">get_pre_itc_sample</span></span>(<span>self) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a pre-interconnection surplus sample</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>Sample</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@abstractmethod
+def get_pre_itc_sample(self) -&gt; np.ndarray:
+  &#34;&#34;&#34;Returns a pre-interconnection surplus sample
+  
+  Returns:
+      np.ndarray: Sample
+  &#34;&#34;&#34;
+  pass</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.itc_flow"><code class="name flex">
+<span>def <span class="ident">itc_flow</span></span>(<span>self, sample: np.ndarray, itc_cap: int = 1000) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the interconnector flow from a sample of bivariate pre interconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>sample</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Bivariate surplus sample</dd>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Interconnection capacity</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>np.ndarray</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -&gt; np.ndarray:
+  &#34;&#34;&#34;Returns the interconnector flow from a sample of bivariate pre interconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
+  
+  Args:
+      sample (np.ndarray): Bivariate surplus sample
+      itc_cap (int, optional): Interconnection capacity
+  
+  Returns:
+      np.ndarray
+  &#34;&#34;&#34;
+  flow = np.zeros((len(sample, )), dtype=np.float32)
+
+  if itc_cap == 0:
+    return flow
+
+  flow_from_area_1_idx = np.logical_and(sample[:,0] &gt; 0, sample[:,1] &lt; 0)
+  flow_to_area_1_idx = np.logical_and(sample[:,0] &lt; 0, sample[:,1] &gt; 0)
+
+  # flows are bounded by interconnection capacity, shortfall size and spare available capacity in each area.
+  flow[flow_from_area_1_idx] = -np.minimum(itc_cap, np.minimum(sample[:,0][flow_from_area_1_idx], -sample[:,1][flow_from_area_1_idx]))
+  flow[flow_to_area_1_idx] = np.minimum(itc_cap, np.minimum(-sample[:,0][flow_to_area_1_idx], sample[:,1][flow_to_area_1_idx]))
+
+  return flow</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.lole"><code class="name flex">
+<span>def <span class="ident">lole</span></span>(<span>self, itc_cap: int = 1000, area: int = 0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculates loss of load expectation for one of the areas in the system
+</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Interconnection capacity</dd>
+<dt><strong><code>area</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Area index (0 or 1); if area=-1, systemwide lole is returned.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def lole(self, itc_cap: int = 1000, area: int = 0):
+  &#34;&#34;&#34;Calculates loss of load expectation for one of the areas in the system    
+  Args:
+      itc_cap (int, optional): Interconnection capacity
+      area (int, optional): Area index (0 or 1); if area=-1, systemwide lole is returned.
+
+  &#34;&#34;&#34;
+  # take as loss of load when shortfalls are at least 0.1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
+  x = np.array([-1e-1,-1e-1], dtype=np.float32)
+  if area in [0,1]:
+    x[1-area] = np.Inf
+    return self.season_length * self.cdf(x, itc_cap)
+  elif area == -1:
+    return self.season_length * (self.cdf(np.array([np.Inf,0]), itc_cap) + self.cdf(np.array([0,np.Inf]), itc_cap) - self.cdf(np.array([0,0]), itc_cap))
+  else:
+    raise ValueError(&#34;area must be in [-1,0,1]&#34;)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.simulate"><code class="name flex">
+<span>def <span class="ident">simulate</span></span>(<span>self, itc_cap: int = 1000)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Simulate from post-interconnection surplus distribution</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Interconnection capacity</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate(self, itc_cap: int = 1000):
+  &#34;&#34;&#34;Simulate from post-interconnection surplus distribution
+  
+  Args:
+      itc_cap (int, optional): Interconnection capacity
+  
+  &#34;&#34;&#34;
+  pre_itc_sample = self.get_pre_itc_sample()
+  flow = self.itc_flow(pre_itc_sample, itc_cap)
+  # add flow to pre itc sample
+  pre_itc_sample[:,0] += flow
+  pre_itc_sample[:,1] -= flow
+  return pre_itc_sample</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="riskmodels.powersys.iid.surplus.BaseSurplus"><code class="flex name class">
 <span>class <span class="ident">BaseSurplus</span></span>
 </code></dt>
@@ -640,8 +1009,10 @@ inheritance.</p></div>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo">BaseBivariateMonteCarlo</a></li>
 <li><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical">BivariateEmpirical</a></li>
-<li><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo">BivariateMonteCarlo</a></li>
+<li><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce" href="../ts/surplus.html#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce">UnivariateEmpiricalMapReduce</a></li>
+<li><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces" href="../ts/surplus.html#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces">UnivariateEmpiricalTraces</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -962,8 +1333,8 @@ def simulate(self):
 
     return eeu
 
-  def get_pointwise_cdfs(self, x: np.ndarray, itc_cap: int = 1000, policy:str = &#34;veto&#34;):
-    &#34;&#34;&#34;Calculates the post-interconnection shortfall probability for each one of the demand-wind observations
+  def get_pointwise_risk(self, x: np.ndarray, itc_cap: int = 1000, policy:str = &#34;veto&#34;):
+    &#34;&#34;&#34;Calculates the post-interconnection shortfall probability for each one of the net demand observations
     
     Args:
         x (np.ndarray): point to evaluate CDF at
@@ -1019,12 +1390,12 @@ def simulate(self):
     ### calculate conditional probability of each historical observation conditioned to the region of interest
     if shortfall_region:
       warnings.warn(&#34;Simulating from shortfall region; ignoring passed upper bounds.&#34;, stacklevel=2)
-      pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
-        self.get_pointwise_cdfs(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
-        self.get_pointwise_cdfs(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
+      pointwise_cdfs = self.get_pointwise_risk(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
+        self.get_pointwise_risk(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
+        self.get_pointwise_risk(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
       intersection = False
     else:
-      pointwise_cdfs = self.get_pointwise_cdfs(x=upper_bounds,itc_cap=itc_cap,policy=policy)
+      pointwise_cdfs = self.get_pointwise_risk(x=upper_bounds,itc_cap=itc_cap,policy=policy)
       intersection = True
     
     # numerical rounding error sometimes output negative probabilities of the order of 1e-30
@@ -1103,8 +1474,8 @@ def simulate(self):
       x = np.array([np.Inf, fixed_value])
       y = x - 1
 
-    pointwise_cdfs = self.get_pointwise_cdfs(x=x,itc_cap=itc_cap,policy=policy) - \
-      self.get_pointwise_cdfs(x=y,itc_cap=itc_cap,policy=policy)
+    pointwise_cdfs = self.get_pointwise_risk(x=x,itc_cap=itc_cap,policy=policy) - \
+      self.get_pointwise_risk(x=y,itc_cap=itc_cap,policy=policy)
 
     pointwise_cdfs = np.clip(pointwise_cdfs, a_min=0.0, a_max=np.Inf)
   
@@ -1308,11 +1679,11 @@ def simulate(self):
   return eeu</code></pre>
 </details>
 </dd>
-<dt id="riskmodels.powersys.iid.surplus.BivariateEmpirical.get_pointwise_cdfs"><code class="name flex">
-<span>def <span class="ident">get_pointwise_cdfs</span></span>(<span>self, x: np.ndarray, itc_cap: int = 1000, policy: str = 'veto')</span>
+<dt id="riskmodels.powersys.iid.surplus.BivariateEmpirical.get_pointwise_risk"><code class="name flex">
+<span>def <span class="ident">get_pointwise_risk</span></span>(<span>self, x: np.ndarray, itc_cap: int = 1000, policy: str = 'veto')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Calculates the post-interconnection shortfall probability for each one of the demand-wind observations</p>
+<div class="desc"><p>Calculates the post-interconnection shortfall probability for each one of the net demand observations</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>x</code></strong> :&ensp;<code>np.ndarray</code></dt>
@@ -1326,8 +1697,8 @@ def simulate(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_pointwise_cdfs(self, x: np.ndarray, itc_cap: int = 1000, policy:str = &#34;veto&#34;):
-  &#34;&#34;&#34;Calculates the post-interconnection shortfall probability for each one of the demand-wind observations
+<pre><code class="python">def get_pointwise_risk(self, x: np.ndarray, itc_cap: int = 1000, policy:str = &#34;veto&#34;):
+  &#34;&#34;&#34;Calculates the post-interconnection shortfall probability for each one of the net demand observations
   
   Args:
       x (np.ndarray): point to evaluate CDF at
@@ -1474,8 +1845,8 @@ def simulate(self):
     x = np.array([np.Inf, fixed_value])
     y = x - 1
 
-  pointwise_cdfs = self.get_pointwise_cdfs(x=x,itc_cap=itc_cap,policy=policy) - \
-    self.get_pointwise_cdfs(x=y,itc_cap=itc_cap,policy=policy)
+  pointwise_cdfs = self.get_pointwise_risk(x=x,itc_cap=itc_cap,policy=policy) - \
+    self.get_pointwise_risk(x=y,itc_cap=itc_cap,policy=policy)
 
   pointwise_cdfs = np.clip(pointwise_cdfs, a_min=0.0, a_max=np.Inf)
 
@@ -1573,12 +1944,12 @@ def simulate(self):
   ### calculate conditional probability of each historical observation conditioned to the region of interest
   if shortfall_region:
     warnings.warn(&#34;Simulating from shortfall region; ignoring passed upper bounds.&#34;, stacklevel=2)
-    pointwise_cdfs = self.get_pointwise_cdfs(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
-      self.get_pointwise_cdfs(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
-      self.get_pointwise_cdfs(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
+    pointwise_cdfs = self.get_pointwise_risk(x=np.array([0,np.Inf]),itc_cap=itc_cap,policy=policy) + \
+      self.get_pointwise_risk(x=np.array([np.Inf,0]),itc_cap=itc_cap,policy=policy) - \
+      self.get_pointwise_risk(x=np.array([0,0]),itc_cap=itc_cap,policy=policy) 
     intersection = False
   else:
-    pointwise_cdfs = self.get_pointwise_cdfs(x=upper_bounds,itc_cap=itc_cap,policy=policy)
+    pointwise_cdfs = self.get_pointwise_risk(x=upper_bounds,itc_cap=itc_cap,policy=policy)
     intersection = True
   
   # numerical rounding error sometimes output negative probabilities of the order of 1e-30
@@ -1721,7 +2092,7 @@ def simulate(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class BivariateMonteCarlo(BaseModel, BaseSurplus):
+<pre><code class="python">class BivariateMonteCarlo(BaseBivariateMonteCarlo):
 
   &#34;&#34;&#34;General bivariate power surplus distribution formed by a power generation distribution and a net demand distribution. It calculates risk metrics by simulation and only implements a veto policy between areas, this is, areas will only export spare available capacity. 
   
@@ -1735,95 +2106,21 @@ def simulate(self):
   gen_distribution: BaseDistribution
   net_demand: BaseDistribution
   size: int
-  season_length: int  
 
   class Config:
     arbitrary_types_allowed = True
 
-  def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -&gt; np.ndarray:
-    &#34;&#34;&#34;Returns the interconnector flow from a sample of bivariate pre inerconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
-    
-    Args:
-        sample (np.ndarray): Bivariate surplus sample
-        itc_cap (int, optional): Interconnection capacity
+  def get_pre_itc_sample(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a pre-interconnection surplus sample by simulating the passed bivariate distributions for available conventional generation and net demand
     
     Returns:
-        np.ndarray
+        np.ndarray: Sample
     &#34;&#34;&#34;
-    flow = np.zeros((len(sample, )), dtype=np.float32)
-
-    if itc_cap == 0:
-      return flow
-
-    flow_from_area_1_idx = np.logical_and(sample[:,0] &gt; 0, sample[:,1] &lt; 0)
-    flow_to_area_1_idx = np.logical_and(sample[:,0] &lt; 0, sample[:,1] &gt; 0)
-
-    # flows are bounded by interconnection capacity, shortfall size and spare available capacity in each area.
-    flow[flow_from_area_1_idx] = -np.minimum(itc_cap, np.minimum(sample[:,0][flow_from_area_1_idx], -sample[:,1][flow_from_area_1_idx]))
-    flow[flow_to_area_1_idx] = np.minimum(itc_cap, np.minimum(-sample[:,0][flow_to_area_1_idx], sample[:,1][flow_to_area_1_idx]))
-
-    return flow
-
-  def simulate(self, itc_cap: int = 1000):
-    &#34;&#34;&#34;Simulate from post-interconnection surplus distribution
-    
-    Args:
-        itc_cap (int, optional): Interconnection capacity
-    
-    &#34;&#34;&#34;
-    pre_itc_sample = self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)
-    flow = self.itc_flow(pre_itc_sample, itc_cap)
-    # add flow to pre itc sample
-    pre_itc_sample[:,0] += flow
-    pre_itc_sample[:,1] -= flow
-    return pre_itc_sample
-
-  def cdf(self, x: np.ndarray, itc_cap: int = 1000):
-    &#34;&#34;&#34;Estimate the CDF of bivariate post-interconnection surplus evaluated at x
-    
-    Args:
-        x (np.ndarray): point to be evaluated
-        itc_cap (int, optional): interconnection capacity
-    
-    &#34;&#34;&#34;
-    samples = self.simulate(itc_cap)
-    u = samples &lt;= x.reshape((1,2)) # componentwise comparison
-    v = u.dot(np.ones((2,1))) &gt;= 2 #equals 1 if and only if both components fulfill the above condition
-    return np.mean(v) #return empirical CDF estimate
-
-  def lole(self, itc_cap: int = 1000, area: int = 0):
-    &#34;&#34;&#34;Calculates loss of load expectation for one of the areas in the system    
-    Args:
-        itc_cap (int, optional): Interconnection capacity
-        area (int, optional): Area index (0 or 1); if area=-1, systemwide lole is returned.
-
-    &#34;&#34;&#34;
-    # take as loss of load when shortfalls are at least 0.1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
-    x = np.array([-1e-1,-1e-1], dtype=np.float32)
-    if area &gt;= 0:
-      x[1-area] = np.Inf
-      return self.season_length * self.cdf(x, itc_cap)
-    else:
-      return self.season_length * (self.cdf(np.array([np.Inf,0]), itc_cap) + self.cdf(np.array([0,np.Inf]), itc_cap) - self.cdf(np.array([0,0]), itc_cap))
-
-  def eeu(self, itc_cap: int = 1000, area: int = 0):
-    &#34;&#34;&#34;Calculates expected energy unserved for one of the areas in the system
-    
-    Args:
-        itc_cap (int, optional): Interconnection capacity
-        area (int, optional): Area index (0 or 1).
-
-    &#34;&#34;&#34;
-    samples = self.simulate(itc_cap)
-    if area &gt;= 0:
-      return -self.season_length * np.mean(np.minimum(samples[:,area], 0))
-    elif area == -1:
-      return -self.season_length * (np.mean(np.minimum(samples[:,0], 0)) + np.mean(np.minimum(samples[:,1], 0)))
-    else:
-      raise ValueError(&#34;Area index not recognised&#34;)</code></pre>
+    return self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
+<li><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo">BaseBivariateMonteCarlo</a></li>
 <li>pydantic.main.BaseModel</li>
 <li>pydantic.utils.Representation</li>
 <li><a title="riskmodels.powersys.iid.surplus.BaseSurplus" href="#riskmodels.powersys.iid.surplus.BaseSurplus">BaseSurplus</a></li>
@@ -1843,10 +2140,6 @@ def simulate(self):
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.season_length"><code class="name">var <span class="ident">season_length</span> : int</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.size"><code class="name">var <span class="ident">size</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
@@ -1854,175 +2147,42 @@ def simulate(self):
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.cdf"><code class="name flex">
-<span>def <span class="ident">cdf</span></span>(<span>self, x: np.ndarray, itc_cap: int = 1000)</span>
+<dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.get_pre_itc_sample"><code class="name flex">
+<span>def <span class="ident">get_pre_itc_sample</span></span>(<span>self) ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Estimate the CDF of bivariate post-interconnection surplus evaluated at x</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>x</code></strong> :&ensp;<code>np.ndarray</code></dt>
-<dd>point to be evaluated</dd>
-<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>interconnection capacity</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cdf(self, x: np.ndarray, itc_cap: int = 1000):
-  &#34;&#34;&#34;Estimate the CDF of bivariate post-interconnection surplus evaluated at x
-  
-  Args:
-      x (np.ndarray): point to be evaluated
-      itc_cap (int, optional): interconnection capacity
-  
-  &#34;&#34;&#34;
-  samples = self.simulate(itc_cap)
-  u = samples &lt;= x.reshape((1,2)) # componentwise comparison
-  v = u.dot(np.ones((2,1))) &gt;= 2 #equals 1 if and only if both components fulfill the above condition
-  return np.mean(v) #return empirical CDF estimate</code></pre>
-</details>
-</dd>
-<dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.eeu"><code class="name flex">
-<span>def <span class="ident">eeu</span></span>(<span>self, itc_cap: int = 1000, area: int = 0)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculates expected energy unserved for one of the areas in the system</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Interconnection capacity</dd>
-<dt><strong><code>area</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Area index (0 or 1).</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def eeu(self, itc_cap: int = 1000, area: int = 0):
-  &#34;&#34;&#34;Calculates expected energy unserved for one of the areas in the system
-  
-  Args:
-      itc_cap (int, optional): Interconnection capacity
-      area (int, optional): Area index (0 or 1).
-
-  &#34;&#34;&#34;
-  samples = self.simulate(itc_cap)
-  if area &gt;= 0:
-    return -self.season_length * np.mean(np.minimum(samples[:,area], 0))
-  elif area == -1:
-    return -self.season_length * (np.mean(np.minimum(samples[:,0], 0)) + np.mean(np.minimum(samples[:,1], 0)))
-  else:
-    raise ValueError(&#34;Area index not recognised&#34;)</code></pre>
-</details>
-</dd>
-<dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.itc_flow"><code class="name flex">
-<span>def <span class="ident">itc_flow</span></span>(<span>self, sample: np.ndarray, itc_cap: int = 1000) ‑> numpy.ndarray</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the interconnector flow from a sample of bivariate pre inerconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>sample</code></strong> :&ensp;<code>np.ndarray</code></dt>
-<dd>Bivariate surplus sample</dd>
-<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Interconnection capacity</dd>
-</dl>
+<div class="desc"><p>Returns a pre-interconnection surplus sample by simulating the passed bivariate distributions for available conventional generation and net demand</p>
 <h2 id="returns">Returns</h2>
-<p>np.ndarray</p></div>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>Sample</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -&gt; np.ndarray:
-  &#34;&#34;&#34;Returns the interconnector flow from a sample of bivariate pre inerconnection surplus values. The flow is expressed as flow to area 1 being positive and flow to area 2 being negative.
-  
-  Args:
-      sample (np.ndarray): Bivariate surplus sample
-      itc_cap (int, optional): Interconnection capacity
+<pre><code class="python">def get_pre_itc_sample(self) -&gt; np.ndarray:
+  &#34;&#34;&#34;Returns a pre-interconnection surplus sample by simulating the passed bivariate distributions for available conventional generation and net demand
   
   Returns:
-      np.ndarray
+      np.ndarray: Sample
   &#34;&#34;&#34;
-  flow = np.zeros((len(sample, )), dtype=np.float32)
-
-  if itc_cap == 0:
-    return flow
-
-  flow_from_area_1_idx = np.logical_and(sample[:,0] &gt; 0, sample[:,1] &lt; 0)
-  flow_to_area_1_idx = np.logical_and(sample[:,0] &lt; 0, sample[:,1] &gt; 0)
-
-  # flows are bounded by interconnection capacity, shortfall size and spare available capacity in each area.
-  flow[flow_from_area_1_idx] = -np.minimum(itc_cap, np.minimum(sample[:,0][flow_from_area_1_idx], -sample[:,1][flow_from_area_1_idx]))
-  flow[flow_to_area_1_idx] = np.minimum(itc_cap, np.minimum(-sample[:,0][flow_to_area_1_idx], sample[:,1][flow_to_area_1_idx]))
-
-  return flow</code></pre>
-</details>
-</dd>
-<dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.lole"><code class="name flex">
-<span>def <span class="ident">lole</span></span>(<span>self, itc_cap: int = 1000, area: int = 0)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculates loss of load expectation for one of the areas in the system
-</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Interconnection capacity</dd>
-<dt><strong><code>area</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Area index (0 or 1); if area=-1, systemwide lole is returned.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def lole(self, itc_cap: int = 1000, area: int = 0):
-  &#34;&#34;&#34;Calculates loss of load expectation for one of the areas in the system    
-  Args:
-      itc_cap (int, optional): Interconnection capacity
-      area (int, optional): Area index (0 or 1); if area=-1, systemwide lole is returned.
-
-  &#34;&#34;&#34;
-  # take as loss of load when shortfalls are at least 0.1MW in size; this induces a negligible amount of bias but solves numerical issues when comparing post-itc surpluses to 0 to flag shortfalls.
-  x = np.array([-1e-1,-1e-1], dtype=np.float32)
-  if area &gt;= 0:
-    x[1-area] = np.Inf
-    return self.season_length * self.cdf(x, itc_cap)
-  else:
-    return self.season_length * (self.cdf(np.array([np.Inf,0]), itc_cap) + self.cdf(np.array([0,np.Inf]), itc_cap) - self.cdf(np.array([0,0]), itc_cap))</code></pre>
-</details>
-</dd>
-<dt id="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.simulate"><code class="name flex">
-<span>def <span class="ident">simulate</span></span>(<span>self, itc_cap: int = 1000)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Simulate from post-interconnection surplus distribution</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Interconnection capacity</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def simulate(self, itc_cap: int = 1000):
-  &#34;&#34;&#34;Simulate from post-interconnection surplus distribution
-  
-  Args:
-      itc_cap (int, optional): Interconnection capacity
-  
-  &#34;&#34;&#34;
-  pre_itc_sample = self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)
-  flow = self.itc_flow(pre_itc_sample, itc_cap)
-  # add flow to pre itc sample
-  pre_itc_sample[:,0] += flow
-  pre_itc_sample[:,1] -= flow
-  return pre_itc_sample</code></pre>
+  return self.gen_distribution.simulate(self.size) - self.net_demand.simulate(self.size)</code></pre>
 </details>
 </dd>
 </dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo">BaseBivariateMonteCarlo</a></b></code>:
+<ul class="hlist">
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.cdf" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.eeu" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.eeu">eeu</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.itc_flow" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.itc_flow">itc_flow</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.lole" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.lole">lole</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.simulate" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.simulate">simulate</a></code></li>
+</ul>
+</li>
+</ul>
 </dd>
 </dl>
 </section>
@@ -2041,6 +2201,18 @@ def simulate(self):
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo">BaseBivariateMonteCarlo</a></code></h4>
+<ul class="two-column">
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.cdf" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.cdf">cdf</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.eeu" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.eeu">eeu</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.get_pre_itc_sample" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.get_pre_itc_sample">get_pre_itc_sample</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.itc_flow" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.itc_flow">itc_flow</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.lole" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.lole">lole</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.season_length" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.season_length">season_length</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.simulate" href="#riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo.simulate">simulate</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="riskmodels.powersys.iid.surplus.BaseSurplus" href="#riskmodels.powersys.iid.surplus.BaseSurplus">BaseSurplus</a></code></h4>
 <ul class="">
 <li><code><a title="riskmodels.powersys.iid.surplus.BaseSurplus.cdf" href="#riskmodels.powersys.iid.surplus.BaseSurplus.cdf">cdf</a></code></li>
@@ -2054,7 +2226,7 @@ def simulate(self):
 <ul class="">
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical.cdf" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical.cdf">cdf</a></code></li>
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical.eeu" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical.eeu">eeu</a></code></li>
-<li><code><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical.get_pointwise_cdfs" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical.get_pointwise_cdfs">get_pointwise_cdfs</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical.get_pointwise_risk" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical.get_pointwise_risk">get_pointwise_risk</a></code></li>
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical.lole" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical.lole">lole</a></code></li>
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical.simulate" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical.simulate">simulate</a></code></li>
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateEmpirical.simulate_conditional" href="#riskmodels.powersys.iid.surplus.BivariateEmpirical.simulate_conditional">simulate_conditional</a></code></li>
@@ -2065,16 +2237,11 @@ def simulate(self):
 </li>
 <li>
 <h4><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo">BivariateMonteCarlo</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.Config" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.Config">Config</a></code></li>
-<li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.cdf" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.cdf">cdf</a></code></li>
-<li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.eeu" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.eeu">eeu</a></code></li>
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.gen_distribution" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.gen_distribution">gen_distribution</a></code></li>
-<li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.itc_flow" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.itc_flow">itc_flow</a></code></li>
-<li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.lole" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.lole">lole</a></code></li>
+<li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.get_pre_itc_sample" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.get_pre_itc_sample">get_pre_itc_sample</a></code></li>
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.net_demand" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.net_demand">net_demand</a></code></li>
-<li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.season_length" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.season_length">season_length</a></code></li>
-<li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.simulate" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.simulate">simulate</a></code></li>
 <li><code><a title="riskmodels.powersys.iid.surplus.BivariateMonteCarlo.size" href="#riskmodels.powersys.iid.surplus.BivariateMonteCarlo.size">size</a></code></li>
 </ul>
 </li>
