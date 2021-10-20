@@ -551,6 +551,7 @@ class Logistic(ExceedanceDistribution):
     axs[1,0].set_xlabel('Empirical log-odds')
     axs[1,0].set_ylabel('Model log-odds')
     axs[1,0].set_xlim(-5,5)
+    axs[1,0].set_ylim(-5,5)
     min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
     axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle="--", color="black")
 

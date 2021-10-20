@@ -10,7 +10,7 @@ This package works with Python >= 3.7
 
 ## Documentation
 
-The Github pages of this repo contains the package's documentation
+[The Github pages of this repo](https://nestorsag.github.io/riskmodels/) contain the package's documentation
 
 ## Quickstart
 
@@ -21,20 +21,12 @@ Because this library grew from research in energy procurement, this example is r
 The data for this example corresponds roughly to peak (winter) season of 2017-2018, and is openly available online but has to be put together from different places namely [Energinet's API](https://www.energidataservice.dk/), [renewables.ninja](https://www.renewables.ninja/), and [NGESO's website](https://www.nationalgrideso.com/industry-information/industry-data-and-reports/data-finder-and-explorer).
 
 ```py
-from urllib.request import Request, urlopen
-import urllib.parse
-import requests 
-
-from time import timedelta
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
-import riskmodels.univariate as univar
-import riskmodels.bivariate as bivar
-
-def fetch_data():
+def fetch_data() -> pd.DataFrame:
+  """Fetch data from different sources to reconstruct demand net of wind time series in Great Britain and Denmark.
+  
+  Returns:
+      pd.DataFrame: Cleaned data
+  """
   def fetch_gb_data():
     wind_url = "https://www.renewables.ninja/country_downloads/GB/ninja_wind_country_GB_current-merra-2_corrected.csv"
     wind_capacity = 13150
@@ -42,6 +34,7 @@ def fetch_data():
     demand_urls = [
       "https://data.nationalgrideso.com/backend/dataset/8f2fe0af-871c-488d-8bad-960426f24601/resource/2f0f75b8-39c5-46ff-a914-ae38088ed022/download/demanddata_2017.csv",
       "https://data.nationalgrideso.com/backend/dataset/8f2fe0af-871c-488d-8bad-960426f24601/resource/fcb12133-0db0-4f27-a4a5-1669fd9f6d33/download/demanddata_2018.csv"]
+    proxy_header = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0'
     #
     # function to retrieve reconstructed wind data
     def fetch_wind_data() -> pd.DataFrame:
@@ -134,18 +127,20 @@ q_th = 0.95
 gb_nd_dist.plot_mean_residual_life(threshold = gb_nd_dist.ppf(q_th));plt.show()
 dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
 ```
+![Mean residual life plot for Great Britain](http://url/to/img.png)
 
-Univariate generalised Pareto models can be fitted in one line, and fit diagnostics can be plotted afterwards.
+
+Once an appropriate threshold has been found, univariate generalised Pareto models can be fitted in one line, and fit diagnostics can be plotted afterwards.
 
 ```py
 # Fit univariate models for both areas and plot diagnostics
 gb_dist_ev = gb_nd_dist.fit_tail_model(threshold=gb_nd_dist.ppf(q_th));gb_dist_ev.plot_diagnostics();plt.plot()
-dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th));dk_dist-ev.plot_diagnostics();plt.plot()
+dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th));dk_dist_ev.plot_diagnostics();plt.plot()
 ```
 
 #### Bivariate extreme value modelling
 
-Bivariate EV models are built analogous to univariate models. When fitting a bivarate tail model there is a choice between assuming "strong" or "weak" association between extreme co-occurrences across axes \footnote{}. The package implements a Bayesian ratio test, shown below, to help with this decision.
+Bivariate EV models are built analogous to univariate models. When fitting a bivarate tail model there is a choice between assuming "strong" or "weak" association between extreme co-occurrences across components <sup>[1](#myfootnote1)</sup>. The package implements a Bayesian ratio test, shown below, to help with this decision.
 Below, previously fitted univariate models are passed when fitting the bivariate tail model to use these marginal distributions for quantile estimation in the fitting process. If not passed, univariate tail models are fitted to the data.
 
 ```py
@@ -167,3 +162,5 @@ bivar_ev_model = bivar_empirical.fit_tail_model(
   margin2 = dk_dist_ev)
 
 ```
+
+<a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.

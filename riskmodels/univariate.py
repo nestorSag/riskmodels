@@ -437,7 +437,7 @@ class GPTail(BaseDistribution):
       raise ValueError("exceedance data not provided for this instance of GPTail; covariance matrix can't be estimated")
     else:
       hess = self.loglik_hessian([self.scale,self.shape], threshold=self.threshold, data=self.data)
-      return np.linalg.inv(-hess/len(self.data))
+      return np.linalg.inv(-hess)
 
   @classmethod
   def loglik(cls, params: t.List[float], threshold: float, data: np.ndarray) -> float:
@@ -639,10 +639,12 @@ class GPTail(BaseDistribution):
       x0 = x0,
       method = "trust-constr",
       jac = loss_grad,
-      hess = loss_hessian)
+      hess = loss_hessian,
+      constraints = [constraints])
 
+    #print(res)
     if return_opt_results:
-      warn.warnings("Returning raw results for rescaled exceedance data (sdev ~ 1).")
+      warnings.warn("Returning raw results for rescaled exceedance data (sdev ~ 1).")
       return res
     else:
       scale, shape = list(res.x)
@@ -1595,8 +1597,13 @@ class EmpiricalWithGPTail(Mixture):
     else:
       n_obs = len(self.tail.data)
 
-    exceedance_frequency = 1/np.logspace(1,4,20)
-    exceedance_frequency = exceedance_frequency[exceedance_frequency < exs_prob] #plot only levels inside fitted tail model
+    #exceedance_frequency = 1/np.logspace(1,4,20)
+    #exceedance_frequency = exceedance_frequency[exceedance_frequency < exs_prob] #plot only levels inside fitted tail model
+    # shown return levels go from largest power of 10th below exceedance prob, to 1/1000-th of that.
+
+    x_min = np.floor(np.log(exs_prob)/np.log(10))
+    x_max = x_min - 4
+    exceedance_frequency = 10**(np.linspace(x_min, x_max, 50))
     return_levels = self.ppf(1 - exceedance_frequency)
 
     plt.plot(1.0/exceedance_frequency,return_levels,color=self._figure_color_palette[0])
@@ -1618,7 +1625,7 @@ class EmpiricalWithGPTail(Mixture):
         return_stdevs = []
         for m in 1.0/exceedance_frequency:
           quantile_grad = np.array([
-            scale*m**shape*exs_prob**(shape),
+            scale*m*(m*exs_prob)**(shape-1),
             1/shape*((exs_prob*m)**shape-1),
             -scale/shape**2*((exs_prob*m)**shape-1)+scale/shape*(exs_prob*m)**shape*np.log(exs_prob*m)
             ])
@@ -1626,7 +1633,8 @@ class EmpiricalWithGPTail(Mixture):
           sdev = np.sqrt(quantile_grad.T.dot(covariance).dot(quantile_grad))
           return_stdevs.append(sdev)
         #
-        plt.fill_between(1.0/exceedance_frequency, return_levels - return_stdevs, return_levels + return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
+        return_stdevs = np.array(return_stdevs)
+        plt.fill_between(1.0/exceedance_frequency, return_levels - 1.96*return_stdevs, return_levels + 1.96*return_stdevs, alpha=0.2, color=self._figure_color_palette[1])
       else:
         warnings.warn("Covariance MLE matrix is not positive definite; it might be ill-conditioned", stacklevel=2)
     except Exception as e:
