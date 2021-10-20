@@ -127,8 +127,15 @@ q_th = 0.95
 gb_nd_dist.plot_mean_residual_life(threshold = gb_nd_dist.ppf(q_th));plt.show()
 dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
 ```
-![Mean residual life plot for Great Britain](http://url/to/img.png)
+![Mean residual life plot for Great Britain](https://drive.google.com/file/d/1iycOUm6W00Q8wq0Y9rz_5kyHIL49513E/preview)
 
+
+<p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
+    <em>Model diagnostic</em>
+</p>
+<p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
+  <img src="https://drive.google.com/file/d/1iycOUm6W00Q8wq0Y9rz_5kyHIL49513E/preview" alt="Test plot" width="600px">
+</p>
 
 Once an appropriate threshold has been found, univariate generalised Pareto models can be fitted in one line, and fit diagnostics can be plotted afterwards.
 
@@ -162,5 +169,6 @@ bivar_ev_model = bivar_empirical.fit_tail_model(
   margin2 = dk_dist_ev)
 
 ```
+
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.
