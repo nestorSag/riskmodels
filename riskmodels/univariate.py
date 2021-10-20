@@ -1599,7 +1599,7 @@ class EmpiricalWithGPTail(Mixture):
 
     #exceedance_frequency = 1/np.logspace(1,4,20)
     #exceedance_frequency = exceedance_frequency[exceedance_frequency < exs_prob] #plot only levels inside fitted tail model
-    # shown return levels go from largest power of 10th below exceedance prob, to 1/1000-th of that.
+    # shown return levels go from largest power of 10th below exceedance prob, to 1/10000-th of that.
 
     x_min = np.floor(np.log(exs_prob)/np.log(10))
     x_max = x_min - 4

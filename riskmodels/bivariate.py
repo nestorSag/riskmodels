@@ -659,6 +659,8 @@ class Gaussian(Logistic):
     
     """
     x, y = cls.unbundle(data)
+    if isinstance(alpha, (list, np.ndarray)):
+      alpha = alpha[0]
     norm_factor = 1 - mv_gaussian.cdf(cls.bundle(threshold,threshold), cov = np.array([[1,alpha],[alpha,1]]))
     density = mv_gaussian.logpdf(data, cov = np.array([[1,alpha],[alpha,1]])) - np.log(norm_factor)
 
