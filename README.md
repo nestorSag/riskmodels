@@ -134,7 +134,7 @@ dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
     <em>Mean residual life plot for GB at 95%</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
 </p>
 
 Once an appropriate threshold has been found, univariate generalised Pareto models can be fitted in one line, and fit diagnostics can be plotted afterwards.
@@ -149,14 +149,14 @@ dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th));dk_dist_e
     <em>Diagnostic plots for GB model</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
 </p>
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Return levels for GB</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/gb_return.png" alt="Return levels for Great Britain" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/gb_return.png" alt="Return levels for Great Britain" width="640px">
 </p>
 
 #### Bivariate extreme value modelling
@@ -168,7 +168,7 @@ Below, previously fitted univariate models are passed when fitting the bivariate
     <em>Data sample scatterplot (x-axis: GB, y-axis: DK)</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/bivariate_sample.png" alt="GB-DK sample scatterplot" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/bivariate_sample.png" alt="GB-DK sample scatterplot" width="640px">
 </p>
 
 ```py
@@ -195,7 +195,7 @@ bivar_ev_model = bivar_empirical.fit_tail_model(
     <em>Bivariate model's diagnostics plots</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
 </p>
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.
