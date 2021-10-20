@@ -131,10 +131,10 @@ dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
 
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
-    <em>Model diagnostic</em>
+    <em>Mean residual life plot for GB at 95%</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://drive.google.com/file/d/1iycOUm6W00Q8wq0Y9rz_5kyHIL49513E/preview" alt="Test plot" width="600px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
 </p>
 
 Once an appropriate threshold has been found, univariate generalised Pareto models can be fitted in one line, and fit diagnostics can be plotted afterwards.
@@ -145,10 +145,31 @@ gb_dist_ev = gb_nd_dist.fit_tail_model(threshold=gb_nd_dist.ppf(q_th));gb_dist_e
 dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th));dk_dist_ev.plot_diagnostics();plt.plot()
 ```
 
+<p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
+    <em>Diagnostic plots for GB model</em>
+</p>
+<p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
+</p>
+
+<p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
+    <em>Return levels for GB</em>
+</p>
+<p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/gb_return.png" alt="Return levels for Great Britain" width="640px">
+</p>
+
 #### Bivariate extreme value modelling
 
 Bivariate EV models are built analogous to univariate models. When fitting a bivarate tail model there is a choice between assuming "strong" or "weak" association between extreme co-occurrences across components <sup>[1](#myfootnote1)</sup>. The package implements a Bayesian ratio test, shown below, to help with this decision.
 Below, previously fitted univariate models are passed when fitting the bivariate tail model to use these marginal distributions for quantile estimation in the fitting process. If not passed, univariate tail models are fitted to the data.
+
+<p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
+    <em>Data sample scatterplot (x-axis: GB, y-axis: DK)</em>
+</p>
+<p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/bivariate_sample.png" alt="GB-DK sample scatterplot" width="640px">
+</p>
 
 ```py
 # instantiate bivariate empirical object with net demand from both areas
@@ -170,5 +191,11 @@ bivar_ev_model = bivar_empirical.fit_tail_model(
 
 ```
 
+<p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
+    <em>Bivariate model's diagnostics plots</em>
+</p>
+<p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/docs/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
+</p>
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.
