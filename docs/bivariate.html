@@ -581,6 +581,7 @@ class Logistic(ExceedanceDistribution):
     axs[1,0].set_xlabel(&#39;Empirical log-odds&#39;)
     axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
     axs[1,0].set_xlim(-5,5)
+    axs[1,0].set_ylim(-5,5)
     min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
     axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
 
@@ -688,6 +689,8 @@ class Gaussian(Logistic):
     
     &#34;&#34;&#34;
     x, y = cls.unbundle(data)
+    if isinstance(alpha, (list, np.ndarray)):
+      alpha = alpha[0]
     norm_factor = 1 - mv_gaussian.cdf(cls.bundle(threshold,threshold), cov = np.array([[1,alpha],[alpha,1]]))
     density = mv_gaussian.logpdf(data, cov = np.array([[1,alpha],[alpha,1]])) - np.log(norm_factor)
 
@@ -1954,6 +1957,8 @@ def tail(self):
     
     &#34;&#34;&#34;
     x, y = cls.unbundle(data)
+    if isinstance(alpha, (list, np.ndarray)):
+      alpha = alpha[0]
     norm_factor = 1 - mv_gaussian.cdf(cls.bundle(threshold,threshold), cov = np.array([[1,alpha],[alpha,1]]))
     density = mv_gaussian.logpdf(data, cov = np.array([[1,alpha],[alpha,1]])) - np.log(norm_factor)
 
@@ -2081,6 +2086,8 @@ def logpdf(cls, alpha: float, threshold: float, data: t.Union[np.ndarray,t.Itera
   
   &#34;&#34;&#34;
   x, y = cls.unbundle(data)
+  if isinstance(alpha, (list, np.ndarray)):
+    alpha = alpha[0]
   norm_factor = 1 - mv_gaussian.cdf(cls.bundle(threshold,threshold), cov = np.array([[1,alpha],[alpha,1]]))
   density = mv_gaussian.logpdf(data, cov = np.array([[1,alpha],[alpha,1]])) - np.log(norm_factor)
 
@@ -2599,6 +2606,7 @@ def cov(self):
     axs[1,0].set_xlabel(&#39;Empirical log-odds&#39;)
     axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
     axs[1,0].set_xlim(-5,5)
+    axs[1,0].set_ylim(-5,5)
     min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
     axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
 
@@ -3194,6 +3202,7 @@ def model_scale_threshold(self):
   axs[1,0].set_xlabel(&#39;Empirical log-odds&#39;)
   axs[1,0].set_ylabel(&#39;Model log-odds&#39;)
   axs[1,0].set_xlim(-5,5)
+  axs[1,0].set_ylim(-5,5)
   min_e, max_e = max(-5,min(empirical_logodds)), min(5,max(empirical_logodds))
   axs[1,0].plot([min_e, max_e], [min_e, max_e], linestyle=&#34;--&#34;, color=&#34;black&#34;)
 

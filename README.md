@@ -4,6 +4,11 @@ This library focuses on extreme value models for risk analysis in one and two di
 
 The `powersys` submodule offers utilities for applications in energy procurement, with functionality to model available conventional generation (ACG) as well as to calculate loss of load expectation (LOLE) and expected energy unserved (EEU) indices on a wide set of models; efficient parallel time series based simulation for univariate and bivariate power surpluses is also available. 
 
+## Table of contents
+
+[Quickstart - extreme value modelling](#ev-modelling)  
+
+[Quickstart - energy procurement modelling](#nrg-proc-modelling)  
 ## Requirements
 
 This package works with Python >= 3.7
@@ -18,9 +23,22 @@ Because this library grew from research in energy procurement, this example is r
 
 #### Getting the data
 
-The data for this example corresponds roughly to peak (winter) season of 2017-2018, and is openly available online but has to be put together from different places namely [Energinet's API](https://www.energidataservice.dk/), [renewables.ninja](https://www.renewables.ninja/), and [NGESO's website](https://www.nationalgrideso.com/industry-information/industry-data-and-reports/data-finder-and-explorer).
+The data for this example corresponds roughly to peak (winter) season of 2017-2018, and is openly available online but has to be put together from different places, namely [Energinet's API](https://www.energidataservice.dk/), [renewables.ninja](https://www.renewables.ninja/), and [NGESO's website](https://www.nationalgrideso.com/industry-information/industry-data-and-reports/data-finder-and-explorer).
 
 ```py
+from urllib.request import Request, urlopen
+import urllib.parse
+import requests 
+
+from datetime import timedelta
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+import riskmodels.univariate as univar
+import riskmodels.bivariate as bivar
+
 def fetch_data() -> pd.DataFrame:
   """Fetch data from different sources to reconstruct demand net of wind time series in Great Britain and Denmark.
   
@@ -112,23 +130,22 @@ def fetch_data() -> pd.DataFrame:
 df = fetch_data()
 ```
 
+<a name="ev-modelling"/>
 #### Univariate extreme value modelling
 
-Empirical distributions are the base on which the package operates, and the `Empirical` classes in both `univariate` and `bivariate` modules provide the main entrypoints. Univariate generalised Pareto models can be fitted in a couple lines.
+Empirical distributions are the base on which the package operates, and the `Empirical` classes in both `univariate` and `bivariate` modules provide the main entrypoints.
 
 ```py
-# set empirical distributions of net demand for both areas
+# prepare data
 gb_nd, dk_nd = np.array(df["net_demand_gb"]), np.array(df["net_demand_dk"])
-# Initialise Empirical distribution objects. They have methods to plot and calculate mean, std, ppf, cdf, among others.
-gb_nd_dist, dk_nd_dist = univar.Empirical.from_data(gb_nd), univar.Empirical.from_data(dk_nd)
+# Initialise Empirical distribution objects. Round observations to nearest MW; this will come n handy for energy procurement modelling, and does not affect fitted tail models
+gb_nd_dist, dk_nd_dist = univar.Empirical.from_data(gb_nd).to_integer(), univar.Empirical.from_data(dk_nd).to_integer()
 
-#look at mean residual life to decide threshold values
+#look at mean residual life to decide whether threshold values are appropriate
 q_th = 0.95
 gb_nd_dist.plot_mean_residual_life(threshold = gb_nd_dist.ppf(q_th));plt.show()
 dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
 ```
-![Mean residual life plot for Great Britain](https://drive.google.com/file/d/1iycOUm6W00Q8wq0Y9rz_5kyHIL49513E/preview)
-
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Mean residual life plot for GB at 95%</em>
@@ -137,13 +154,17 @@ dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
   <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
 </p>
 
-Once an appropriate threshold has been found, univariate generalised Pareto models can be fitted in one line, and fit diagnostics can be plotted afterwards.
+Once we confirm the threshold is appropriate, univariate generalised Pareto models can be fitted using `fit_tai_model`, and fit diagnostics can be displayed afterwards.
 
 ```py
 # Fit univariate models for both areas and plot diagnostics
-gb_dist_ev = gb_nd_dist.fit_tail_model(threshold=gb_nd_dist.ppf(q_th));gb_dist_ev.plot_diagnostics();plt.plot()
-dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th));dk_dist_ev.plot_diagnostics();plt.plot()
+gb_dist_ev = gb_nd_dist.fit_tail_model(threshold=gb_nd_dist.ppf(q_th))
+gb_dist_ev.plot_diagnostics();plt.plot()
+dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th))
+dk_dist_ev.plot_diagnostics();plt.plot()
 ```
+
+The result is a semi-parametric model with an empirical distribution below the threshold and a generalised Pareto model above. Generated diagnostics for GB's tail models are shown below.
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Diagnostic plots for GB model</em>
@@ -161,8 +182,8 @@ dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th));dk_dist_e
 
 #### Bivariate extreme value modelling
 
-Bivariate EV models are built analogous to univariate models. When fitting a bivarate tail model there is a choice between assuming "strong" or "weak" association between extreme co-occurrences across components <sup>[1](#myfootnote1)</sup>. The package implements a Bayesian ratio test, shown below, to help with this decision.
-Below, previously fitted univariate models are passed when fitting the bivariate tail model to use these marginal distributions for quantile estimation in the fitting process. If not passed, univariate tail models are fitted to the data.
+Bivariate EV models are built analogously to univariate models. When fitting a bivarate tail model there is a choice between assuming "strong" or "weak" association between extreme co-occurrences across components <sup>[1](#myfootnote1)</sup>. The package implements a Bayesian factor test, shown below, to help justify this decision.
+In addition, marginal distributions can be passed to be used for quantile estimation in the fitting procedure.
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Data sample scatterplot (x-axis: GB, y-axis: DK)</em>
@@ -178,9 +199,9 @@ bivar_empirical.plot();plt.show()
 
 # test for asymptotic dependence and fit corresponding model
 r = bivar_empirical.test_asymptotic_dependence(q_th)
-if r > 1: # r > 1 suggests strong association between extremes, and fits an asymptotically dependent logistic model
+if r > 1: # r > 1 suggests strong association between extremes
   model = "logistic"
-else: # r <= 1 suggests weak association between extremes, and fits an asymptotically independent gaussian model
+else: # r <= 1 suggests weak association between extremes
   model = "gaussian"
 
 bivar_ev_model = bivar_empirical.fit_tail_model(
@@ -197,5 +218,75 @@ bivar_ev_model = bivar_empirical.fit_tail_model(
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
   <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
 </p>
+
+<a name="nrg-proc-modelling"/>
+#### Energy procurement modelling
+
+For the sake of this example, synthetic conventional generator fleets are going to be created for both areas in order to compute risk indices for a hypothetical interconnected system. 
+
+```py
+from riskmodels.powersys.iid.convgen import IndependentFleetModel
+# get number of timesteps in peak season
+n = len(gb_nd)
+# set random seed for synthetic data
+np.random.seed(1)
+
+# assume a base fleet of 200 generators with 240 max. capacity and 4% breakdown rate
+uk_gen_df = pd.DataFrame([{"capacity": 240, "availability": 0.96} for k in range(200)])
+uk_gen = IndependentFleetModel.from_generator_df(uk_gen_df)
+
+# assume a base fleet of 55 generators with 61 max. capacity and 4% breakdown rate
+dk_gen_df = pd.DataFrame([{"capacity": 61, "availability": 0.96} for k in range(55)])
+dk_gen = IndependentFleetModel.from_generator_df(dk_gen_df)
+
+# define LOLE functon
+def lole(gen, net_demand, n=n):
+  #The surplus is defined as conventional generation minus demand net of renewables, which means the surplus distribution is the convolution of generation and demand net of renewables distributions, assuming independence between them. Integer `Empirical` objects can be convolved with other integer distribution and with generalised  Pareto distributions using the + operator. Then, LOLE can be computed in a single line like below. Here, the negative of the surplus is being used because the negative of a generalised Pareto is not a generalised Pareto anymore, but the negative of an integer distribution (such as gen) is still integer.
+  return n*(1 - (-gen + net_demand).cdf(0))
+
+# compute pre-interconnection LOLEs
+lole(dk_gen, dk_nd_ev)
+
+lole(uk_gen, gb_nd_ev)
+```
+
+LOLE can be computed exactly for univariate surplus distributions as above, but post-interconnection LOLE requires Monte Carlo estimation. Below, post-interconnection LOLEs are computed for both areas for a range of interconnection capacities up to 1.5 GW.
+
+```py
+bivariate_gen = bivar.Independent(x=uk_gen, y=dk_gen)
+
+from riskmodels.powersys.iid.surplus import BivariateMonteCarlo
+
+bivariate_surplus = BivariateMonteCarlo(
+  gen_distribution = bivariate_gen,
+  net_demand = bivar_ev_model,
+  season_length = n,
+  size = 5000000)
+
+itc_caps = np.linspace(0, 1500, 7)
+
+gb_post_itc_lole = np.array([bivariate_surplus.lole(area=0, itc_cap = itc_cap) for itc_cap in itc_caps])
+dk_post_itc_lole = np.array([bivariate_surplus.lole(area=1, itc_cap = itc_cap) for itc_cap in itc_caps])
+
+plt.plot(itc_caps, gb_post_itc_lole, color="darkorange", label = "GB")
+plt.scatter(itc_caps, gb_post_itc_lole, color="darkorange")
+
+plt.plot(itc_caps, dk_post_itc_lole, color="darkblue", label = "DK")
+plt.scatter(itc_caps, dk_post_itc_lole, color="darkblue")
+
+plt.xlabel("Interconnection capacity (MW)")
+plt.ylabel("LOLE")
+plt.grid()
+plt.show()
+```
+<p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
+    <em>Post-interconnection LOLE indices</em>
+</p>
+<p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/post_itc_lole.png" alt="post-interconnection LOLE indices" width="640px">
+</p>
+
+
+In all of the above it was assumed that no temporal correlation existed between conventional generation availability, which is of course not true; time series models for which conventional generators are treated as Markov chains [are also available]()
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.
