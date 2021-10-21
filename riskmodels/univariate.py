@@ -1609,7 +1609,7 @@ class EmpiricalWithGPTail(Mixture):
     plt.plot(1.0/exceedance_frequency,return_levels,color=self._figure_color_palette[0])
     plt.xscale("log")
     plt.title(" Return levels")
-    plt.xlabel('1/frequency')
+    plt.xlabel('Return period')
     plt.ylabel('Return level')
     plt.grid()
 

@@ -131,6 +131,7 @@ df = fetch_data()
 ```
 
 <a name="ev-modelling"/>
+
 #### Univariate extreme value modelling
 
 Empirical distributions are the base on which the package operates, and the `Empirical` classes in both `univariate` and `bivariate` modules provide the main entrypoints.
@@ -151,7 +152,7 @@ dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
     <em>Mean residual life plot for GB at 95%</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
 </p>
 
 Once we confirm the threshold is appropriate, univariate generalised Pareto models can be fitted using `fit_tai_model`, and fit diagnostics can be displayed afterwards.
@@ -170,14 +171,14 @@ The result is a semi-parametric model with an empirical distribution below the t
     <em>Diagnostic plots for GB model</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
 </p>
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Return levels for GB</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/gb_return.png" alt="Return levels for Great Britain" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/gb_return.png" alt="Return levels for Great Britain" width="640px">
 </p>
 
 #### Bivariate extreme value modelling
@@ -189,7 +190,7 @@ In addition, marginal distributions can be passed to be used for quantile estima
     <em>Data sample scatterplot (x-axis: GB, y-axis: DK)</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/bivariate_sample.png" alt="GB-DK sample scatterplot" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/bivariate_sample.png" alt="GB-DK sample scatterplot" width="640px">
 </p>
 
 ```py
@@ -216,10 +217,11 @@ bivar_ev_model = bivar_empirical.fit_tail_model(
     <em>Bivariate model's diagnostics plots</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
 </p>
 
 <a name="nrg-proc-modelling"/>
+
 #### Energy procurement modelling
 
 For the sake of this example, synthetic conventional generator fleets are going to be created for both areas in order to compute risk indices for a hypothetical interconnected system. 
@@ -277,13 +279,14 @@ plt.scatter(itc_caps, dk_post_itc_lole, color="darkblue")
 plt.xlabel("Interconnection capacity (MW)")
 plt.ylabel("LOLE")
 plt.grid()
+plt.legend()
 plt.show()
 ```
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Post-interconnection LOLE indices</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/docs/readme_imgs/post_itc_lole.png" alt="post-interconnection LOLE indices" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/post_itc_lole.png" alt="post-interconnection LOLE indices" width="640px">
 </p>
 
 
