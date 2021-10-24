@@ -290,6 +290,6 @@ plt.show()
 </p>
 
 
-In all of the above it was assumed that no temporal correlation existed between conventional generation availability, which is of course not true; time series models for which conventional generators are treated as Markov chains [are also available]()
+In all of the above it was assumed that no temporal correlation existed between conventional generation availability, which is of course not true; time series models for which conventional generators are treated as Markov chains [are also available](https://nestorsag.github.io/riskmodels/powersys/index.html)
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.

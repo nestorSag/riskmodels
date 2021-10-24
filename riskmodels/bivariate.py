@@ -1,4 +1,5 @@
-"""This module contains bivariate risk models to analyse exceedance dependence between components. Available exceedance models are inspired in bivariate generalised Pareto models, with support in an inverted L-shaped subset of Euclidean space, where at least one component takes an extreme value above a specified threshold. Available parametric models include the logistic model, equivalent to a Gumbel-Hougaard copula, and a gaussian model, equivalent to a Gaussian copula. The former exhibits asymptotic dependence and the latter asymtptotic independence, which characterises the dependence of extremes across components.
+"""This module contains bivariate risk models to analyse exceedance dependence between components. Available exceedance models are inspired in bivariate generalised Pareto models, whose support is an inverted L-shaped subset of Euclidean space, where at least one component takes an extreme value above a specified threshold. Available parametric models in this module include the logistic model, equivalent to a Gumbel-Hougaard copula between exceedances, and a Gaussian model, equivalent to a Gaussian copula. The former exhibits asymptotic dependence and the latter asymtptotic independence, which characterises the dependence of extremes across components.
+Finally, `Empirical` instances have methods to assess asymptotic dependence vs independence through hypothesis tests and visual inspection of the Pickands dependence function.
 """
 
 from __future__ import annotations
@@ -539,7 +540,7 @@ class Logistic(ExceedanceDistribution):
     axs[0,1].set_xlabel('x')
     axs[0,1].set_ylabel('y')
 
-    ##### Q-Q plot
+    ##### log odds plot
     cdf_values = self.cdf(self.data)
     model_logodds = np.log(cdf_values/(1-cdf_values))
     ecdf_values = Empirical.from_data(self.data).cdf(self.data)
@@ -859,7 +860,7 @@ class Empirical(BaseDistribution):
       weights = np.array([p, 1-p]))
 
   def test_asymptotic_dependence(self, quantile_threshold: float = 0.95) -> float:
-    """Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta =1$\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). A 50-50% prior is placed on the asymptotic dependence vs asymptotic independence hypotheses, with asymptotic dependence corresponding to \\($\\eta = 1$\\) and asymptotic independence having a prior of \\($\\eta \\sim \\text{Uniform}(0,1)$\\). The posterior density is approximated through Kernel density estimation.
+    """Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta$\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). A uniform prior is placed on the hypothesis space \\($\\eta \\in [0,1]$\\) with \\($\\eta = 1$\\) corresponding to asymptotic dependence and vice versa. The posterior density is approximated through Gaussian Kernel density estimation.
     
     Args:
         quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
@@ -888,10 +889,67 @@ class Empirical(BaseDistribution):
       else:
         return -np.Inf
 
-    # sample posterior
     t_dist = univar.Empirical.from_data(t)
-    t_dist = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold), bayesian=True, log_prior=log_prior)
+    # Pass initial point that enforces theoretical constraints of 0 <= eta <= 1. Approximation inaccuracies from the transformation to Frechet margins and MLE estimation can violate the bounds.
+    mle_tail = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold))
+    x0 = np.array([mle_tail.tail.scale, max(0,min(0.99, mle_tail.tail.shape))])
+    # sample posterior
+    t_dist = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold), bayesian=True, log_prior=log_prior, x0 =x0)
 
     #approximate posterior distribution through Kernel density estimation. Evaluating it on 1 gives us the savage-dickey ratio
     return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]
+
+  def plot_pickands(self, quantile_threshold: float = 0.95):
+    """Returns a plot of the empirical Pickands dependence function induced by joint exceedances above the specified quantile threshold. The Pickands dependence function \\($A: [0,1] \\to [1/2,1]$\\) is convex and bounded by \\($\\max\\{t,1-t\\} \\leq A(t) \\leq 1$\\); it can be used to assess extremal dependence, as there is a one-to-one correspondence between \\($A(t)$\\) and extremal copulas; the closer it is to its lower bound, the stronger the extremal dependence. Conversely, for asymptotically independent data \\(A(t) = 1$\\).
+    
+    Args:
+        quantile_threshold (float, optional): Quantile threshold over which Pickands dependence will be approximated.
+    """
+    fig = plt.figure(figsize=(5,5))
+
+    def pickands(v: float) -> float:
+      """Non-parametric Pickands dependence function approximation based on Hall and Tajvidi (2000).
+      
+      Args:
+          v (float): Pickands dependence function argument
+      
+      Returns:
+          float: Nonparametric estimate of the Pickands dependence function
+      """
+      # s and t arrays come from outer scope and are exponentially distributed maps of original data
+      a = (n*s/np.sum(s))/(1-v)
+      b = (n*t/np.sum(t))/v
+      return 1.0/np.mean(np.minimum(a,b))
+
+    # find joint extremes
+    x, y = self.data.T
+    joint_extremes_idx = np.logical_and(
+      x > np.quantile(x, quantile_threshold),
+      y > np.quantile(y, quantile_threshold))
+    n = np.sum(joint_extremes_idx)
+
+    # compute nonparametric scores
+    x_exs, y_exs = x[joint_extremes_idx], y[joint_extremes_idx]
+    x_exs_model, y_exs_model = univar.Empirical.from_data(x_exs), univar.Empirical.from_data(y_exs), 
+
+    # normalise to avoid values on the border of the unit square
+    u1, u2 = n/(n+1)*x_exs_model.cdf(x_exs), n/(n+1)*y_exs_model.cdf(y_exs)
+    # map to exponential
+    s, t = -np.log(u1), -np.log(u2)
+
+    x = np.linspace(0,1,101)
+    pk = np.array([pickands(_) for _ in x])
+
+    plt.plot(x,pk,color="darkorange", label="Empirical")
+    plt.plot(x,np.maximum(1-x,x), linestyle="dashed", color="black")
+    plt.plot(x,np.ones((len(x),)), linestyle="dashed", color="black")
+    plt.xlabel("t")
+    plt.ylabel("A(t)")
+    plt.title("Empirical Pickands dependence of joint exceedances")
+    plt.grid()
+    return fig
+
+
+
+
 

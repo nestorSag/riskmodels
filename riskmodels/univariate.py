@@ -1215,6 +1215,15 @@ class Empirical(BaseDistribution):
     return np.sum(self.pdf_values * self.support**n)
 
   def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+    """Inverse CDF function; it uses linear interpolation.
+    
+    Args:
+        q (t.Union[float, np.ndarray]): probability level
+    
+    Returns:
+        t.Union[float, np.ndarray]: Linearly interpolated quantile function
+    
+    """
     is_scalar = isinstance(q, self._allowed_scalar_types)
 
     if is_scalar:
@@ -1310,7 +1319,7 @@ class Empirical(BaseDistribution):
 
     x_vals = np.linspace(threshold, max(self.data))
     if shape >= 1:
-      raise ValueError(f"Expectation is not finite: fitted shape parameter is {params.c}")
+      raise ValueError(f"Expectation is not finite: fitted shape parameter is {shape}")
     #y_vals = (scale + shape*x_vals)/(1-shape)
     y_vals = np.array([np.mean(fitted.tail.data[fitted.tail.data >= x]) for x in x_vals])
     plt.plot(x_vals,y_vals, color=self._figure_color_palette[0])
@@ -1663,7 +1672,8 @@ class BayesianGPTail(GPTailMixture):
     threshold: float, 
     max_posterior_samples: int = 1000,
     chain_length: int = 2000,
-    plot_diagnostics: bool = True,
+    x0: np.ndarray = None,
+    plot_diagnostics: bool = False,
     n_walkers: int = 32,
     n_cores: int = 4,
     burn_in: int = 100,
@@ -1676,12 +1686,13 @@ class BayesianGPTail(GPTailMixture):
         threshold (float): modeling threshold; location parameter for Generalised Pareto model
         max_posterior_samples (int, optional): Maximum number of posterior samples to keep
         chain_length (int, optional): timesteps in each chain
-        plot_diagnostics (bool, optional): If True, plots MCMC diagnostics
+        x0 (np.ndarray, optional): Starting point for the chains. If None, MLE estimates are used.
+        plot_diagnostics (bool, optional): If True, plots MCMC diagnostics in the background.
         n_walkers (int, optional): Number of concurrent paths to use
-        n_cores (int, optional): Number of cores to use in parallelization
-        burn_in (int, optional): Number of initial samples to discard
-        thinning (int, optional): Thinning factor to reduce autocorrelation; if None, an automatic estimate from emcee's get_autocorr_time is used.
-        log_prior (t.Callable, optional): Function that takes as input a single length-2 iterable with scale and shape parameters and outputs the prior log-likelihood. If None, a non-informative constant prior on the valid parameter support is used.
+        n_cores (int, optional): Number of cores to use
+        burn_in (int, optional): Number of initial samples to drop
+        thinning (int, optional): Thinning factor to reduce autocorrelation; if None, an automatic estimate from emcee's `get_autocorr_time` is used.
+        log_prior (t.Callable, optional): Function that takes as input a single length-2 iterable with scale and shape parameters and outputs the prior log-likelihood. If None, a constant prior on the valid parameter support is used.
     
     Returns:
         BayesianGPTail: fitted model
@@ -1713,10 +1724,12 @@ class BayesianGPTail(GPTailMixture):
 
     exceedances = data[data > threshold]
     ndim = 2
-    # make initial guess
-    mle_model = GPTail.fit(data=exceedances, threshold=threshold)
-    shape, scale = mle_model.shape, mle_model.scale
-    x0 = np.array([scale, shape])
+
+    if x0 is None:
+      # make initial guess
+      mle_model = GPTail.fit(data=exceedances, threshold=threshold)
+      shape, scale = mle_model.shape, mle_model.scale
+      x0 = np.array([scale, shape])
 
     # create random walkers
     pos =  x0 + 1e-4 * np.random.randn(n_walkers, ndim)
