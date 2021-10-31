@@ -45,6 +45,9 @@ class BaseBivariateMonteCarlo(BaseModel, BaseSurplus):
       season_length (int): Length of individual peak seasons
   """
 
+  def __repr__(self):
+    return f"Surplus MonteCarlo model of type {self.__class__.__name__}"
+
   season_length: int  
 
   def itc_flow(self, sample: np.ndarray, itc_cap: int = 1000) -> np.ndarray:
@@ -175,6 +178,8 @@ class BivariateEmpirical(BaseSurplus):
   """Computes statistics for the power surpluses in a 2-area power system with a single interconnector, given the distributions of available conventional generation and data for demand and renewable generation in the two areas; this uses the empirical distributions induced by the data. The interconnector is assumed to always work. This class interfaces to C for performance.
   """
   
+  def __repr__(self):
+    return f"Bivariate empirical surplus model with {len(self.demand_data)} observations"
   def __init__(
     self,
     demand_data: np.ndarray,

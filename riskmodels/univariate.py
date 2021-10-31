@@ -48,6 +48,12 @@ class BaseDistribution(BaseModel):
   _figure_color_palette = ["tab:cyan", "deeppink"]
   _error_tol = 1e-6
 
+  def __repr__(self):
+    return "Base distribution object"
+
+  def __str__(self):
+    return self.__repr__()
+
   class Config:
     arbitrary_types_allowed = True
 
@@ -81,14 +87,26 @@ class BaseDistribution(BaseModel):
   def mean(self, **kwargs) -> float:
     """Calculates the expected value
     
-    """
-    return self.moment(1)
-
-  def std(self) -> float:
-    """Calculates the standard deviation
+    Args:
+        **kwargs: Additional arguments passed to `moments`. This is needed for Bayesian model instances in which a `return_all` parameter can be passed.
+    
+    Returns:
+        float: mean value
     
     """
-    return np.sqrt(self.moment(2) - self.mean()**2)
+    return self.moment(1, **kwargs)
+
+  def std(self, **kwargs) -> float:
+    """Calculates the standard deviation
+    
+    Args:
+        **kwargs: Additional arguments passed to `moments`. This is needed for Bayesian model instances in which a `return_all` parameter can be passed.
+    
+    Returns:
+        float: standard deviation value
+    
+    """
+    return np.sqrt(self.moment(2, **kwargs) - self.mean(**kwargs)**2)
 
   @abstractmethod
   def cdf(self, x:float) -> float:
@@ -131,17 +149,19 @@ class BaseDistribution(BaseModel):
     """
     self.histogram(size)
 
-  def cvar(self, p: float, **kwargs):
+  def cvar(self, p: float, **kwargs) -> float:
     """Calculates conditional value at risk for a probability level p, defined as the mean conditioned to an exceedance above the p-quantile.
     
     Args:
         p (float): Description
+        **kwargs: Additional arguments passed to `moments`. This is needed for Bayesian model instances in which a `return_all` parameter can be passed.
     
     Returns:
-        TYPE: Description
+        float: conditional value at risk
     
     Raises:
         ValueError: Description
+    
     """
     if not isinstance(p, float) or p < 0 or p >= 1:
       raise ValueError("p must be in the open interval (0,1)")
@@ -198,6 +218,9 @@ class Mixture(BaseDistribution):
   
   distributions: t.List[BaseDistribution]
   weights: np.ndarray
+
+  def __repr__(self):
+    return f"Mixture with {len(self.weights)} components"
 
   @validator("weights", allow_reuse=True)
   def check_weigths(cls, weights):
@@ -271,29 +294,59 @@ class Mixture(BaseDistribution):
 
 
   def simulate(self, size: int) -> np.ndarray:
+    """Simulate values from mixture distribution
     
+    Args:
+        size (int): Sample size
+    
+    Returns:
+        np.ndarray: simulated sample
+    """
     n_samples = np.random.multinomial(n=size, pvals = self.weights, size=1)[0]
     indices = (n_samples > 0).nonzero()[0]
     samples = [dist.simulate(size=k) for dist, k in zip([self.distributions[k] for k in indices], n_samples[indices])]
     return np.concatenate(samples, axis=0)
 
   def cdf(self, x: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+    """Evaluate Mixture's CDF function
+    
+    Args:
+        x (t.Union[float, np.ndarray]): point at which to evaluate CDF
+        **kwargs: Additional arguments passed to individual mixture component's CDF function
+    
+    Returns:
+        t.Union[float, np.ndarray]: CDF value
+    """
 
-    # if isinstance(x, np.ndarray):
-    #   return np.array([self.cdf(elem, **kwargs) for elem in x])
-
+    # the use of a list and a reduce is needed because mixture components might return scalars or vectors depending on their class and on the passed kwargs.
     vals = [w*dist.cdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
     return reduce(lambda x,y: x + y, vals)
 
   def pdf(self, x: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+    """Evaluate Mixture's pdf function
     
-    # if isinstance(x, np.ndarray):
-    #   return np.array([self.pdf(elem, **kwargs) for elem in x])
+    Args:
+        x (t.Union[float, np.ndarray]): point at which to evaluate CDF
+        **kwargs: Additional arguments passed to individual mixture component's pdf function
+    
+    Returns:
+        t.Union[float, np.ndarray]: pdf value
+    """
 
+    # the use of a list and a reduce is needed because mixture components might return scalars or vectors depending on their class and on the passed kwargs.
     vals = [w*dist.pdf(x,**kwargs) for w, dist in zip(self.weights, self.distributions)]
     return reduce(lambda x,y: x + y, vals)
 
   def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
+    """Evaluate Mixture's quantile function function
+    
+    Args:
+        x (t.Union[float, np.ndarray]): point at which to evaluate quantile function
+        **kwargs: Additional arguments passed to individual mixture component's quantile function
+    
+    Returns:
+        t.Union[float, np.ndarray]: quantile value
+    """
 
     if isinstance(q, np.ndarray):
       return np.array([self.ppf(elem, **kwargs) for elem in q])
@@ -304,16 +357,54 @@ class Mixture(BaseDistribution):
     vals =[w*dist.ppf(q, **kwargs) for w, dist in zip(self.weights, self.distributions)]
     x0 = reduce(lambda x,y: x + y, vals)
 
-    vals =[w*dist.ppf(0.5 + q/2, **kwargs) for w, dist in zip(self.weights, self.distributions)]
+    # the use of a list and a reduce is needed because mixture components might return scalars or vectors depending on their class and on the passed kwargs.
+    vals =[w*dist.ppf(0.5 + q/2, **kwargs) for w, dist in zip(self.weights, self.distributions)] 
     x1 = reduce(lambda x,y: x + y, vals)
 
     return root_scalar(target_function, x0 = x0, x1 = x1, method="secant").root
 
   def moment(self, n: int, **kwargs) -> float:
+    """Evaluate Mixture's n-th moment
     
+    Args:
+        x (t.Union[float, np.ndarray]): Moment order
+        **kwargs: Additional arguments passed to individual mixture components' moment function
+    
+    Returns:
+        t.Union[float, np.ndarray]: moment value
+    """
+    
+    # the use of a list and a reduce is needed because mixture components might return scalars or vectors depending on their class and on the passed kwargs.
     vals = [w*dist.moment(n, **kwargs) for w, dist in zip(self.weights, self.distributions)]
     return reduce(lambda x,y: x + y, vals)
 
+  def mean(self, **kwargs) -> float:
+    """Evaluate Mixture's mean
+    
+    Args:
+        **kwargs: Additional arguments passed to individual mixture components' mean function
+    
+    Returns:
+        float: mean value
+    """
+
+    # the use of a list and a reduce is needed because mixture components might return scalars or vectors depending on their class and on the passed kwargs.
+    vals = [w*dist.mean(**kwargs) for w, dist in zip(self.weights, self.distributions)]
+    return reduce(lambda x,y: x + y, vals)
+
+  def std(self, **kwargs) -> float:
+    """Evaluate Mixture's standard deviation
+    
+    Args:
+        **kwargs: Additional arguments passed to individual mixture components' standard deviation function
+    
+    Returns:
+        float: standard deviation value
+    """
+
+    # the use of a list and a reduce is needed because mixture components might return scalars or vectors depending on their class and on the passed kwargs.
+    vals = [w*(dist.std(**kwargs)**2 + dist.mean(**kwargs)**2) for w, dist in zip(self.weights, self.distributions)]
+    return np.sqrt(reduce(lambda x,y: x + y, vals) - self.mean()**2)
 
 
 
@@ -321,9 +412,9 @@ class Mixture(BaseDistribution):
 class GPTail(BaseDistribution):
   """Representation of a fitted Generalized Pareto distribution as an exceedance model. It's density is given by
 
-  $$ \\frac{1}{\\sigma} \\left( 1 + \\xi \\left( \\frac{x - \\mu}{\\sigma} \\right) \\right)^{-(1 + 1/\\xi)} $$
+  $$ f(x) = \\frac{1}{\\sigma} \\left( 1 + \\xi \\left( \\frac{x - \\mu}{\\sigma} \\right) \\right)_{+}^{-(1 + 1/\\xi)} $$
   
-  where \\( \\mu, \\sigma, \\xi \\) are the location, scale and shape parameters. The location parameter is also the lower endpoint (or threshold) of the distribution.
+  where \\( \\mu, \\sigma, \\xi \\) are the location, scale and shape parameters, and \\( (\\cdot)_{+} = \\max(\\cdot, 0)\\). The location parameter is also the lower endpoint (or threshold) of the distribution.
 
   Args:
       threshold (float): modeling threshold
@@ -336,6 +427,9 @@ class GPTail(BaseDistribution):
   shape: float
   scale: PositiveFloat
   data: t.Optional[np.ndarray]
+
+  def __repr__(self):
+    return f"Generalised Pareto tail model with (mu, scale, shape) = ({self.threshold},{self.scale},{self.shape}) components"
 
   @property
   def endpoint(self):
@@ -597,7 +691,7 @@ class GPTail(BaseDistribution):
     threshold: float, 
     x0: np.ndarray = None,
     return_opt_results=False) -> t.Union[GPTail, sp.optimize.OptimizeResult]:
-    """Fits a tail Generalised Pareto model using a constrained trust region method
+    """Fits a eneralised Pareto tail model using a constrained trust region method
     
     Args:
         data (np.ndarray): exceedance data above threshold
@@ -840,22 +934,44 @@ class GPTail(BaseDistribution):
 
 class GPTailMixture(BaseDistribution):
 
+  """Mixture distribution with generalised Pareto components. This is a base class for  Bayesian generalised Pareto tail models, which can be seen as an uniformly weighted mixture of the posterior samples; the convolution of a discrete (or empirical) distribution with a generalised Pareto distribution also results in a mixture of this kind. Most methods inherited from `BaseDistribution` have an extra argument `return_all`. When it is True, the full posterior sample of the method evaluation is returned.
+
+  Args:
+      data(np.ndarray, optional): Data that induced the model, if applicable
+      weights (np.ndarray): component weights
+      thresholds (np.ndarray): vector of threshold parameters, one for each component
+      scales (np.ndarray): vector of scale parameters, one for each component
+      shapes (np.ndarray): vector of shape parameters, one for each component
+  """
+
   data: t.Optional[np.ndarray]
   weights: np.ndarray
   thresholds: np.ndarray
   scales: np.ndarray
   shapes: np.ndarray
 
+  def __repr__(self):
+    return f"Mixture of generalised Pareto distributions with {len(self.weights)} components"
+
   @validator("weights", allow_reuse=True)
   def check_weigths(cls, weights):
     if not np.isclose(np.sum(weights),1, atol=cls._error_tol):
-      raise ValidationError(f"Weights don't sum 1 (sum = {np.sum(weights)})")
+      raise ValueError(f"Weights don't sum 1 (sum = {np.sum(weights)})")
     elif np.any(weights <= 0):
-      raise ValidationError("Negative or null weights are present")
+      raise ValueError("Negative or null weights are present")
     else:
       return weights
 
   def moment(self, n: int, return_all: bool = False) -> float:
+    """Returns the n-th order moment
+    
+    Args:
+        n (int): Moment's order
+        return_all (bool, optional): If `True`, all posterior samples of the value are returned; otherwise  the moment value of the posterior predictive distribution is returned. The posterior distribution is taken to be the empirical distribution of posterior samples.
+    
+    Returns:
+        float: moment value
+    """
     vals = np.array([gpdist.moment(
       n,
       loc=threshold, 
@@ -868,6 +984,14 @@ class GPTailMixture(BaseDistribution):
       return np.dot(self.weights, vals)
 
   def mean(self, return_all: bool = False) -> float:
+    """Returns the mean value
+    
+    Args:
+        return_all (bool, optional): If `True`, all posterior samples of the value are returned; the mean of the posterior predictive distribution is evaluated. The posterior distribution is taken to be the empirical distribution of posterior samples.
+    
+    Returns:
+        float: mean value
+    """
     vals = gpdist.mean(
       loc=self.thresholds, 
       c=self.shapes, 
@@ -878,8 +1002,40 @@ class GPTailMixture(BaseDistribution):
     else:
       return np.dot(self.weights, vals)
 
+  def std(self, return_all: bool = False) -> float:
+    """Standard deviation value
+    
+    Args:
+        return_all (bool, optional): If `True`, all posterior samples of the value are returned; otherwise the standard deviation of the posterior predictive distribution is returned. The posterior distribution is taken to be the empirical distribution of posterior samples.
+    
+    Returns:
+        float: standard deviation value
+    """
+    var = gpdist.var(
+      loc=self.thresholds, 
+      c=self.shapes, 
+      scale=self.scales)
+
+    mean = gpdist.mean(
+      loc=self.thresholds, 
+      c=self.shapes, 
+      scale=self.scales)
+
+    if return_all:
+      return np.sqrt(var)
+    else:
+      return np.sqrt(np.dot(self.weights, var + mean**2) - self.mean()**2)
 
   def cdf(self, x: t.Union[float, np.ndarray], return_all: bool = False) -> t.Union[float, np.ndarray]:
+    """Evaluates the CDF function
+    
+    Args:
+        x (t.Union[float, np.ndarray]): Point at which to evaluate it
+        return_all (bool, optional): If `True`, all posterior samples of the value are returned; the CDF of the posterior predictive distribution is evaluated. The posterior distribution is taken to be the empirical distribution of posterior samples.
+    
+    Returns:
+        t.Union[float, np.ndarray]: CDF value
+    """
 
     if isinstance(x, np.ndarray):
       return np.array([self.cdf(elem, return_all) for elem in x])
@@ -896,6 +1052,15 @@ class GPTailMixture(BaseDistribution):
       return np.dot(self.weights, vals)
 
   def pdf(self, x: t.Union[float, np.ndarray], return_all: bool = False) -> t.Union[float, np.ndarray]:
+    """Evaluates the pdf function
+    
+    Args:
+        x (t.Union[float, np.ndarray]): Point at which to evaluate it
+        return_all (bool, optional): If `True`, all posterior samples of the value are returned; otherwise the pdf of the posterior predictive distribution is evaluated. The posterior distribution is taken to be the empirical distribution of posterior samples.
+    
+    Returns:
+        t.Union[float, np.ndarray]: pdf value
+    """
     
     if isinstance(x, np.ndarray):
       return np.array([self.pdf(elem, return_all) for elem in x])
@@ -912,7 +1077,15 @@ class GPTailMixture(BaseDistribution):
       return np.dot(self.weights, vals)
 
   def ppf(self, q: t.Union[float, np.ndarray], return_all: bool = False) -> t.Union[float, np.ndarray]:
-
+    """Evaluates the quantile function
+    
+    Args:
+        x (t.Union[float, np.ndarray]): probability level
+        return_all (bool, optional): If `True`, all posterior samples of the value are returned; otherwise  the quantile function of the posterior predictive distribution is evaluated. The posterior distribution is taken to be the empirical distribution of posterior samples.
+    
+    Returns:
+        t.Union[float, np.ndarray]: quantile function value value
+    """
     if isinstance(q, np.ndarray):
       return np.array([self.ppf(elem, return_all) for elem in q])
 
@@ -932,7 +1105,15 @@ class GPTailMixture(BaseDistribution):
       return root_scalar(target_function, x0 = x0, x1 = x0 + 1, method="secant").root
 
   def cvar(self, p:float, return_all: bool = False) -> float:
+    """Returns the conditional value at risk for a given probability level
     
+    Args:
+        x (t.Union[float, np.ndarray]): probability level
+        return_all (bool, optional): If `True`, all posterior samples of the value are returned; otherwise  the cvar of the posterior predictive distribution is evaluated. The posterior distribution is taken to be the empirical distribution of posterior samples.
+    
+    Returns:
+        t.Union[float, np.ndarray]: conditional value at risk
+    """
     if p < 0 or p >= 1:
       raise ValueError("p must be in the open interval (0,1)")
 
@@ -1037,6 +1218,12 @@ class Empirical(BaseDistribution):
   support: np.ndarray
   pdf_values: np.ndarray
   data: t.Optional[np.ndarray]
+
+  def __repr__(self):
+    if self.data is not None:
+      return f"Empirical distribution with {len(self.data)} points"
+    else:
+      return f"Discrete distribution with support of size {len(self.pdf_values)}"
 
   @validator("pdf_values", allow_reuse=True)
   def check_pdf_values(cls, pdf_values):
@@ -1147,12 +1334,16 @@ class Empirical(BaseDistribution):
 
     elif isinstance(other, GPTailMixture):
       # Return a new mixture where the old mixture is replicated for each point in the discrete support
+      new_weights = np.concatenate([w*other.weights for w in self.pdf_values], axis = 0)
+      new_th = np.concatenate([other.thresholds + t for t in self.support], axis = 0)
+      new_scales = np.tile(other.scales, len(self.support))
+      new_shapes = np.tile(other.shapes, len(self.support))
       return GPTailMixture(
         data = other.data,
-        weights = np.concatenate([w*other.weights for w in self.pdf_values], axis = 0),
-        threshold = np.concatenate([other.thresholds + t for t in self.support], axis = 0),
-        scales = np.tile(other.scales, len(self.support)),
-        shapes = np.tile(other.shapes, len(self.support)))
+        weights = new_weights[new_weights > 0],
+        thresholds = new_th[new_weights > 0],
+        scales = new_scales[new_weights > 0],
+        shapes = new_shapes[new_weights > 0])
 
     else:
       raise TypeError(f"+ is supported only for types: {self._sum_compatible}")
@@ -1207,11 +1398,27 @@ class Empirical(BaseDistribution):
       data = new_data)
 
 
-  def simulate(self, size: int):
+  def simulate(self, size: int) -> np.ndarray:
+    """Draws simulated values from the distribution
+    
+    Args:
+        size (int): Sample size
+    
+    Returns:
+        np.ndarray: simulated sample
+    """
     return np.random.choice(self.support, size=size, p=self.pdf_values)
 
-  def moment(self, n: int, **kwargs):
-
+  def moment(self, n: int, **kwargs) -> float:
+    """Evaluates the n-th moment of the distribution
+    
+    Args:
+        n (int): moment order
+        **kwargs: dummy additional arguments (not used)
+    
+    Returns:
+        float: n-th moment value
+    """
     return np.sum(self.pdf_values * self.support**n)
 
   def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
@@ -1246,37 +1453,9 @@ class Empirical(BaseDistribution):
       return ppf_values[0]
     else:
       return ppf_values
-    
-    # if isinstance(q, np.ndarray):
-    #   # make efficient vectorised ppf function
-    #   ecdf = ed.StepFunction(x = self.support, y = self.cdf_values)
-    #   ecdf_inv = ed.monotone_fn_inverter(ecdf, self.support)
-    #   return ecdf_inv(q)
-
-    # if q < 0 or q > 1:
-    #   raise ValueError(f"q needs to be in (0,1)")
-
-    # if q < self.cdf_values[0]:
-    #   warnings.warn("q is lower than the smallest CDF value; returning -1.0")
-    #   return -1.0
-    # else:
-    #   return self.support[np.argmax(self.cdf_values >=q)]
 
   def cdf(self, x: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
     return self.ecdf(x)
-    # if isinstance(x, np.ndarray):
-    #   # make efficient vectorised cdf function
-    #   ecdf = ed.StepFunction(x = self.support, y = self.cdf_values)
-    #   return ecdf(x)
-
-    # if x < self.min:
-    #   return 0.0
-    # elif x >= self.max:
-    #   return self.cdf_values[-1]
-    # else:
-    #   first_nonlower = np.argmax(self.support >= x)
-    #   return self.cdf_values[first_nonlower]
-
 
   def pdf(self, x: t.Union[float, np.ndarray], **kwargs):
 
@@ -1387,6 +1566,9 @@ class Binned(Empirical):
   
   _supported_types = [np.int64, int]
 
+  def __repr__(self):
+    return f"Integer distribution with support of size {len(self.pdf_values)} ({np.sum(self.pdf_values> 0)} non-zero)"
+
   @validator("support", allow_reuse=True)
   def integer_support(cls, support):
     n = len(support)
@@ -1456,8 +1638,15 @@ class Binned(Empirical):
     return super().__neg__().to_integer() 
 
   @classmethod
-  def from_data(cls, data: np.ndarray):
-
+  def from_data(cls, data: np.ndarray) -> Binned:
+    """Instantiates a Binned object from observed data
+    
+    Args:
+        data (np.ndarray): Observed data
+    
+    Returns:
+        Binned: Integer distribution object
+    """
     data = np.array(data)
     if data.dtype not in self._supported_types:
       warnings.warn("Casting input data to integer values by rounding", stacklevel=2)
@@ -1521,21 +1710,45 @@ class EmpiricalWithGPTail(Mixture):
   """Represents a semiparametric extreme value model with a fitted Generalized Pareto distribution above a certain threshold, and an empirical distribution below it
 
   """
+  threshold: float
+
+  def __repr__(self):
+    return f"Semiparametric model with generalised Pareto tail. Modeling threshold: {self.threshold}, exceedance probability: {self.exs_prob}"
 
   @property
-  def empirical(self):
+  def empirical(self) -> Empirical:
+    """Empirical distribution below the modeling threshold
+    
+    Returns:
+        Empirical: Distribution object
+    """
     return self.distributions[0]
 
   @property
-  def tail(self):
+  def tail(self) -> GPTail:
+    """Generalised Pareto tail model above modeling threshold
+    
+    Returns:
+        GPTail: Distribution
+    """
     return self.distributions[1]
   
-  @property
-  def threshold(self):
-    return self.distributions[1].threshold
+  # @property
+  # def threshold(self) -> float:
+  #   """Modeling threshold
+    
+  #   Returns:
+  #       float: threshold value
+  #   """
+  #   return self.distributions[1].thresholds
 
   @property
-  def exs_prob(self):
+  def exs_prob(self) -> float:
+    """Probability mass above threshold; probability weight of tail model.
+    
+    Returns:
+        float: weight
+    """
     return self.weights[1]
 
   def ppf(self, q: t.Union[float, np.ndarray]) -> t.Union[float, np.ndarray]:
@@ -1585,7 +1798,8 @@ class EmpiricalWithGPTail(Mixture):
 
     return cls(
       distributions = [empirical, tail],
-      weights = np.array([1 - exs_prob, exs_prob]))
+      weights = np.array([1 - exs_prob, exs_prob]),
+      threshold = threshold)
 
   def plot_diagnostics(self) -> matplotlib.figure.Figure:
     return self.tail.plot_diagnostics()
@@ -1856,32 +2070,6 @@ class BayesianGPTail(GPTailMixture):
     axs[2,0].plot([min_x,max_x],[min_x,max_x], linestyle="--", color="black")
     #axs[2,0].fill_between(hat_tail_quantiles, q025_tail_quantiles, q975_tail_quantiles, alpha=0.2, color=self._figure_color_palette[1])
 
-    ############ Mean return plot ###############
-
-    # n_obs = len(self.data)
-    # exs_prob = 1 #carried over from an older code version
-
-    # m = 10**np.linspace(np.log(1/exs_prob + 1)/np.log(10), 3,20)
-    
-    # return_levels = [self.ppf(1-1/x, return_all=True) for x in exs_prob*m]
-
-    # #hat_return_levels are not the mean of posterior return level samples, as the mean is not an unbiased estimator
-    # hat_return_levels = np.array([self.ppf(1-1/x) for x in exs_prob*m])
-    # q025_return_levels = np.array([np.quantile(r, 0.025) for r in return_levels])
-    # q975_return_levels = np.array([np.quantile(r, 0.975) for r in return_levels])
-
-    # # hat_return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
-    # # q025_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.025) for x in exs_prob*m])
-    # # q975_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.975) for x in exs_prob*m])
-
-    # axs[2,1].plot(m,hat_return_levels,color=self._figure_color_palette[0])
-    # axs[2,1].fill_between(m, q025_return_levels, q975_return_levels, alpha=0.2, color=self._figure_color_palette[1])
-    # axs[2,1].set_xscale("log")
-    # axs[2,1].title.set_text('Exceedance return levels')
-    # axs[2,1].set_xlabel('1/frequency')
-    # axs[2,1].set_ylabel('Return level')
-    # axs[2,1].grid()
-
     plt.tight_layout()
     return fig
 
@@ -1929,22 +2117,31 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
 
     return cls(
       weights = np.array([1 -exs_prob, exs_prob]),
-      distributions = [empirical, tail])
+      distributions = [empirical, tail],
+      threshold = threshold)
 
-  def ppf(self, q: t.Union[float, np.ndarray], **kwargs) -> t.Union[float, np.ndarray]:
-
+  def ppf(self, q: t.Union[float, np.ndarray], return_all=False) -> t.Union[float, np.ndarray]:
+    """Returns the quantile function evaluated at some probability level
+    
+    Args:
+        q (t.Union[float, np.ndarray]): probability level
+        return_all (bool, optional): If True, returns posterior ppf sample; otherwise return pointwise estimator
+    
+    Returns:
+        t.Union[float, np.ndarray]: ppf value(s).
+    """
     if isinstance(q, np.ndarray):
       return np.array([self.ppf(elem) for elem in q])
 
     if q <= 1 - self.exs_prob:
-      val = self.empirical.ppf(q/(1-self.exs_prob), **kwargs)
+      val = self.empirical.ppf(q/(1-self.exs_prob), return_all=return_all)
       # if a vector is expected as output, vectorize scalar
       if return_all:
-        return val * np.ones((len(self.tail.shapes)))
+        return val * np.ones((len(self.tail.shapes),))
       else:
         return val
     else:
-      return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob, **kwargs)
+      return self.tail.ppf((q - (1-self.exs_prob))/self.exs_prob, return_all=return_all)
 
   def plot_return_levels(self) -> matplotlib.figure.Figure:
     """Returns a figure with a return level plot using the fitted tail model
@@ -1965,10 +2162,6 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
     hat_return_levels = np.array([self.ppf(1-x, return_all=False) for x in exceedance_frequency])
     q025_return_levels = np.array([np.quantile(r, 0.025) for r in return_levels])
     q975_return_levels = np.array([np.quantile(r, 0.975) for r in return_levels])
-
-    # hat_return_levels = np.array([self.ppf(1 - 1/x) for x in exs_prob*m])
-    # q025_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.025) for x in exs_prob*m])
-    # q975_return_levels = np.array( [np.quantile(self.ppf(1-1/x, return_all=True),0.975) for x in exs_prob*m])
 
     plt.plot(1.0/exceedance_frequency,hat_return_levels,color=self._figure_color_palette[0])
     plt.fill_between(1.0/exceedance_frequency, q025_return_levels, q975_return_levels, alpha=0.2, color=self._figure_color_palette[1])

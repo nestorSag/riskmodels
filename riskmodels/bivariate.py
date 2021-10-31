@@ -54,6 +54,12 @@ class BaseDistribution(BaseModel, ABC):
   class Config:
     arbitrary_types_allowed = True
 
+  def __repr__(self):
+    return "Base distribution object"
+
+  def __str__(self):
+    return self.__repr__()
+
   @abstractmethod
   def pdf(self, x: np.ndarray) -> float:
     """Evaluate probability density function
@@ -138,6 +144,10 @@ class Mixture(BaseDistribution):
   distributions: t.List[BaseDistribution]
   weights: np.ndarray
 
+  def __repr__(self):
+    return f"Mixture with {len(self.weights)} components"
+
+
   def simulate(self, size: int) -> np.ndarray:
     
     n_samples = np.random.multinomial(n=size, pvals = self.weights, size=1)[0]
@@ -159,7 +169,9 @@ class ExceedanceModel(Mixture):
 
   """Interface for exceedance models
   """
-  
+  def __repr__(self):
+    return f"Sempirametric model with {self.tail.__class__.__name__} exceedance dependence"
+
   def plot_diagnostics(self):
 
     return self.distributions[1].plot_diagnostics()
@@ -182,6 +194,9 @@ class Independent(BaseDistribution):
   
   x: univar.BaseDistribution
   y: univar.BaseDistribution
+
+  def __repr__(self):
+    return f"Independent bivariate distribution with marginals:\nx:{x.__repr__()}\ny:{y.__repr__()}"
 
   def pdf(self, x: np.ndarray):
     x1, x2 = x
@@ -272,6 +287,9 @@ class Logistic(ExceedanceDistribution):
 
   _model_marginal_dist = gumbel
   _marginal_model_name = "Gumbel"
+
+  def __repr__(self):
+    return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha} and quantile threshold {self.quantile_threshold}"
 
   @property
   def model_scale_threshold(self):
@@ -751,6 +769,9 @@ class Empirical(BaseDistribution):
     "logistic": Logistic,
     "gaussian": Gaussian
   }
+
+  def __repr__(self):
+    return f"Bivariate empirical distribution with {len(data)} points"
 
   @validator("pdf_values", allow_reuse=True)
   def check_pdf_values(cls, pdf_values):
