@@ -1,5 +1,5 @@
 """
-This module implements surplus distribution models for sequential conventional generation. Because Monte Carlo estimation is the only way to compute statistical properties of time series models for power surpluses, these models rely heavily on large-scale simulation and computation. The classes of this module implement multi-core processing following a map-reduce pattern on a large number of simulated traces that have been persisted in multiple files.
+This module implements surplus distribution models for sequential conventional generation. Because Monte Carlo estimation is the only way to compute statistical properties of time series models for power surpluses, these models rely heavily on large-scale simulation and computation. The classes of this module implement multi-core processing following a map-reduce pattern on a large number of simulated traces that have been persisted in multiple files. The main classes are `UnivariateEmpiricalMapReduce` and `BivariateEmpiricalMapReduce`; the rest of the classes are not supposed to be used directly.
 """
 from __future__ import annotations
 
@@ -297,8 +297,8 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
     renewables: np.ndarray,
     season_length: int,
     n_cores: int = 4,
-    burn_in: int = 100) -> UnivariateEmpiricalMapReduce:
-    """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
+    burn_in: int = 100) -> BaseSurplus:
+    """Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.
     
     Args:
         output_dir (str): Output directory for trace files

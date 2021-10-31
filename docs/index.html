@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>riskmodels API documentation</title>
-<meta name="description" content="This module contains additional functionality particular to power system reliability modeling. For example, implementation of popular available …" />
+<meta name="description" content="This package implements one and two-dimensional extreme value models. Synthatic sugar is provided for univariate models, making it possible to compute …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -23,13 +23,17 @@
 <h1 class="title">Package <code>riskmodels</code></h1>
 </header>
 <section id="section-intro">
-<p>This module contains additional functionality particular to power system reliability modeling. For example, implementation of popular available conventional generation models, and computation of common system risk metrics in one and two-area systems.</p>
+<p>This package implements one and two-dimensional extreme value models. Synthatic sugar is provided for univariate models, making it possible to compute conditional distributions of the form <code>X | X &gt; x</code> using the <code>&gt;</code> and <code>&gt;=</code> operators; distributions with integer support can be convolved with other continuous and integer distributions, which is useful for applications in energy procurement.
+Univariate models consist of MLE-based and Bayesian generalised Pareto tail models and the resulting semiparametric models with a lower empirical component and a higher parametric tail model.
+Bivariate models implement Gaussian and Gumbel-Hougaard copulas for exceedances.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-This module contains additional functionality particular to power system reliability modeling. For example, implementation of popular available conventional generation models, and computation of common system risk metrics in one and two-area systems.
+This package implements one and two-dimensional extreme value models. Synthatic sugar is provided for univariate models, making it possible to compute conditional distributions of the form `X | X &gt; x` using the `&gt;` and `&gt;=` operators; distributions with integer support can be convolved with other continuous and integer distributions, which is useful for applications in energy procurement. 
+Univariate models consist of MLE-based and Bayesian generalised Pareto tail models and the resulting semiparametric models with a lower empirical component and a higher parametric tail model.
+Bivariate models implement Gaussian and Gumbel-Hougaard copulas for exceedances.
 &#34;&#34;&#34;</code></pre>
 </details>
 </section>

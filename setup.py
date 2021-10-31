@@ -3,9 +3,9 @@ from distutils.core import Extension
 
 LATEST = "1.0.0"
 
-# with open("README.md", "r") as fh:
+with open("README.md", "r") as fh:
 
-#     long_description = fh.read()
+    long_description = fh.read()
 
 setuptools.setup(
 
@@ -19,7 +19,7 @@ setuptools.setup(
 
      packages = setuptools.find_namespace_packages(include=['riskmodels.*']),
 
-     description="Models for risk modelling in power capacity planning",
+     description="Extreme value models for applications in energy procurement",
 
      license = "MIT",
 
@@ -37,7 +37,7 @@ setuptools.setup(
         'tqdm'
     ],
 
-     #long_description=long_description,
+     long_description=long_description,
 
      long_description_content_type="text/markdown",
 
