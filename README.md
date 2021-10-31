@@ -194,6 +194,8 @@ In addition, marginal distributions can be passed to be used for quantile estima
 </p>
 
 ```py
+# set random seed
+np.random.seed(1)
 # instantiate bivariate empirical object with net demand from both areas
 bivar_empirical = bivar.Empirical.from_data(np.stack([gb_nd, dk_nd], axis=1))
 bivar_empirical.plot();plt.show()
@@ -230,8 +232,6 @@ For the sake of this example, synthetic conventional generator fleets are going 
 from riskmodels.powersys.iid.convgen import IndependentFleetModel
 # get number of timesteps in peak season
 n = len(gb_nd)
-# set random seed for synthetic data
-np.random.seed(1)
 
 # assume a base fleet of 200 generators with 240 max. capacity and 4% breakdown rate
 uk_gen_df = pd.DataFrame([{"capacity": 240, "availability": 0.96} for k in range(200)])
@@ -247,9 +247,9 @@ def lole(gen, net_demand, n=n):
   return n*(1 - (-gen + net_demand).cdf(0))
 
 # compute pre-interconnection LOLEs
-lole(dk_gen, dk_nd_ev)
+lole(dk_gen, dk_dist_ev)
 
-lole(uk_gen, gb_nd_ev)
+lole(uk_gen, gb_dist_ev)
 ```
 
 LOLE can be computed exactly for univariate surplus distributions as above, but post-interconnection LOLE requires Monte Carlo estimation. Below, post-interconnection LOLEs are computed for both areas for a range of interconnection capacities up to 1.5 GW.
