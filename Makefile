@@ -9,24 +9,17 @@ define verify_install
 	  fi;\
 	fi
 endef
-# setup: ## Installs dependencies for package management; install main package too 
-# 	pip install pytest pdoc3 twine black
-# 	pip install -e .
-
-# 	@if ! [ "$$(pip list | grep pdoc3 -c)" = "1" ]; then\
-# 		pip install pdoc3;\
-# 	fi;
 
 docs: ## Updates documentation
 	$(call verify_install,pdoc3);\
 	rm -rf docs/* && pdoc --html -c latex_math=True -o docs riskmodels && mv docs/riskmodels/* docs/ && rm -rf docs/riskmodels;\
 
-tests: ## Test packag
+tests: ## Tests package
 	@$(call verify_install, pytest);
 	@$(call verify_install, riskmodels);
 	@pytest tests/
 
-format: ## Format package code using official style guidelines
+format: ## Formats modules code using Black
 	$(call verify_install, black);\
 	black riskmodels/*
 
