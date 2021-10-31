@@ -3,7 +3,8 @@ import os
 
 ffibuilder = FFI()
 
-ffibuilder.cdef(""" 
+ffibuilder.cdef(
+    """ 
 
 	double triangle_prob_py_interface(
 	    int origin_x,
@@ -107,21 +108,32 @@ ffibuilder.cdef("""
 	  int c,
 	  int share_policy);
 
-	""")
+	"""
+)
 
 # with open('riskmodels/_c/libbivarmargins.h','r') as f:
 # 	ffibuilder.cdef(f.read())
 
 
-header = "#include \"" + os.path.dirname(os.path.abspath(__file__)) + "/../c/libbivarmargins.h\""
+header = (
+    '#include "'
+    + os.path.dirname(os.path.abspath(__file__))
+    + '/../c/libbivarmargins.h"'
+)
 
-ffibuilder.set_source("c_bivariate_surplus_api",  # name of the output C extension
+ffibuilder.set_source(
+    "c_bivariate_surplus_api",  # name of the output C extension
     # """
     # #include "../../riskmodels/_c/libbivarmargins.h"
     # """,
     header,
-    sources=['riskmodels/c/libbivarmargins.c','riskmodels/c/libunivarmargins.c','riskmodels/c/mtwist-1.5/mtwist.c'],
-    libraries=['m'])    # on Unix, link with the math library
+    sources=[
+        "riskmodels/c/libbivarmargins.c",
+        "riskmodels/c/libunivarmargins.c",
+        "riskmodels/c/mtwist-1.5/mtwist.c",
+    ],
+    libraries=["m"],
+)  # on Unix, link with the math library
 
 if __name__ == "__main__":
     ffibuilder.compile(verbose=True)

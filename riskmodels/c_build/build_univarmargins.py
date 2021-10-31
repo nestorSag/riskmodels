@@ -3,7 +3,8 @@ import os
 
 ffibuilder = FFI()
 
-ffibuilder.cdef(""" 
+ffibuilder.cdef(
+    """ 
 	double empirical_power_margin_cdf_py_interface(
   int x, 
   int nd_length,
@@ -80,17 +81,24 @@ void bayesian_semiparametric_cvar_trace_py_interface(
   double* gen_cdf,
   double* gen_expectation,
   double* py_output);
-	""")
+	"""
+)
 
-header = "#include \"" + os.path.dirname(os.path.abspath(__file__)) + "/../c/libunivarmargins.h\""
+header = (
+    '#include "'
+    + os.path.dirname(os.path.abspath(__file__))
+    + '/../c/libunivarmargins.h"'
+)
 
-ffibuilder.set_source("c_univariate_surplus_api",  # name of the output C extension
+ffibuilder.set_source(
+    "c_univariate_surplus_api",  # name of the output C extension
     # """
     # #include "../../riskmodels/_c/libunivarmargins.h"
     # """,
     header,
-    sources=['riskmodels/c/libunivarmargins.c'],
-    libraries=['m'])    # on Unix, link with the math library
+    sources=["riskmodels/c/libunivarmargins.c"],
+    libraries=["m"],
+)  # on Unix, link with the math library
 
 if __name__ == "__main__":
     ffibuilder.compile(verbose=True)

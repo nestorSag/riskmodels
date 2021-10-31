@@ -3,7 +3,8 @@ import os
 
 ffibuilder = FFI()
 
-ffibuilder.cdef(""" 
+ffibuilder.cdef(
+    """ 
 
   void calculate_post_itc_share_margins_py_interface(
     float* margin_series,
@@ -39,21 +40,28 @@ ffibuilder.cdef("""
       int random_seed,
       int simulate_streaks);
 
-	""")
+	"""
+)
 
 # with open('riskmodels/_c/libtimedependence.h','r') as f:
 # 	ffibuilder.cdef(f.read())
 
-header = "#include \"" + os.path.dirname(os.path.abspath(__file__)) + "/../c/libtimedependence.h\""
+header = (
+    '#include "'
+    + os.path.dirname(os.path.abspath(__file__))
+    + '/../c/libtimedependence.h"'
+)
 
 
-ffibuilder.set_source("c_sequential_models_api",  # name of the output C extension
+ffibuilder.set_source(
+    "c_sequential_models_api",  # name of the output C extension
     # """
     # #include "../../riskmodels/_c/libtimedependence.h"
     # """,
     header,
-    sources=['riskmodels/c/libtimedependence.c','riskmodels/c/mtwist-1.5/mtwist.c'],
-    libraries=['m'])    # on Unix, link with the math library
+    sources=["riskmodels/c/libtimedependence.c", "riskmodels/c/mtwist-1.5/mtwist.c"],
+    libraries=["m"],
+)  # on Unix, link with the math library
 
 if __name__ == "__main__":
     ffibuilder.compile(verbose=True)
