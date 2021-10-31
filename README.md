@@ -160,9 +160,9 @@ Once we confirm the threshold is appropriate, univariate generalised Pareto mode
 ```py
 # Fit univariate models for both areas and plot diagnostics
 gb_dist_ev = gb_nd_dist.fit_tail_model(threshold=gb_nd_dist.ppf(q_th))
-gb_dist_ev.plot_diagnostics();plt.plot()
+gb_dist_ev.plot_diagnostics();plt.show()
 dk_dist_ev = dk_nd_dist.fit_tail_model(threshold=dk_nd_dist.ppf(q_th))
-dk_dist_ev.plot_diagnostics();plt.plot()
+dk_dist_ev.plot_diagnostics();plt.show()
 ```
 
 The result is a semi-parametric model with an empirical distribution below the threshold and a generalised Pareto model above. Generated diagnostics for GB's tail models are shown below.
