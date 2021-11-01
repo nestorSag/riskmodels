@@ -7,23 +7,30 @@ This library focuses on extreme value models for risk analysis in one and two di
 
 The `powersys` submodule offers utilities for applications in energy procurement, with functionality to model available conventional generation (ACG) as well as to calculate loss of load expectation (LOLE) and expected energy unserved (EEU) indices on a wide set of models; efficient parallel time series based simulation for univariate and bivariate power surpluses is also available.
 
-## Table of contents
-
-[Quickstart - extreme value modelling](#ev-modelling)
-
-[Quickstart - energy procurement modelling](#nrg-proc-modelling)
-
 ## Requirements
 
 Python >= 3.7
+
+## Installation
+
+```
+pip install riskmodels
+```
 
 ## API docs
 
 [https://nestorsag.github.io/riskmodels/](https://nestorsag.github.io/riskmodels/)
 
+
 ## Quickstart
 
 Because this library grew from research in energy procurement, this example is related to that but the `univariate` and `bivariate` modules are quite general and can be applied to any kind of data. The following example analyses the co-occurrence of high demand net of renewables (this is, demand minus intermittent generation such as wind and solar) in Great Britain's and Denmark's power systems. This can be done to value interconnection in the context of security of supply analysis, for example.
+
+### Table of contents
+
+[Quickstart - extreme value modelling](#ev-modelling)
+
+[Quickstart - energy procurement modelling](#nrg-proc-modelling)
 
 #### Getting the data
 
@@ -169,7 +176,7 @@ dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
     <em>Mean residual life plot for GB at 95%</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels//readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
 </p>
 
 Once we confirm the threshold is appropriate, univariate generalised Pareto models can be fitted using `fit_tai_model`, and fit diagnostics can be displayed afterwards.
@@ -188,14 +195,14 @@ The result is a semi-parametric model with an empirical distribution below the t
     <em>Diagnostic plots for GB model</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
 </p>
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Return levels for GB</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/gb_return.png" alt="Return levels for Great Britain" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/gb_return.png" alt="Return levels for Great Britain" width="640px">
 </p>
 
 #### Bivariate extreme value modelling
@@ -207,7 +214,7 @@ In addition, marginal distributions can be passed to be used for quantile estima
     <em>Data sample scatterplot (x-axis: GB, y-axis: DK)</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/bivariate_sample.png" alt="GB-DK sample scatterplot" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/bivariate_sample.png" alt="GB-DK sample scatterplot" width="640px">
 </p>
 
 ```py
@@ -238,7 +245,7 @@ bivar_ev_model.plot_diagnostics();plt.show()
     <em>Bivariate model's diagnostics plots</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/bivariate_model.png" alt="Bivariate model's diagnostic plots" width="640px">
 </p>
 
 <a name="nrg-proc-modelling"/>
@@ -306,7 +313,7 @@ plt.show()
     <em>Post-interconnection LOLE indices</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/post_itc_lole.png" alt="post-interconnection LOLE indices" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/post_itc_lole.png" alt="post-interconnection LOLE indices" width="640px">
 </p>
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.
