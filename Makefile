@@ -11,7 +11,7 @@ define verify_install
 endef
 
 docs: ## Updates documentation
-	$(call verify_install, pdoc3);\
+	@$(call verify_install, pdoc3);\
 	rm -rf docs/* && pdoc --html -c latex_math=True -o docs riskmodels && mv docs/riskmodels/* docs/ && rm -rf docs/riskmodels;\
 
 tests: ## Tests package
@@ -20,11 +20,11 @@ tests: ## Tests package
 	@pytest tests/
 
 format: ## Formats modules code using Black
-	$(call verify_install, black);\
+	@$(call verify_install, black);\
 	black riskmodels/*
 
 build: ## Bundles objects for release to PyPI
-	$(call verify_install, build);\
+	@$(call verify_install, build);\
 	python -m build --sdist --wheel --outdir dist/
 	#twine check dist/* && twine upload dist/*
 

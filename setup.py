@@ -1,7 +1,8 @@
+import os
 import setuptools
 from distutils.core import Extension
 
-LATEST = "1.0.0"
+VERSION = os.environ.get("RISKMODELS_VERSION", "1.0.0")
 
 with open("README.md", "r") as fh:
 
@@ -11,7 +12,7 @@ setuptools.setup(
 
      name='riskmodels',  
 
-     version=LATEST,
+     version=VERSION,
 
      author="Nestor Sanchez",
 

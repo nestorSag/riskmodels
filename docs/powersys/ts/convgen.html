@@ -45,251 +45,287 @@ from riskmodels.powersys.iid.convgen import IndependentFleetModel
 
 class MarkovChainGenerationModel(IndependentFleetModel):
 
-  transition_matrices: np.ndarray
-  chain_states: np.ndarray
+    transition_matrices: np.ndarray
+    chain_states: np.ndarray
 
-  &#34;&#34;&#34;Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
+    &#34;&#34;&#34;Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
   &#34;&#34;&#34;
-  def __str__(self):
-    max_cap = np.sum([s[0] for s in self.chain_states])
-    return f&#34;Markov chain generation model with {len(self.transition_matrices)} generators and {max_cap} maximum capacity&#34;
-  
-  @property
-  def stationary_distributions(self):
-    return np.array([self.get_stationary_dist(mat) for mat in self.transition_matrices]) 
-  
-  @classmethod
-  def build_chains(cls,df: pd.DataFrame) -&gt; t.Tuple[np.ndarray, np.ndarray]:
-    &#34;&#34;&#34;Takes a dataframe with generator data (availability and mean time to repair) and returns the corresponding Markov chain states and transition matrices. Here, the availability probability determines the stationary distribution
-    
-    Args:
-        df (pd.DataFrame): Generator data with columns &#39;availability&#39; and &#39;mttr&#39;
-    
-    Returns:
-        t.Tuple[np.ndarray, np.ndarray]
-    &#34;&#34;&#34;
-    def get_transition_matrix(generator_data):
-      prob, mttr = generator_data
-      alpha = 1 - 1/mttr
-      a11 = 1 - (1-prob)*(1-alpha)/prob
-      mat = np.array([[a11,1-a11],[1-alpha,alpha]],dtype=np.float32)
-      mat = mat / np.sum(mat,axis=1)
-      return mat
 
-    states = np.array([np.array([x,0.0]) for x in df[&#34;capacity&#34;]], dtype=np.int32)
-    transition_matrices = np.apply_along_axis(get_transition_matrix,1,np.array(df[[&#34;availability&#34;,&#34;mttr&#34;]]))
+    def __str__(self):
+        max_cap = np.sum([s[0] for s in self.chain_states])
+        return f&#34;Markov chain generation model with {len(self.transition_matrices)} generators and {max_cap} maximum capacity&#34;
 
-    return states, transition_matrices
+    @property
+    def stationary_distributions(self):
+        return np.array(
+            [self.get_stationary_dist(mat) for mat in self.transition_matrices]
+        )
 
-  @classmethod
-  def sample_stationary_dists(
-    cls, 
-    transition_matrices: np.ndarray, 
-    chain_states: np.ndarray) -&gt; np.ndarray:
-    &#34;&#34;&#34;Sample states from the stationary distribution of transition probability matrices
-    
-    Args:
-        transition_matrices (np.ndarray): array of transition probability matrices
-        chain_states (np.ndarray): two-dimensional array with state vectors for each transition matrix
-    
-    Returns:
-        np.ndarray: array with sampled state for each transition matrix
-    &#34;&#34;&#34;
-    sample = []
-    for mat,states in zip(transition_matrices, chain_states):
-      stationary_dist = cls.get_stationary_dist(mat)
-      s = np.random.choice(states,size=1,p=stationary_dist)
-      sample.append(s)
+    @classmethod
+    def build_chains(cls, df: pd.DataFrame) -&gt; t.Tuple[np.ndarray, np.ndarray]:
+        &#34;&#34;&#34;Takes a dataframe with generator data (availability and mean time to repair) and returns the corresponding Markov chain states and transition matrices. Here, the availability probability determines the stationary distribution
 
-    return np.array(sample)
+        Args:
+            df (pd.DataFrame): Generator data with columns &#39;availability&#39; and &#39;mttr&#39;
 
-  @classmethod
-  def get_stationary_dist(cls, mat: np.ndarray) -&gt; np.ndarray:
-    &#34;&#34;&#34;Compute stationary probability distribution over states for a Markov chain
-    
-    Args:
-        mat (np.ndarray): transition probability matrix
-    
-    Returns:
-        np.ndarray: vector with stationary probability values for each state
-    
-    &#34;&#34;&#34;
-    # from somewhere in stackoverflow
-    
-    evals, evecs = np.linalg.eig(mat.T)
-    evec1 = evecs[:,np.isclose(evals, 1)]
+        Returns:
+            t.Tuple[np.ndarray, np.ndarray]
+        &#34;&#34;&#34;
 
-    #Since np.isclose will return an array, we&#39;ve indexed with an array
-    #so we still have our 2nd axis.  Get rid of it, since it&#39;s only size 1.
-    if evec1.shape[1] == 0:
-      raise Exception(&#34;Some generators might not have a stationary distribution&#34;)
-    evec1 = evec1[:,0]
+        def get_transition_matrix(generator_data):
+            prob, mttr = generator_data
+            alpha = 1 - 1 / mttr
+            a11 = 1 - (1 - prob) * (1 - alpha) / prob
+            mat = np.array([[a11, 1 - a11], [1 - alpha, alpha]], dtype=np.float32)
+            mat = mat / np.sum(mat, axis=1)
+            return mat
 
-    stationary = evec1 / evec1.sum()
+        states = np.array([np.array([x, 0.0]) for x in df[&#34;capacity&#34;]], dtype=np.int32)
+        transition_matrices = np.apply_along_axis(
+            get_transition_matrix, 1, np.array(df[[&#34;availability&#34;, &#34;mttr&#34;]])
+        )
 
-    #eigs finds complex eigenvalues and eigenvectors, so you&#39;ll want the real part.
-    stationary = stationary.real
+        return states, transition_matrices
 
-    return stationary
+    @classmethod
+    def sample_stationary_dists(
+        cls, transition_matrices: np.ndarray, chain_states: np.ndarray
+    ) -&gt; np.ndarray:
+        &#34;&#34;&#34;Sample states from the stationary distribution of transition probability matrices
 
-  @classmethod
-  def from_generator_df(cls, df: pd.DataFrame) -&gt; MarkovChainGenerationModel:
-    &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
-    
-    Args:
-        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; in additon, an &#39;mttr&#39; column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
-    
-    Returns:
-        MarkovChainGenerationModel: fitted model
-    
-    &#34;&#34;&#34;
+        Args:
+            transition_matrices (np.ndarray): array of transition probability matrices
+            chain_states (np.ndarray): two-dimensional array with state vectors for each transition matrix
 
-    time_collapsed = super().from_generator_df(df)
+        Returns:
+            np.ndarray: array with sampled state for each transition matrix
+        &#34;&#34;&#34;
+        sample = []
+        for mat, states in zip(transition_matrices, chain_states):
+            stationary_dist = cls.get_stationary_dist(mat)
+            s = np.random.choice(states, size=1, p=stationary_dist)
+            sample.append(s)
 
-    df[&#34;capacity&#34;] = df[&#34;capacity&#34;].astype(np.int32) #for consistency between time-collapsed and time-dependent logic
+        return np.array(sample)
 
-    states, matrices = cls.build_chains(df) 
+    @classmethod
+    def get_stationary_dist(cls, mat: np.ndarray) -&gt; np.ndarray:
+        &#34;&#34;&#34;Compute stationary probability distribution over states for a Markov chain
 
-    return cls(
-      pdf_values = time_collapsed.pdf_values,
-      support = time_collapsed.support,
-      data = time_collapsed.data,
-      transition_matrices = matrices,
-      chain_states = states)
+        Args:
+            mat (np.ndarray): transition probability matrix
 
-  @classmethod
-  def simulate_chains(
-    cls, 
-    size: int,
-    trace_length: int,
-    transition_matrices: np.ndarray,
-    chain_states: np.ndarray,
-    initial_state: np.ndarray = None,
-    simulate_escape_time: bool = True,
-    output_array: np.ndarray = None) -&gt; np.Optional[np.ndarray]:
-      &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
-      
-      Args:
-          size (int): Number of traces to simulate
-          trace_length (int): length of individual traces
-          transition_matrices (np.ndarray): three-dimensional array containing transition probability matrices for all chains
-          chain_states (np.ndarray): two-dimensional array with vectors of chain states for all chains
-          initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
-          simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
-          output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
-      
-      Returns:
-          np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
-      
-      
-      Raises:
-          ValueError: Description
-      
-      
-      &#34;&#34;&#34;
-      n_chains = len(chain_states)
-      n_states = len(chain_states[0])
+        Returns:
+            np.ndarray: vector with stationary probability values for each state
 
-      # set output array
-      if output_array is not None:
-        if not isinstance(output_array, np.ndarray) or len(output_array.shape) != 2 or output_array.shape != (size,trace_length) or output_array.dtype != np.float32:
-          raise ValueError(&#34;output_array must be a two-dimensional numpy array with shape (size, trace_length) of type numpy.float32&#34;)
-        return_output = False
-      else:
-        output_array = np.ascontiguousarray(np.zeros((size,trace_length)),dtype=np.float32)
-        return_output = True
+        &#34;&#34;&#34;
+        # from somewhere in stackoverflow
 
-      # if seed is None:
-      #   seed = np.random.randint(low=0,high=2**31-1)
-      # else:
-      #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
-      seed = np.random.randint(low=0,high=2**31-1)
+        evals, evecs = np.linalg.eig(mat.T)
+        evec1 = evecs[:, np.isclose(evals, 1)]
 
-      # set initial state array
-      if initial_state is None:
-        initial_state = cls.sample_stationary_dists(transition_matrices, chain_states).reshape(-1)
-      else:
-        if not isinstance(initial_state, np.ndarray) or len(initial_state.shape) != 1 or len(initial_state) != n_chains:
-          #print(initial_state)
-          #print(initial_state.shape)
-          raise ValueError(&#34;Initial state vector must be a one-dimensional numpy array with as many entries as transition_matrices.&#34;)
+        # Since np.isclose will return an array, we&#39;ve indexed with an array
+        # so we still have our 2nd axis.  Get rid of it, since it&#39;s only size 1.
+        if evec1.shape[1] == 0:
+            raise Exception(&#34;Some generators might not have a stationary distribution&#34;)
+        evec1 = evec1[:, 0]
 
-      if np.any(np.array([len(s) for s in chain_states]) != n_states):
-        raise ValueError(&#34;Number of states must be the same for all chains&#34;)
+        stationary = evec1 / evec1.sum()
 
-      if np.any(np.array([s.shape != (n_states, n_states) for s in transition_matrices])):
-        raise ValueError(&#34;Matrices must be squared and of the same dimensions&#34;)
+        # eigs finds complex eigenvalues and eigenvectors, so you&#39;ll want the real part.
+        stationary = stationary.real
 
-      # call C program
-      if trace_length &lt;= 1:
-        raise ValueError(&#34;Trace length must be an integer larger than 1&#34;)
+        return stationary
 
-      # cast as float
-      initial_state = np.ascontiguousarray(initial_state).astype(np.float32)
-      float_chain_states = chain_states.astype(np.float32)
+    @classmethod
+    def from_generator_df(cls, df: pd.DataFrame) -&gt; MarkovChainGenerationModel:
+        &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
-      C_API.simulate_mc_power_grid_py_interface(
-        ffi.cast(&#34;float *&#34;,output_array.ctypes.data),
-        ffi.cast(&#34;float *&#34;,transition_matrices.ctypes.data),
-        ffi.cast(&#34;float *&#34;,float_chain_states.ctypes.data),
-        ffi.cast(&#34;float *&#34;,initial_state.ctypes.data),
-        np.int32(n_chains),
-        np.int32(size),
-        np.int32(trace_length - 1), #initial state is accounted for in trace length
-        np.int32(n_states),
-        np.int32(seed),
-        np.int32(simulate_escape_time))
+        Args:
+            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; in additon, an &#39;mttr&#39; column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
 
-      if return_output:
-        return output_array
+        Returns:
+            MarkovChainGenerationModel: fitted model
 
-  def simulate(self, size: int) -&gt; np.ndarray:
-    &#34;&#34;&#34;Simulate a single trace of sequential observations
-    
-    Args:
-        size (int): Number of samples, or equivalently, trace length.
-    
-    Returns:
-        np.ndarray
-    &#34;&#34;&#34;
-    return self.simulate_chains(
-      size=1,
-      trace_length=size,
-      transition_matrices=self.transition_matrices,
-      chain_states=self.chain_states,
-      initial_state=None,
-      simulate_escape_time=True).reshape(-1)
+        &#34;&#34;&#34;
 
-  def simulate_seasons(
-    self, 
-    size: int, 
-    season_length: int,
-    seasons_per_trace: int = 1,
-    burn_in: int = 100) -&gt; np.ndarray:
-    &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
-    
-    Args:
-        size (int): number of traces to sample
-        season_length (int): peak season length
-        seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
-        burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
-    
-    Returns:
-        np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
-    &#34;&#34;&#34;
-    total_seasons = size*seasons_per_trace
-    augmented_season_length = season_length + burn_in
+        time_collapsed = super().from_generator_df(df)
 
-    output_array = self.simulate_chains(
-      size=total_seasons,
-      trace_length=augmented_season_length,
-      transition_matrices=self.transition_matrices,
-      chain_states=self.chain_states,
-      initial_state=None,
-      simulate_escape_time=True)
+        df[&#34;capacity&#34;] = df[&#34;capacity&#34;].astype(
+            np.int32
+        )  # for consistency between time-collapsed and time-dependent logic
 
-    # drop burn in periods and reshape
-    return output_array[:,0:season_length].reshape((size, season_length*seasons_per_trace))</code></pre>
+        states, matrices = cls.build_chains(df)
+
+        return cls(
+            pdf_values=time_collapsed.pdf_values,
+            support=time_collapsed.support,
+            data=time_collapsed.data,
+            transition_matrices=matrices,
+            chain_states=states,
+        )
+
+    @classmethod
+    def simulate_chains(
+        cls,
+        size: int,
+        trace_length: int,
+        transition_matrices: np.ndarray,
+        chain_states: np.ndarray,
+        initial_state: np.ndarray = None,
+        simulate_escape_time: bool = True,
+        output_array: np.ndarray = None,
+    ) -&gt; np.Optional[np.ndarray]:
+        &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
+
+        Args:
+            size (int): Number of traces to simulate
+            trace_length (int): length of individual traces
+            transition_matrices (np.ndarray): three-dimensional array containing transition probability matrices for all chains
+            chain_states (np.ndarray): two-dimensional array with vectors of chain states for all chains
+            initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
+            simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
+            output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
+
+        Returns:
+            np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
+
+
+        Raises:
+            ValueError: Description
+
+
+        &#34;&#34;&#34;
+        n_chains = len(chain_states)
+        n_states = len(chain_states[0])
+
+        # set output array
+        if output_array is not None:
+            if (
+                not isinstance(output_array, np.ndarray)
+                or len(output_array.shape) != 2
+                or output_array.shape != (size, trace_length)
+                or output_array.dtype != np.float32
+            ):
+                raise ValueError(
+                    &#34;output_array must be a two-dimensional numpy array with shape (size, trace_length) of type numpy.float32&#34;
+                )
+            return_output = False
+        else:
+            output_array = np.ascontiguousarray(
+                np.zeros((size, trace_length)), dtype=np.float32
+            )
+            return_output = True
+
+        # if seed is None:
+        #   seed = np.random.randint(low=0,high=2**31-1)
+        # else:
+        #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
+        seed = np.random.randint(low=0, high=2 ** 31 - 1)
+
+        # set initial state array
+        if initial_state is None:
+            initial_state = cls.sample_stationary_dists(
+                transition_matrices, chain_states
+            ).reshape(-1)
+        else:
+            if (
+                not isinstance(initial_state, np.ndarray)
+                or len(initial_state.shape) != 1
+                or len(initial_state) != n_chains
+            ):
+                # print(initial_state)
+                # print(initial_state.shape)
+                raise ValueError(
+                    &#34;Initial state vector must be a one-dimensional numpy array with as many entries as transition_matrices.&#34;
+                )
+
+        if np.any(np.array([len(s) for s in chain_states]) != n_states):
+            raise ValueError(&#34;Number of states must be the same for all chains&#34;)
+
+        if np.any(
+            np.array([s.shape != (n_states, n_states) for s in transition_matrices])
+        ):
+            raise ValueError(&#34;Matrices must be squared and of the same dimensions&#34;)
+
+        # call C program
+        if trace_length &lt;= 1:
+            raise ValueError(&#34;Trace length must be an integer larger than 1&#34;)
+
+        # cast as float
+        initial_state = np.ascontiguousarray(initial_state).astype(np.float32)
+        float_chain_states = chain_states.astype(np.float32)
+
+        C_API.simulate_mc_power_grid_py_interface(
+            ffi.cast(&#34;float *&#34;, output_array.ctypes.data),
+            ffi.cast(&#34;float *&#34;, transition_matrices.ctypes.data),
+            ffi.cast(&#34;float *&#34;, float_chain_states.ctypes.data),
+            ffi.cast(&#34;float *&#34;, initial_state.ctypes.data),
+            np.int32(n_chains),
+            np.int32(size),
+            np.int32(
+                trace_length - 1
+            ),  # initial state is accounted for in trace length
+            np.int32(n_states),
+            np.int32(seed),
+            np.int32(simulate_escape_time),
+        )
+
+        if return_output:
+            return output_array
+
+    def simulate(self, size: int) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulate a single trace of sequential observations
+
+        Args:
+            size (int): Number of samples, or equivalently, trace length.
+
+        Returns:
+            np.ndarray
+        &#34;&#34;&#34;
+        return self.simulate_chains(
+            size=1,
+            trace_length=size,
+            transition_matrices=self.transition_matrices,
+            chain_states=self.chain_states,
+            initial_state=None,
+            simulate_escape_time=True,
+        ).reshape(-1)
+
+    def simulate_seasons(
+        self,
+        size: int,
+        season_length: int,
+        seasons_per_trace: int = 1,
+        burn_in: int = 100,
+    ) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
+
+        Args:
+            size (int): number of traces to sample
+            season_length (int): peak season length
+            seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
+            burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
+
+        Returns:
+            np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
+        &#34;&#34;&#34;
+        total_seasons = size * seasons_per_trace
+        augmented_season_length = season_length + burn_in
+
+        output_array = self.simulate_chains(
+            size=total_seasons,
+            trace_length=augmented_season_length,
+            transition_matrices=self.transition_matrices,
+            chain_states=self.chain_states,
+            initial_state=None,
+            simulate_escape_time=True,
+        )
+
+        # drop burn in periods and reshape
+        return output_array[:, 0:season_length].reshape(
+            (size, season_length * seasons_per_trace)
+        )</code></pre>
 </details>
 </section>
 <section>
@@ -315,251 +351,287 @@ class MarkovChainGenerationModel(IndependentFleetModel):
 </summary>
 <pre><code class="python">class MarkovChainGenerationModel(IndependentFleetModel):
 
-  transition_matrices: np.ndarray
-  chain_states: np.ndarray
+    transition_matrices: np.ndarray
+    chain_states: np.ndarray
 
-  &#34;&#34;&#34;Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
+    &#34;&#34;&#34;Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
   &#34;&#34;&#34;
-  def __str__(self):
-    max_cap = np.sum([s[0] for s in self.chain_states])
-    return f&#34;Markov chain generation model with {len(self.transition_matrices)} generators and {max_cap} maximum capacity&#34;
-  
-  @property
-  def stationary_distributions(self):
-    return np.array([self.get_stationary_dist(mat) for mat in self.transition_matrices]) 
-  
-  @classmethod
-  def build_chains(cls,df: pd.DataFrame) -&gt; t.Tuple[np.ndarray, np.ndarray]:
-    &#34;&#34;&#34;Takes a dataframe with generator data (availability and mean time to repair) and returns the corresponding Markov chain states and transition matrices. Here, the availability probability determines the stationary distribution
-    
-    Args:
-        df (pd.DataFrame): Generator data with columns &#39;availability&#39; and &#39;mttr&#39;
-    
-    Returns:
-        t.Tuple[np.ndarray, np.ndarray]
-    &#34;&#34;&#34;
-    def get_transition_matrix(generator_data):
-      prob, mttr = generator_data
-      alpha = 1 - 1/mttr
-      a11 = 1 - (1-prob)*(1-alpha)/prob
-      mat = np.array([[a11,1-a11],[1-alpha,alpha]],dtype=np.float32)
-      mat = mat / np.sum(mat,axis=1)
-      return mat
 
-    states = np.array([np.array([x,0.0]) for x in df[&#34;capacity&#34;]], dtype=np.int32)
-    transition_matrices = np.apply_along_axis(get_transition_matrix,1,np.array(df[[&#34;availability&#34;,&#34;mttr&#34;]]))
+    def __str__(self):
+        max_cap = np.sum([s[0] for s in self.chain_states])
+        return f&#34;Markov chain generation model with {len(self.transition_matrices)} generators and {max_cap} maximum capacity&#34;
 
-    return states, transition_matrices
+    @property
+    def stationary_distributions(self):
+        return np.array(
+            [self.get_stationary_dist(mat) for mat in self.transition_matrices]
+        )
 
-  @classmethod
-  def sample_stationary_dists(
-    cls, 
-    transition_matrices: np.ndarray, 
-    chain_states: np.ndarray) -&gt; np.ndarray:
-    &#34;&#34;&#34;Sample states from the stationary distribution of transition probability matrices
-    
-    Args:
-        transition_matrices (np.ndarray): array of transition probability matrices
-        chain_states (np.ndarray): two-dimensional array with state vectors for each transition matrix
-    
-    Returns:
-        np.ndarray: array with sampled state for each transition matrix
-    &#34;&#34;&#34;
-    sample = []
-    for mat,states in zip(transition_matrices, chain_states):
-      stationary_dist = cls.get_stationary_dist(mat)
-      s = np.random.choice(states,size=1,p=stationary_dist)
-      sample.append(s)
+    @classmethod
+    def build_chains(cls, df: pd.DataFrame) -&gt; t.Tuple[np.ndarray, np.ndarray]:
+        &#34;&#34;&#34;Takes a dataframe with generator data (availability and mean time to repair) and returns the corresponding Markov chain states and transition matrices. Here, the availability probability determines the stationary distribution
 
-    return np.array(sample)
+        Args:
+            df (pd.DataFrame): Generator data with columns &#39;availability&#39; and &#39;mttr&#39;
 
-  @classmethod
-  def get_stationary_dist(cls, mat: np.ndarray) -&gt; np.ndarray:
-    &#34;&#34;&#34;Compute stationary probability distribution over states for a Markov chain
-    
-    Args:
-        mat (np.ndarray): transition probability matrix
-    
-    Returns:
-        np.ndarray: vector with stationary probability values for each state
-    
-    &#34;&#34;&#34;
-    # from somewhere in stackoverflow
-    
-    evals, evecs = np.linalg.eig(mat.T)
-    evec1 = evecs[:,np.isclose(evals, 1)]
+        Returns:
+            t.Tuple[np.ndarray, np.ndarray]
+        &#34;&#34;&#34;
 
-    #Since np.isclose will return an array, we&#39;ve indexed with an array
-    #so we still have our 2nd axis.  Get rid of it, since it&#39;s only size 1.
-    if evec1.shape[1] == 0:
-      raise Exception(&#34;Some generators might not have a stationary distribution&#34;)
-    evec1 = evec1[:,0]
+        def get_transition_matrix(generator_data):
+            prob, mttr = generator_data
+            alpha = 1 - 1 / mttr
+            a11 = 1 - (1 - prob) * (1 - alpha) / prob
+            mat = np.array([[a11, 1 - a11], [1 - alpha, alpha]], dtype=np.float32)
+            mat = mat / np.sum(mat, axis=1)
+            return mat
 
-    stationary = evec1 / evec1.sum()
+        states = np.array([np.array([x, 0.0]) for x in df[&#34;capacity&#34;]], dtype=np.int32)
+        transition_matrices = np.apply_along_axis(
+            get_transition_matrix, 1, np.array(df[[&#34;availability&#34;, &#34;mttr&#34;]])
+        )
 
-    #eigs finds complex eigenvalues and eigenvectors, so you&#39;ll want the real part.
-    stationary = stationary.real
+        return states, transition_matrices
 
-    return stationary
+    @classmethod
+    def sample_stationary_dists(
+        cls, transition_matrices: np.ndarray, chain_states: np.ndarray
+    ) -&gt; np.ndarray:
+        &#34;&#34;&#34;Sample states from the stationary distribution of transition probability matrices
 
-  @classmethod
-  def from_generator_df(cls, df: pd.DataFrame) -&gt; MarkovChainGenerationModel:
-    &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
-    
-    Args:
-        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; in additon, an &#39;mttr&#39; column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
-    
-    Returns:
-        MarkovChainGenerationModel: fitted model
-    
-    &#34;&#34;&#34;
+        Args:
+            transition_matrices (np.ndarray): array of transition probability matrices
+            chain_states (np.ndarray): two-dimensional array with state vectors for each transition matrix
 
-    time_collapsed = super().from_generator_df(df)
+        Returns:
+            np.ndarray: array with sampled state for each transition matrix
+        &#34;&#34;&#34;
+        sample = []
+        for mat, states in zip(transition_matrices, chain_states):
+            stationary_dist = cls.get_stationary_dist(mat)
+            s = np.random.choice(states, size=1, p=stationary_dist)
+            sample.append(s)
 
-    df[&#34;capacity&#34;] = df[&#34;capacity&#34;].astype(np.int32) #for consistency between time-collapsed and time-dependent logic
+        return np.array(sample)
 
-    states, matrices = cls.build_chains(df) 
+    @classmethod
+    def get_stationary_dist(cls, mat: np.ndarray) -&gt; np.ndarray:
+        &#34;&#34;&#34;Compute stationary probability distribution over states for a Markov chain
 
-    return cls(
-      pdf_values = time_collapsed.pdf_values,
-      support = time_collapsed.support,
-      data = time_collapsed.data,
-      transition_matrices = matrices,
-      chain_states = states)
+        Args:
+            mat (np.ndarray): transition probability matrix
 
-  @classmethod
-  def simulate_chains(
-    cls, 
-    size: int,
-    trace_length: int,
-    transition_matrices: np.ndarray,
-    chain_states: np.ndarray,
-    initial_state: np.ndarray = None,
-    simulate_escape_time: bool = True,
-    output_array: np.ndarray = None) -&gt; np.Optional[np.ndarray]:
-      &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
-      
-      Args:
-          size (int): Number of traces to simulate
-          trace_length (int): length of individual traces
-          transition_matrices (np.ndarray): three-dimensional array containing transition probability matrices for all chains
-          chain_states (np.ndarray): two-dimensional array with vectors of chain states for all chains
-          initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
-          simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
-          output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
-      
-      Returns:
-          np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
-      
-      
-      Raises:
-          ValueError: Description
-      
-      
-      &#34;&#34;&#34;
-      n_chains = len(chain_states)
-      n_states = len(chain_states[0])
+        Returns:
+            np.ndarray: vector with stationary probability values for each state
 
-      # set output array
-      if output_array is not None:
-        if not isinstance(output_array, np.ndarray) or len(output_array.shape) != 2 or output_array.shape != (size,trace_length) or output_array.dtype != np.float32:
-          raise ValueError(&#34;output_array must be a two-dimensional numpy array with shape (size, trace_length) of type numpy.float32&#34;)
-        return_output = False
-      else:
-        output_array = np.ascontiguousarray(np.zeros((size,trace_length)),dtype=np.float32)
-        return_output = True
+        &#34;&#34;&#34;
+        # from somewhere in stackoverflow
 
-      # if seed is None:
-      #   seed = np.random.randint(low=0,high=2**31-1)
-      # else:
-      #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
-      seed = np.random.randint(low=0,high=2**31-1)
+        evals, evecs = np.linalg.eig(mat.T)
+        evec1 = evecs[:, np.isclose(evals, 1)]
 
-      # set initial state array
-      if initial_state is None:
-        initial_state = cls.sample_stationary_dists(transition_matrices, chain_states).reshape(-1)
-      else:
-        if not isinstance(initial_state, np.ndarray) or len(initial_state.shape) != 1 or len(initial_state) != n_chains:
-          #print(initial_state)
-          #print(initial_state.shape)
-          raise ValueError(&#34;Initial state vector must be a one-dimensional numpy array with as many entries as transition_matrices.&#34;)
+        # Since np.isclose will return an array, we&#39;ve indexed with an array
+        # so we still have our 2nd axis.  Get rid of it, since it&#39;s only size 1.
+        if evec1.shape[1] == 0:
+            raise Exception(&#34;Some generators might not have a stationary distribution&#34;)
+        evec1 = evec1[:, 0]
 
-      if np.any(np.array([len(s) for s in chain_states]) != n_states):
-        raise ValueError(&#34;Number of states must be the same for all chains&#34;)
+        stationary = evec1 / evec1.sum()
 
-      if np.any(np.array([s.shape != (n_states, n_states) for s in transition_matrices])):
-        raise ValueError(&#34;Matrices must be squared and of the same dimensions&#34;)
+        # eigs finds complex eigenvalues and eigenvectors, so you&#39;ll want the real part.
+        stationary = stationary.real
 
-      # call C program
-      if trace_length &lt;= 1:
-        raise ValueError(&#34;Trace length must be an integer larger than 1&#34;)
+        return stationary
 
-      # cast as float
-      initial_state = np.ascontiguousarray(initial_state).astype(np.float32)
-      float_chain_states = chain_states.astype(np.float32)
+    @classmethod
+    def from_generator_df(cls, df: pd.DataFrame) -&gt; MarkovChainGenerationModel:
+        &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
-      C_API.simulate_mc_power_grid_py_interface(
-        ffi.cast(&#34;float *&#34;,output_array.ctypes.data),
-        ffi.cast(&#34;float *&#34;,transition_matrices.ctypes.data),
-        ffi.cast(&#34;float *&#34;,float_chain_states.ctypes.data),
-        ffi.cast(&#34;float *&#34;,initial_state.ctypes.data),
-        np.int32(n_chains),
-        np.int32(size),
-        np.int32(trace_length - 1), #initial state is accounted for in trace length
-        np.int32(n_states),
-        np.int32(seed),
-        np.int32(simulate_escape_time))
+        Args:
+            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; in additon, an &#39;mttr&#39; column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
 
-      if return_output:
-        return output_array
+        Returns:
+            MarkovChainGenerationModel: fitted model
 
-  def simulate(self, size: int) -&gt; np.ndarray:
-    &#34;&#34;&#34;Simulate a single trace of sequential observations
-    
-    Args:
-        size (int): Number of samples, or equivalently, trace length.
-    
-    Returns:
-        np.ndarray
-    &#34;&#34;&#34;
-    return self.simulate_chains(
-      size=1,
-      trace_length=size,
-      transition_matrices=self.transition_matrices,
-      chain_states=self.chain_states,
-      initial_state=None,
-      simulate_escape_time=True).reshape(-1)
+        &#34;&#34;&#34;
 
-  def simulate_seasons(
-    self, 
-    size: int, 
-    season_length: int,
-    seasons_per_trace: int = 1,
-    burn_in: int = 100) -&gt; np.ndarray:
-    &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
-    
-    Args:
-        size (int): number of traces to sample
-        season_length (int): peak season length
-        seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
-        burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
-    
-    Returns:
-        np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
-    &#34;&#34;&#34;
-    total_seasons = size*seasons_per_trace
-    augmented_season_length = season_length + burn_in
+        time_collapsed = super().from_generator_df(df)
 
-    output_array = self.simulate_chains(
-      size=total_seasons,
-      trace_length=augmented_season_length,
-      transition_matrices=self.transition_matrices,
-      chain_states=self.chain_states,
-      initial_state=None,
-      simulate_escape_time=True)
+        df[&#34;capacity&#34;] = df[&#34;capacity&#34;].astype(
+            np.int32
+        )  # for consistency between time-collapsed and time-dependent logic
 
-    # drop burn in periods and reshape
-    return output_array[:,0:season_length].reshape((size, season_length*seasons_per_trace))</code></pre>
+        states, matrices = cls.build_chains(df)
+
+        return cls(
+            pdf_values=time_collapsed.pdf_values,
+            support=time_collapsed.support,
+            data=time_collapsed.data,
+            transition_matrices=matrices,
+            chain_states=states,
+        )
+
+    @classmethod
+    def simulate_chains(
+        cls,
+        size: int,
+        trace_length: int,
+        transition_matrices: np.ndarray,
+        chain_states: np.ndarray,
+        initial_state: np.ndarray = None,
+        simulate_escape_time: bool = True,
+        output_array: np.ndarray = None,
+    ) -&gt; np.Optional[np.ndarray]:
+        &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
+
+        Args:
+            size (int): Number of traces to simulate
+            trace_length (int): length of individual traces
+            transition_matrices (np.ndarray): three-dimensional array containing transition probability matrices for all chains
+            chain_states (np.ndarray): two-dimensional array with vectors of chain states for all chains
+            initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
+            simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
+            output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
+
+        Returns:
+            np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
+
+
+        Raises:
+            ValueError: Description
+
+
+        &#34;&#34;&#34;
+        n_chains = len(chain_states)
+        n_states = len(chain_states[0])
+
+        # set output array
+        if output_array is not None:
+            if (
+                not isinstance(output_array, np.ndarray)
+                or len(output_array.shape) != 2
+                or output_array.shape != (size, trace_length)
+                or output_array.dtype != np.float32
+            ):
+                raise ValueError(
+                    &#34;output_array must be a two-dimensional numpy array with shape (size, trace_length) of type numpy.float32&#34;
+                )
+            return_output = False
+        else:
+            output_array = np.ascontiguousarray(
+                np.zeros((size, trace_length)), dtype=np.float32
+            )
+            return_output = True
+
+        # if seed is None:
+        #   seed = np.random.randint(low=0,high=2**31-1)
+        # else:
+        #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
+        seed = np.random.randint(low=0, high=2 ** 31 - 1)
+
+        # set initial state array
+        if initial_state is None:
+            initial_state = cls.sample_stationary_dists(
+                transition_matrices, chain_states
+            ).reshape(-1)
+        else:
+            if (
+                not isinstance(initial_state, np.ndarray)
+                or len(initial_state.shape) != 1
+                or len(initial_state) != n_chains
+            ):
+                # print(initial_state)
+                # print(initial_state.shape)
+                raise ValueError(
+                    &#34;Initial state vector must be a one-dimensional numpy array with as many entries as transition_matrices.&#34;
+                )
+
+        if np.any(np.array([len(s) for s in chain_states]) != n_states):
+            raise ValueError(&#34;Number of states must be the same for all chains&#34;)
+
+        if np.any(
+            np.array([s.shape != (n_states, n_states) for s in transition_matrices])
+        ):
+            raise ValueError(&#34;Matrices must be squared and of the same dimensions&#34;)
+
+        # call C program
+        if trace_length &lt;= 1:
+            raise ValueError(&#34;Trace length must be an integer larger than 1&#34;)
+
+        # cast as float
+        initial_state = np.ascontiguousarray(initial_state).astype(np.float32)
+        float_chain_states = chain_states.astype(np.float32)
+
+        C_API.simulate_mc_power_grid_py_interface(
+            ffi.cast(&#34;float *&#34;, output_array.ctypes.data),
+            ffi.cast(&#34;float *&#34;, transition_matrices.ctypes.data),
+            ffi.cast(&#34;float *&#34;, float_chain_states.ctypes.data),
+            ffi.cast(&#34;float *&#34;, initial_state.ctypes.data),
+            np.int32(n_chains),
+            np.int32(size),
+            np.int32(
+                trace_length - 1
+            ),  # initial state is accounted for in trace length
+            np.int32(n_states),
+            np.int32(seed),
+            np.int32(simulate_escape_time),
+        )
+
+        if return_output:
+            return output_array
+
+    def simulate(self, size: int) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulate a single trace of sequential observations
+
+        Args:
+            size (int): Number of samples, or equivalently, trace length.
+
+        Returns:
+            np.ndarray
+        &#34;&#34;&#34;
+        return self.simulate_chains(
+            size=1,
+            trace_length=size,
+            transition_matrices=self.transition_matrices,
+            chain_states=self.chain_states,
+            initial_state=None,
+            simulate_escape_time=True,
+        ).reshape(-1)
+
+    def simulate_seasons(
+        self,
+        size: int,
+        season_length: int,
+        seasons_per_trace: int = 1,
+        burn_in: int = 100,
+    ) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
+
+        Args:
+            size (int): number of traces to sample
+            season_length (int): peak season length
+            seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
+            burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
+
+        Returns:
+            np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
+        &#34;&#34;&#34;
+        total_seasons = size * seasons_per_trace
+        augmented_season_length = season_length + burn_in
+
+        output_array = self.simulate_chains(
+            size=total_seasons,
+            trace_length=augmented_season_length,
+            transition_matrices=self.transition_matrices,
+            chain_states=self.chain_states,
+            initial_state=None,
+            simulate_escape_time=True,
+        )
+
+        # drop burn in periods and reshape
+        return output_array[:, 0:season_length].reshape(
+            (size, season_length * seasons_per_trace)
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -600,27 +672,30 @@ class MarkovChainGenerationModel(IndependentFleetModel):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@classmethod
-def build_chains(cls,df: pd.DataFrame) -&gt; t.Tuple[np.ndarray, np.ndarray]:
-  &#34;&#34;&#34;Takes a dataframe with generator data (availability and mean time to repair) and returns the corresponding Markov chain states and transition matrices. Here, the availability probability determines the stationary distribution
-  
-  Args:
-      df (pd.DataFrame): Generator data with columns &#39;availability&#39; and &#39;mttr&#39;
-  
-  Returns:
-      t.Tuple[np.ndarray, np.ndarray]
-  &#34;&#34;&#34;
-  def get_transition_matrix(generator_data):
-    prob, mttr = generator_data
-    alpha = 1 - 1/mttr
-    a11 = 1 - (1-prob)*(1-alpha)/prob
-    mat = np.array([[a11,1-a11],[1-alpha,alpha]],dtype=np.float32)
-    mat = mat / np.sum(mat,axis=1)
-    return mat
+def build_chains(cls, df: pd.DataFrame) -&gt; t.Tuple[np.ndarray, np.ndarray]:
+    &#34;&#34;&#34;Takes a dataframe with generator data (availability and mean time to repair) and returns the corresponding Markov chain states and transition matrices. Here, the availability probability determines the stationary distribution
 
-  states = np.array([np.array([x,0.0]) for x in df[&#34;capacity&#34;]], dtype=np.int32)
-  transition_matrices = np.apply_along_axis(get_transition_matrix,1,np.array(df[[&#34;availability&#34;,&#34;mttr&#34;]]))
+    Args:
+        df (pd.DataFrame): Generator data with columns &#39;availability&#39; and &#39;mttr&#39;
 
-  return states, transition_matrices</code></pre>
+    Returns:
+        t.Tuple[np.ndarray, np.ndarray]
+    &#34;&#34;&#34;
+
+    def get_transition_matrix(generator_data):
+        prob, mttr = generator_data
+        alpha = 1 - 1 / mttr
+        a11 = 1 - (1 - prob) * (1 - alpha) / prob
+        mat = np.array([[a11, 1 - a11], [1 - alpha, alpha]], dtype=np.float32)
+        mat = mat / np.sum(mat, axis=1)
+        return mat
+
+    states = np.array([np.array([x, 0.0]) for x in df[&#34;capacity&#34;]], dtype=np.int32)
+    transition_matrices = np.apply_along_axis(
+        get_transition_matrix, 1, np.array(df[[&#34;availability&#34;, &#34;mttr&#34;]])
+    )
+
+    return states, transition_matrices</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.from_generator_df"><code class="name flex">
@@ -644,28 +719,31 @@ def build_chains(cls,df: pd.DataFrame) -&gt; t.Tuple[np.ndarray, np.ndarray]:
 </summary>
 <pre><code class="python">@classmethod
 def from_generator_df(cls, df: pd.DataFrame) -&gt; MarkovChainGenerationModel:
-  &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
-  
-  Args:
-      df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; in additon, an &#39;mttr&#39; column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
-  
-  Returns:
-      MarkovChainGenerationModel: fitted model
-  
-  &#34;&#34;&#34;
+    &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
-  time_collapsed = super().from_generator_df(df)
+    Args:
+        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; in additon, an &#39;mttr&#39; column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
 
-  df[&#34;capacity&#34;] = df[&#34;capacity&#34;].astype(np.int32) #for consistency between time-collapsed and time-dependent logic
+    Returns:
+        MarkovChainGenerationModel: fitted model
 
-  states, matrices = cls.build_chains(df) 
+    &#34;&#34;&#34;
 
-  return cls(
-    pdf_values = time_collapsed.pdf_values,
-    support = time_collapsed.support,
-    data = time_collapsed.data,
-    transition_matrices = matrices,
-    chain_states = states)</code></pre>
+    time_collapsed = super().from_generator_df(df)
+
+    df[&#34;capacity&#34;] = df[&#34;capacity&#34;].astype(
+        np.int32
+    )  # for consistency between time-collapsed and time-dependent logic
+
+    states, matrices = cls.build_chains(df)
+
+    return cls(
+        pdf_values=time_collapsed.pdf_values,
+        support=time_collapsed.support,
+        data=time_collapsed.data,
+        transition_matrices=matrices,
+        chain_states=states,
+    )</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.get_stationary_dist"><code class="name flex">
@@ -689,32 +767,32 @@ def from_generator_df(cls, df: pd.DataFrame) -&gt; MarkovChainGenerationModel:
 </summary>
 <pre><code class="python">@classmethod
 def get_stationary_dist(cls, mat: np.ndarray) -&gt; np.ndarray:
-  &#34;&#34;&#34;Compute stationary probability distribution over states for a Markov chain
-  
-  Args:
-      mat (np.ndarray): transition probability matrix
-  
-  Returns:
-      np.ndarray: vector with stationary probability values for each state
-  
-  &#34;&#34;&#34;
-  # from somewhere in stackoverflow
-  
-  evals, evecs = np.linalg.eig(mat.T)
-  evec1 = evecs[:,np.isclose(evals, 1)]
+    &#34;&#34;&#34;Compute stationary probability distribution over states for a Markov chain
 
-  #Since np.isclose will return an array, we&#39;ve indexed with an array
-  #so we still have our 2nd axis.  Get rid of it, since it&#39;s only size 1.
-  if evec1.shape[1] == 0:
-    raise Exception(&#34;Some generators might not have a stationary distribution&#34;)
-  evec1 = evec1[:,0]
+    Args:
+        mat (np.ndarray): transition probability matrix
 
-  stationary = evec1 / evec1.sum()
+    Returns:
+        np.ndarray: vector with stationary probability values for each state
 
-  #eigs finds complex eigenvalues and eigenvectors, so you&#39;ll want the real part.
-  stationary = stationary.real
+    &#34;&#34;&#34;
+    # from somewhere in stackoverflow
 
-  return stationary</code></pre>
+    evals, evecs = np.linalg.eig(mat.T)
+    evec1 = evecs[:, np.isclose(evals, 1)]
+
+    # Since np.isclose will return an array, we&#39;ve indexed with an array
+    # so we still have our 2nd axis.  Get rid of it, since it&#39;s only size 1.
+    if evec1.shape[1] == 0:
+        raise Exception(&#34;Some generators might not have a stationary distribution&#34;)
+    evec1 = evec1[:, 0]
+
+    stationary = evec1 / evec1.sum()
+
+    # eigs finds complex eigenvalues and eigenvectors, so you&#39;ll want the real part.
+    stationary = stationary.real
+
+    return stationary</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.sample_stationary_dists"><code class="name flex">
@@ -740,25 +818,24 @@ def get_stationary_dist(cls, mat: np.ndarray) -&gt; np.ndarray:
 </summary>
 <pre><code class="python">@classmethod
 def sample_stationary_dists(
-  cls, 
-  transition_matrices: np.ndarray, 
-  chain_states: np.ndarray) -&gt; np.ndarray:
-  &#34;&#34;&#34;Sample states from the stationary distribution of transition probability matrices
-  
-  Args:
-      transition_matrices (np.ndarray): array of transition probability matrices
-      chain_states (np.ndarray): two-dimensional array with state vectors for each transition matrix
-  
-  Returns:
-      np.ndarray: array with sampled state for each transition matrix
-  &#34;&#34;&#34;
-  sample = []
-  for mat,states in zip(transition_matrices, chain_states):
-    stationary_dist = cls.get_stationary_dist(mat)
-    s = np.random.choice(states,size=1,p=stationary_dist)
-    sample.append(s)
+    cls, transition_matrices: np.ndarray, chain_states: np.ndarray
+) -&gt; np.ndarray:
+    &#34;&#34;&#34;Sample states from the stationary distribution of transition probability matrices
 
-  return np.array(sample)</code></pre>
+    Args:
+        transition_matrices (np.ndarray): array of transition probability matrices
+        chain_states (np.ndarray): two-dimensional array with state vectors for each transition matrix
+
+    Returns:
+        np.ndarray: array with sampled state for each transition matrix
+    &#34;&#34;&#34;
+    sample = []
+    for mat, states in zip(transition_matrices, chain_states):
+        stationary_dist = cls.get_stationary_dist(mat)
+        s = np.random.choice(states, size=1, p=stationary_dist)
+        sample.append(s)
+
+    return np.array(sample)</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.simulate_chains"><code class="name flex">
@@ -799,16 +876,17 @@ def sample_stationary_dists(
 </summary>
 <pre><code class="python">@classmethod
 def simulate_chains(
-  cls, 
-  size: int,
-  trace_length: int,
-  transition_matrices: np.ndarray,
-  chain_states: np.ndarray,
-  initial_state: np.ndarray = None,
-  simulate_escape_time: bool = True,
-  output_array: np.ndarray = None) -&gt; np.Optional[np.ndarray]:
+    cls,
+    size: int,
+    trace_length: int,
+    transition_matrices: np.ndarray,
+    chain_states: np.ndarray,
+    initial_state: np.ndarray = None,
+    simulate_escape_time: bool = True,
+    output_array: np.ndarray = None,
+) -&gt; np.Optional[np.ndarray]:
     &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
-    
+
     Args:
         size (int): Number of traces to simulate
         trace_length (int): length of individual traces
@@ -817,71 +895,93 @@ def simulate_chains(
         initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
         simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
         output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
-    
+
     Returns:
         np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
-    
-    
+
+
     Raises:
         ValueError: Description
-    
-    
+
+
     &#34;&#34;&#34;
     n_chains = len(chain_states)
     n_states = len(chain_states[0])
 
     # set output array
     if output_array is not None:
-      if not isinstance(output_array, np.ndarray) or len(output_array.shape) != 2 or output_array.shape != (size,trace_length) or output_array.dtype != np.float32:
-        raise ValueError(&#34;output_array must be a two-dimensional numpy array with shape (size, trace_length) of type numpy.float32&#34;)
-      return_output = False
+        if (
+            not isinstance(output_array, np.ndarray)
+            or len(output_array.shape) != 2
+            or output_array.shape != (size, trace_length)
+            or output_array.dtype != np.float32
+        ):
+            raise ValueError(
+                &#34;output_array must be a two-dimensional numpy array with shape (size, trace_length) of type numpy.float32&#34;
+            )
+        return_output = False
     else:
-      output_array = np.ascontiguousarray(np.zeros((size,trace_length)),dtype=np.float32)
-      return_output = True
+        output_array = np.ascontiguousarray(
+            np.zeros((size, trace_length)), dtype=np.float32
+        )
+        return_output = True
 
     # if seed is None:
     #   seed = np.random.randint(low=0,high=2**31-1)
     # else:
     #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
-    seed = np.random.randint(low=0,high=2**31-1)
+    seed = np.random.randint(low=0, high=2 ** 31 - 1)
 
     # set initial state array
     if initial_state is None:
-      initial_state = cls.sample_stationary_dists(transition_matrices, chain_states).reshape(-1)
+        initial_state = cls.sample_stationary_dists(
+            transition_matrices, chain_states
+        ).reshape(-1)
     else:
-      if not isinstance(initial_state, np.ndarray) or len(initial_state.shape) != 1 or len(initial_state) != n_chains:
-        #print(initial_state)
-        #print(initial_state.shape)
-        raise ValueError(&#34;Initial state vector must be a one-dimensional numpy array with as many entries as transition_matrices.&#34;)
+        if (
+            not isinstance(initial_state, np.ndarray)
+            or len(initial_state.shape) != 1
+            or len(initial_state) != n_chains
+        ):
+            # print(initial_state)
+            # print(initial_state.shape)
+            raise ValueError(
+                &#34;Initial state vector must be a one-dimensional numpy array with as many entries as transition_matrices.&#34;
+            )
 
     if np.any(np.array([len(s) for s in chain_states]) != n_states):
-      raise ValueError(&#34;Number of states must be the same for all chains&#34;)
+        raise ValueError(&#34;Number of states must be the same for all chains&#34;)
 
-    if np.any(np.array([s.shape != (n_states, n_states) for s in transition_matrices])):
-      raise ValueError(&#34;Matrices must be squared and of the same dimensions&#34;)
+    if np.any(
+        np.array([s.shape != (n_states, n_states) for s in transition_matrices])
+    ):
+        raise ValueError(&#34;Matrices must be squared and of the same dimensions&#34;)
 
     # call C program
     if trace_length &lt;= 1:
-      raise ValueError(&#34;Trace length must be an integer larger than 1&#34;)
+        raise ValueError(&#34;Trace length must be an integer larger than 1&#34;)
 
     # cast as float
     initial_state = np.ascontiguousarray(initial_state).astype(np.float32)
     float_chain_states = chain_states.astype(np.float32)
 
     C_API.simulate_mc_power_grid_py_interface(
-      ffi.cast(&#34;float *&#34;,output_array.ctypes.data),
-      ffi.cast(&#34;float *&#34;,transition_matrices.ctypes.data),
-      ffi.cast(&#34;float *&#34;,float_chain_states.ctypes.data),
-      ffi.cast(&#34;float *&#34;,initial_state.ctypes.data),
-      np.int32(n_chains),
-      np.int32(size),
-      np.int32(trace_length - 1), #initial state is accounted for in trace length
-      np.int32(n_states),
-      np.int32(seed),
-      np.int32(simulate_escape_time))
+        ffi.cast(&#34;float *&#34;, output_array.ctypes.data),
+        ffi.cast(&#34;float *&#34;, transition_matrices.ctypes.data),
+        ffi.cast(&#34;float *&#34;, float_chain_states.ctypes.data),
+        ffi.cast(&#34;float *&#34;, initial_state.ctypes.data),
+        np.int32(n_chains),
+        np.int32(size),
+        np.int32(
+            trace_length - 1
+        ),  # initial state is accounted for in trace length
+        np.int32(n_states),
+        np.int32(seed),
+        np.int32(simulate_escape_time),
+    )
 
     if return_output:
-      return output_array</code></pre>
+        return output_array</code></pre>
 </details>
 </dd>
 </dl>
@@ -896,7 +996,9 @@ def simulate_chains(
 </summary>
 <pre><code class="python">@property
 def stationary_distributions(self):
-  return np.array([self.get_stationary_dist(mat) for mat in self.transition_matrices]) </code></pre>
+    return np.array(
+        [self.get_stationary_dist(mat) for mat in self.transition_matrices]
+    )</code></pre>
 </details>
 </dd>
 </dl>
@@ -919,21 +1021,22 @@ def stationary_distributions(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def simulate(self, size: int) -&gt; np.ndarray:
-  &#34;&#34;&#34;Simulate a single trace of sequential observations
-  
-  Args:
-      size (int): Number of samples, or equivalently, trace length.
-  
-  Returns:
-      np.ndarray
-  &#34;&#34;&#34;
-  return self.simulate_chains(
-    size=1,
-    trace_length=size,
-    transition_matrices=self.transition_matrices,
-    chain_states=self.chain_states,
-    initial_state=None,
-    simulate_escape_time=True).reshape(-1)</code></pre>
+    &#34;&#34;&#34;Simulate a single trace of sequential observations
+
+    Args:
+        size (int): Number of samples, or equivalently, trace length.
+
+    Returns:
+        np.ndarray
+    &#34;&#34;&#34;
+    return self.simulate_chains(
+        size=1,
+        trace_length=size,
+        transition_matrices=self.transition_matrices,
+        chain_states=self.chain_states,
+        initial_state=None,
+        simulate_escape_time=True,
+    ).reshape(-1)</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.simulate_seasons"><code class="name flex">
@@ -962,35 +1065,39 @@ def stationary_distributions(self):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def simulate_seasons(
-  self, 
-  size: int, 
-  season_length: int,
-  seasons_per_trace: int = 1,
-  burn_in: int = 100) -&gt; np.ndarray:
-  &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
-  
-  Args:
-      size (int): number of traces to sample
-      season_length (int): peak season length
-      seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
-      burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
-  
-  Returns:
-      np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
-  &#34;&#34;&#34;
-  total_seasons = size*seasons_per_trace
-  augmented_season_length = season_length + burn_in
+    self,
+    size: int,
+    season_length: int,
+    seasons_per_trace: int = 1,
+    burn_in: int = 100,
+) -&gt; np.ndarray:
+    &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
 
-  output_array = self.simulate_chains(
-    size=total_seasons,
-    trace_length=augmented_season_length,
-    transition_matrices=self.transition_matrices,
-    chain_states=self.chain_states,
-    initial_state=None,
-    simulate_escape_time=True)
+    Args:
+        size (int): number of traces to sample
+        season_length (int): peak season length
+        seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
+        burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
 
-  # drop burn in periods and reshape
-  return output_array[:,0:season_length].reshape((size, season_length*seasons_per_trace))</code></pre>
+    Returns:
+        np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
+    &#34;&#34;&#34;
+    total_seasons = size * seasons_per_trace
+    augmented_season_length = season_length + burn_in
+
+    output_array = self.simulate_chains(
+        size=total_seasons,
+        trace_length=augmented_season_length,
+        transition_matrices=self.transition_matrices,
+        chain_states=self.chain_states,
+        initial_state=None,
+        simulate_escape_time=True,
+    )
+
+    # drop burn in periods and reshape
+    return output_array[:, 0:season_length].reshape(
+        (size, season_length * seasons_per_trace)
+    )</code></pre>
 </details>
 </dd>
 </dl>

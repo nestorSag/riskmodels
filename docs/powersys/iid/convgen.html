@@ -39,68 +39,69 @@ from riskmodels.univariate import Binned
 import numpy as np
 import pandas as pd
 
+
 class IndependentFleetModel(Binned):
 
-  &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.
-  &#34;&#34;&#34;
-  
-  @classmethod
-  def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
-    &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
-    
-    Args:
-        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
-    
-    Returns:
-        IndependentFleetModel: fitted model
-    
-    &#34;&#34;&#34;
-    warnings.warn(&#34;Coercing capacity values to integers&#34;)
-    
-    capacity_values = np.array(df[&#34;capacity&#34;], dtype=np.int32)
-    availability_values = np.array(df[&#34;availability&#34;])
+    &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.&#34;&#34;&#34;
 
-    if np.any(availability_values &lt; 0) or np.any(availability_values &gt; 1):
-      raise Exception(f&#34;Availabilities must be in the interval [0,1]; found interval[{min(availability_values)},{max(availability_values)}]&#34;)
+    @classmethod
+    def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
+        &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
-    max_gen = int(np.sum(capacity_values[capacity_values&gt;=0]))
-    min_gen = int(np.sum(capacity_values[capacity_values&lt;0]))
+        Args:
+            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
 
-    zero_idx = np.abs(min_gen) #this is in case there are generators with negative generation
-    pdf_length = max_gen+1 - min_gen
-    pdf = np.zeros((pdf_length,),dtype=np.float64) # initialise pdf values
-    pdf[zero_idx] = 1.0
+        Returns:
+            IndependentFleetModel: fitted model
 
-    i = 0
-    for c,p in zip(capacity_values,availability_values):
-      if c &gt;= 0:
-        suffix = pdf[0:pdf_length-c]
-        preffix = np.zeros((c,))
-      else:
-        preffix = pdf[np.abs(c):pdf_length]
-        suffix = np.zeros((np.abs(c),))
-      pdf = (1-p) * pdf + p * np.concatenate([preffix,suffix])
-      i += 1
+        &#34;&#34;&#34;
+        warnings.warn(&#34;Coercing capacity values to integers&#34;)
 
-    support = np.arange(min_gen, max_gen+1)
-    return Binned(support=support, pdf_values=pdf, data=None)
+        capacity_values = np.array(df[&#34;capacity&#34;], dtype=np.int32)
+        availability_values = np.array(df[&#34;availability&#34;])
 
-  @classmethod
-  def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFleetModel:
-    &#34;&#34;&#34;Takes a csv file and builds the generation model
-    
-    Args:
-        file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
-        **kwargs: additional arguments passed to pandas.read_csv
-    
-    Returns:
-        IndependentFleetModel: fitted model
-    &#34;&#34;&#34;
-    df = pd.read_csv(file_path,**kwargs)
-    return cls.from_generator_df(df)
+        if np.any(availability_values &lt; 0) or np.any(availability_values &gt; 1):
+            raise Exception(
+                f&#34;Availabilities must be in the interval [0,1]; found interval[{min(availability_values)},{max(availability_values)}]&#34;
+            )
 
-    
-    </code></pre>
+        max_gen = int(np.sum(capacity_values[capacity_values &gt;= 0]))
+        min_gen = int(np.sum(capacity_values[capacity_values &lt; 0]))
+
+        zero_idx = np.abs(
+            min_gen
+        )  # this is in case there are generators with negative generation
+        pdf_length = max_gen + 1 - min_gen
+        pdf = np.zeros((pdf_length,), dtype=np.float64)  # initialise pdf values
+        pdf[zero_idx] = 1.0
+
+        i = 0
+        for c, p in zip(capacity_values, availability_values):
+            if c &gt;= 0:
+                suffix = pdf[0 : pdf_length - c]
+                preffix = np.zeros((c,))
+            else:
+                preffix = pdf[np.abs(c) : pdf_length]
+                suffix = np.zeros((np.abs(c),))
+            pdf = (1 - p) * pdf + p * np.concatenate([preffix, suffix])
+            i += 1
+
+        support = np.arange(min_gen, max_gen + 1)
+        return Binned(support=support, pdf_values=pdf, data=None)
+
+    @classmethod
+    def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFleetModel:
+        &#34;&#34;&#34;Takes a csv file and builds the generation model
+
+        Args:
+            file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+            **kwargs: additional arguments passed to pandas.read_csv
+
+        Returns:
+            IndependentFleetModel: fitted model
+        &#34;&#34;&#34;
+        df = pd.read_csv(file_path, **kwargs)
+        return cls.from_generator_df(df)</code></pre>
 </details>
 </section>
 <section>
@@ -126,63 +127,66 @@ class IndependentFleetModel(Binned):
 </summary>
 <pre><code class="python">class IndependentFleetModel(Binned):
 
-  &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.
-  &#34;&#34;&#34;
-  
-  @classmethod
-  def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
-    &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
-    
-    Args:
-        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
-    
-    Returns:
-        IndependentFleetModel: fitted model
-    
-    &#34;&#34;&#34;
-    warnings.warn(&#34;Coercing capacity values to integers&#34;)
-    
-    capacity_values = np.array(df[&#34;capacity&#34;], dtype=np.int32)
-    availability_values = np.array(df[&#34;availability&#34;])
+    &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.&#34;&#34;&#34;
 
-    if np.any(availability_values &lt; 0) or np.any(availability_values &gt; 1):
-      raise Exception(f&#34;Availabilities must be in the interval [0,1]; found interval[{min(availability_values)},{max(availability_values)}]&#34;)
+    @classmethod
+    def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
+        &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
-    max_gen = int(np.sum(capacity_values[capacity_values&gt;=0]))
-    min_gen = int(np.sum(capacity_values[capacity_values&lt;0]))
+        Args:
+            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
 
-    zero_idx = np.abs(min_gen) #this is in case there are generators with negative generation
-    pdf_length = max_gen+1 - min_gen
-    pdf = np.zeros((pdf_length,),dtype=np.float64) # initialise pdf values
-    pdf[zero_idx] = 1.0
+        Returns:
+            IndependentFleetModel: fitted model
 
-    i = 0
-    for c,p in zip(capacity_values,availability_values):
-      if c &gt;= 0:
-        suffix = pdf[0:pdf_length-c]
-        preffix = np.zeros((c,))
-      else:
-        preffix = pdf[np.abs(c):pdf_length]
-        suffix = np.zeros((np.abs(c),))
-      pdf = (1-p) * pdf + p * np.concatenate([preffix,suffix])
-      i += 1
+        &#34;&#34;&#34;
+        warnings.warn(&#34;Coercing capacity values to integers&#34;)
 
-    support = np.arange(min_gen, max_gen+1)
-    return Binned(support=support, pdf_values=pdf, data=None)
+        capacity_values = np.array(df[&#34;capacity&#34;], dtype=np.int32)
+        availability_values = np.array(df[&#34;availability&#34;])
 
-  @classmethod
-  def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFleetModel:
-    &#34;&#34;&#34;Takes a csv file and builds the generation model
-    
-    Args:
-        file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
-        **kwargs: additional arguments passed to pandas.read_csv
-    
-    Returns:
-        IndependentFleetModel: fitted model
-    &#34;&#34;&#34;
-    df = pd.read_csv(file_path,**kwargs)
-    return cls.from_generator_df(df)</code></pre>
+        if np.any(availability_values &lt; 0) or np.any(availability_values &gt; 1):
+            raise Exception(
+                f&#34;Availabilities must be in the interval [0,1]; found interval[{min(availability_values)},{max(availability_values)}]&#34;
+            )
+
+        max_gen = int(np.sum(capacity_values[capacity_values &gt;= 0]))
+        min_gen = int(np.sum(capacity_values[capacity_values &lt; 0]))
+
+        zero_idx = np.abs(
+            min_gen
+        )  # this is in case there are generators with negative generation
+        pdf_length = max_gen + 1 - min_gen
+        pdf = np.zeros((pdf_length,), dtype=np.float64)  # initialise pdf values
+        pdf[zero_idx] = 1.0
+
+        i = 0
+        for c, p in zip(capacity_values, availability_values):
+            if c &gt;= 0:
+                suffix = pdf[0 : pdf_length - c]
+                preffix = np.zeros((c,))
+            else:
+                preffix = pdf[np.abs(c) : pdf_length]
+                suffix = np.zeros((np.abs(c),))
+            pdf = (1 - p) * pdf + p * np.concatenate([preffix, suffix])
+            i += 1
+
+        support = np.arange(min_gen, max_gen + 1)
+        return Binned(support=support, pdf_values=pdf, data=None)
+
+    @classmethod
+    def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFleetModel:
+        &#34;&#34;&#34;Takes a csv file and builds the generation model
+
+        Args:
+            file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+            **kwargs: additional arguments passed to pandas.read_csv
+
+        Returns:
+            IndependentFleetModel: fitted model
+        &#34;&#34;&#34;
+        df = pd.read_csv(file_path, **kwargs)
+        return cls.from_generator_df(df)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -236,17 +240,17 @@ class IndependentFleetModel(Binned):
 </summary>
 <pre><code class="python">@classmethod
 def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFleetModel:
-  &#34;&#34;&#34;Takes a csv file and builds the generation model
-  
-  Args:
-      file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
-      **kwargs: additional arguments passed to pandas.read_csv
-  
-  Returns:
-      IndependentFleetModel: fitted model
-  &#34;&#34;&#34;
-  df = pd.read_csv(file_path,**kwargs)
-  return cls.from_generator_df(df)</code></pre>
+    &#34;&#34;&#34;Takes a csv file and builds the generation model
+
+    Args:
+        file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+        **kwargs: additional arguments passed to pandas.read_csv
+
+    Returns:
+        IndependentFleetModel: fitted model
+    &#34;&#34;&#34;
+    df = pd.read_csv(file_path, **kwargs)
+    return cls.from_generator_df(df)</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.iid.convgen.IndependentFleetModel.from_generator_df"><code class="name flex">
@@ -270,44 +274,48 @@ def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFlee
 </summary>
 <pre><code class="python">@classmethod
 def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
-  &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
-  
-  Args:
-      df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
-  
-  Returns:
-      IndependentFleetModel: fitted model
-  
-  &#34;&#34;&#34;
-  warnings.warn(&#34;Coercing capacity values to integers&#34;)
-  
-  capacity_values = np.array(df[&#34;capacity&#34;], dtype=np.int32)
-  availability_values = np.array(df[&#34;availability&#34;])
+    &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
-  if np.any(availability_values &lt; 0) or np.any(availability_values &gt; 1):
-    raise Exception(f&#34;Availabilities must be in the interval [0,1]; found interval[{min(availability_values)},{max(availability_values)}]&#34;)
+    Args:
+        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
 
-  max_gen = int(np.sum(capacity_values[capacity_values&gt;=0]))
-  min_gen = int(np.sum(capacity_values[capacity_values&lt;0]))
+    Returns:
+        IndependentFleetModel: fitted model
 
-  zero_idx = np.abs(min_gen) #this is in case there are generators with negative generation
-  pdf_length = max_gen+1 - min_gen
-  pdf = np.zeros((pdf_length,),dtype=np.float64) # initialise pdf values
-  pdf[zero_idx] = 1.0
+    &#34;&#34;&#34;
+    warnings.warn(&#34;Coercing capacity values to integers&#34;)
 
-  i = 0
-  for c,p in zip(capacity_values,availability_values):
-    if c &gt;= 0:
-      suffix = pdf[0:pdf_length-c]
-      preffix = np.zeros((c,))
-    else:
-      preffix = pdf[np.abs(c):pdf_length]
-      suffix = np.zeros((np.abs(c),))
-    pdf = (1-p) * pdf + p * np.concatenate([preffix,suffix])
-    i += 1
+    capacity_values = np.array(df[&#34;capacity&#34;], dtype=np.int32)
+    availability_values = np.array(df[&#34;availability&#34;])
 
-  support = np.arange(min_gen, max_gen+1)
-  return Binned(support=support, pdf_values=pdf, data=None)</code></pre>
+    if np.any(availability_values &lt; 0) or np.any(availability_values &gt; 1):
+        raise Exception(
+            f&#34;Availabilities must be in the interval [0,1]; found interval[{min(availability_values)},{max(availability_values)}]&#34;
+        )
+
+    max_gen = int(np.sum(capacity_values[capacity_values &gt;= 0]))
+    min_gen = int(np.sum(capacity_values[capacity_values &lt; 0]))
+
+    zero_idx = np.abs(
+        min_gen
+    )  # this is in case there are generators with negative generation
+    pdf_length = max_gen + 1 - min_gen
+    pdf = np.zeros((pdf_length,), dtype=np.float64)  # initialise pdf values
+    pdf[zero_idx] = 1.0
+
+    i = 0
+    for c, p in zip(capacity_values, availability_values):
+        if c &gt;= 0:
+            suffix = pdf[0 : pdf_length - c]
+            preffix = np.zeros((c,))
+        else:
+            preffix = pdf[np.abs(c) : pdf_length]
+            suffix = np.zeros((np.abs(c),))
+        pdf = (1 - p) * pdf + p * np.concatenate([preffix, suffix])
+        i += 1
+
+    support = np.arange(min_gen, max_gen + 1)
+    return Binned(support=support, pdf_values=pdf, data=None)</code></pre>
 </details>
 </dd>
 </dl>

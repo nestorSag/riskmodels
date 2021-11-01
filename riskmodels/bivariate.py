@@ -557,7 +557,7 @@ class Logistic(ExceedanceDistribution):
         z1, z2 = self.unbundle(self.data_to_model_dist(self.data))
         n = len(z1)
 
-        fig, axs = plt.subplots(2, 2)
+        fig, axs = plt.subplots(1, 2)
 
         ####### loglikelihood plot
 
@@ -580,17 +580,18 @@ class Logistic(ExceedanceDistribution):
         ll = ll[almost_optimal]
         grid = grid[almost_optimal]
 
-        axs[0, 0].plot(grid, ll, color=self._figure_color_palette[0])
-        axs[0, 0].vlines(
+        axs[0].plot(grid, ll, color=self._figure_color_palette[0])
+        axs[0].vlines(
             x=self.alpha,
             ymin=min(ll),
             ymax=max(ll),
             linestyle="dashed",
             colors=self._figure_color_palette[1],
         )
-        axs[0, 0].title.set_text("Log-likelihood")
-        axs[0, 0].set_xlabel("Alpha")
-        axs[0, 0].set_ylabel("log-likelihood")
+        axs[0].title.set_text("Log-likelihood")
+        axs[0].set_xlabel("Alpha")
+        axs[0].set_ylabel("log-likelihood")
+        axs[0].grid()
 
         # print("loglikelihood plot finished")
 
@@ -606,29 +607,30 @@ class Logistic(ExceedanceDistribution):
         Z = self.logpdf(
             data=bundled_grid, threshold=model_scale_threshold, alpha=self.alpha
         ).reshape(X.shape)
-        axs[0, 1].contourf(X, Y, Z)
-        axs[0, 1].scatter(z1, z2, color=self._figure_color_palette[1], s=0.9)
-        axs[0, 1].title.set_text(f"Model density ({self._marginal_model_name} scale)")
-        axs[0, 1].set_xlabel("x")
-        axs[0, 1].set_ylabel("y")
+        axs[1].contourf(X, Y, Z)
+        axs[1].scatter(z1, z2, color=self._figure_color_palette[1], s=0.9)
+        axs[1].title.set_text(f"Model density ({self._marginal_model_name} scale)")
+        axs[1].set_xlabel("x")
+        axs[1].set_ylabel("y")
 
-        ##### log odds plot
-        cdf_values = self.cdf(self.data)
-        model_logodds = np.log(cdf_values / (1 - cdf_values))
-        ecdf_values = Empirical.from_data(self.data).cdf(self.data)
-        empirical_logodds = np.log(ecdf_values / (1 - ecdf_values))
+        # ##### log odds plot
+        # cdf_values = self.cdf(self.data)
+        # model_logodds = np.log(cdf_values / (1 - cdf_values))
+        # ecdf_values = Empirical.from_data(self.data).cdf(self.data)
+        # empirical_logodds = np.log(ecdf_values / (1 - ecdf_values))
 
-        axs[1, 0].scatter(
-            model_logodds, empirical_logodds, color=self._figure_color_palette[0]
-        )
+        # axs[1, 0].scatter(
+        #     model_logodds, empirical_logodds, color=self._figure_color_palette[0]
+        # )
 
-        axs[1, 0].title.set_text("Model vs data log-odds")
-        axs[1, 0].set_xlabel("Empirical log-odds")
-        axs[1, 0].set_ylabel("Model log-odds")
-        axs[1, 0].set_xlim(-5, 5)
-        axs[1, 0].set_ylim(-5, 5)
-        min_e, max_e = max(-5, min(empirical_logodds)), min(5, max(empirical_logodds))
-        axs[1, 0].plot([min_e, max_e], [min_e, max_e], linestyle="--", color="black")
+        # axs[1, 0].title.set_text("Model vs data log-odds")
+        # axs[1, 0].set_xlabel("Empirical log-odds")
+        # axs[1, 0].set_ylabel("Model log-odds")
+        # axs[1, 0].set_xlim(-5, 5)
+        # axs[1, 0].set_ylim(-5, 5)
+        # min_e, max_e = max(-5, min(empirical_logodds)), min(5, max(empirical_logodds))
+        # axs[1, 0].plot([min_e, max_e], [min_e, max_e], linestyle="--", color="black")
+        # axs[1, 0].grid()
 
         plt.tight_layout()
         return fig

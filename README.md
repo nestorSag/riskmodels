@@ -14,11 +14,11 @@ The `powersys` submodule offers utilities for applications in energy procurement
 [Quickstart - energy procurement modelling](#nrg-proc-modelling)  
 ## Requirements
 
-This package works with Python >= 3.7
+Python >= 3.7
 
-## Documentation
+## API docs
 
-[The Github pages of this repo](https://nestorsag.github.io/riskmodels/) contain the package's documentation
+[https://nestorsag.github.io/riskmodels/](https://nestorsag.github.io/riskmodels/)
 
 ## Quickstart
 
@@ -38,9 +38,6 @@ from datetime import timedelta
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
-import riskmodels.univariate as univar
-import riskmodels.bivariate as bivar
 
 def fetch_data() -> pd.DataFrame:
   """Fetch data from different sources to reconstruct demand net of wind time series in Great Britain and Denmark.
@@ -140,6 +137,9 @@ df = fetch_data()
 Empirical distributions are the base on which the package operates, and the `Empirical` classes in both `univariate` and `bivariate` modules provide the main entrypoints.
 
 ```py
+import riskmodels.univariate as univar
+import riskmodels.bivariate as bivar
+
 # prepare data
 gb_nd, dk_nd = np.array(df["net_demand_gb"]), np.array(df["net_demand_dk"])
 # Initialise Empirical distribution objects. Round observations to nearest MW; this will come n handy for energy procurement modelling, and does not affect fitted tail models
@@ -216,6 +216,8 @@ bivar_ev_model = bivar_empirical.fit_tail_model(
   margin1 = gb_dist_ev,
   margin2 = dk_dist_ev)
 
+bivar_ev_model.plot_diagnostics();plt.show()
+
 ```
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
@@ -246,7 +248,7 @@ dk_gen = IndependentFleetModel.from_generator_df(dk_gen_df)
 
 # define LOLE functon
 def lole(gen, net_demand, n=n):
-  #The surplus is defined as conventional generation minus demand net of renewables, which means the surplus distribution is the convolution of generation and demand net of renewables distributions, assuming independence between them. Integer `Empirical` objects can be convolved with other integer distribution and with generalised  Pareto distributions using the + operator. Then, LOLE can be computed in a single line like below. Here, the negative of the surplus is being used because the negative of a generalised Pareto is not a generalised Pareto anymore, but the negative of an integer distribution (such as gen) is still integer.
+  #Integer distributions can be convolved with other integer or continuous distributions through the + operator
   return n*(1 - (-gen + net_demand).cdf(0))
 
 # compute pre-interconnection LOLEs
@@ -292,7 +294,5 @@ plt.show()
   <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/post_itc_lole.png" alt="post-interconnection LOLE indices" width="640px">
 </p>
 
-
-In all of the above it was assumed that no temporal correlation existed between conventional generation availability, which is of course not true; time series models for which conventional generators are treated as Markov chains [are also available](https://nestorsag.github.io/riskmodels/powersys/index.html)
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.

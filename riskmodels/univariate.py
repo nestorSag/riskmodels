@@ -920,6 +920,7 @@ class GPTail(BaseDistribution):
         axs[0, 0].title.set_text("Profile scale log-likelihood")
         axs[0, 0].set_xlabel("Scale")
         axs[0, 0].set_ylabel("log-likelihood")
+        axs[0, 0].grid()
 
         valid_shapes = shape_grid[shape_filter]
         valid_shape_profile = shape_profile[shape_filter]
@@ -937,6 +938,7 @@ class GPTail(BaseDistribution):
         axs[0, 1].title.set_text("Profile shape log-likelihood")
         axs[0, 1].set_xlabel("Shape")
         axs[0, 1].set_ylabel("log-likelihood")
+        axs[0, 1].grid()
 
         ######################## Log-likelihood surface ###############
         scale_grid, shape_grid = np.mgrid[
@@ -980,7 +982,7 @@ class GPTail(BaseDistribution):
         y_axis = hist_data[0][0] / pdf_vals[0] * pdf_vals
 
         axs[1, 1].plot(x_axis, y_axis, color=self._figure_color_palette[1])
-        axs[1, 1].title.set_text("Data vs fitted density")
+        axs[1, 1].title.set_text("Data vs rescaled fitted density")
         axs[1, 1].set_xlabel("Exceedance data")
         axs[1, 1].yaxis.set_visible(False)  # Hide only x axis
         # axs[0, 0].set_aspect('equal', 'box')
