@@ -1,0 +1,7 @@
+name: Integration tests
+on: [push]
+jobs:
+  Integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - run: make tests

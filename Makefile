@@ -11,7 +11,7 @@ define verify_install
 endef
 
 docs: ## Updates documentation
-	$(call verify_install,pdoc3);\
+	$(call verify_install, pdoc3);\
 	rm -rf docs/* && pdoc --html -c latex_math=True -o docs riskmodels && mv docs/riskmodels/* docs/ && rm -rf docs/riskmodels;\
 
 tests: ## Tests package
