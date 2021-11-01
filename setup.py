@@ -3,7 +3,7 @@ import setuptools
 from distutils.core import Extension
 from setuptools import setup, find_namespace_packages, Extension
 
-VERSION = os.environ.get("RISKMODELS_VERSION", "1.0.0")
+VERSION = os.environ.get("RISKMODELS_VERSION", "1.0.0").replace("v","")
 
 with open("README.md", "r") as fh:
 

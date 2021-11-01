@@ -7,12 +7,19 @@ jobs:
   release-and-upload:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
     - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
-    - run: make format
+    - name: Format modules with Black
+      run: make format
+    # - name: create release notes
+    #   id: build_changelog
+    #   uses: mikepenz/release-changelog-builder-action@{latest-release}
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create release
       id: create_release
       uses: actions/create-release@latest
@@ -22,12 +29,13 @@ jobs:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
         # body: |
-        #   ${{ steps.Changelog.outputs.changelog }}
-        draft: true
-        prerelease: true
-    - name: Set tag as package version
-      run: echo "RISKMODELS_VERSION=$(echo $GITHUB_REF | cut -d / -f 3 | sed 's/v//')" >> $GITHUB_ENV
-    - run: make build
+        #   ${{steps.build_changelog.outputs.changelog}}
+        draft: false
+        prerelease: false
+    - name: Set tag as package version through an environment variable
+      run: echo "RISKMODELS_VERSION=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_ENV
+    - name: Build package
+      run: make build
     - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@master
       with:
