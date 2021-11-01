@@ -1,4 +1,4 @@
-.PHONY: setup docs tests format bundle help
+.PHONY: setup docs tests format build help
 
 define verify_install
 	if ! [ "$$(pip list | grep $(1) -c)" = "1" ]; then\
@@ -23,10 +23,10 @@ format: ## Formats modules code using Black
 	$(call verify_install, black);\
 	black riskmodels/*
 
-bundle: ## Bundles objects for release to PyPI
-	$(call verify_install, twine);\
-	python setup.py sdist 
-	twine check dist/* && twine upload dist/*
+build: ## Bundles objects for release to PyPI
+	$(call verify_install, build);\
+	python -m build --sdist --wheel --outdir dist/
+	#twine check dist/* && twine upload dist/*
 
 help: ## Shows Makefile's help.
 	@sed -ne '/@sed/!s/## //p' $(MAKEFILE_LIST)

@@ -1,6 +1,7 @@
 # riskmodels: a library for univariate and bivariate extreme value analysis (and applications to energy procurement)
 
 ![Integration tests](https://github.com/nestorSag/riskmodels/actions/workflows/integration-tests.yaml/badge.svg)
+![Build](https://github.com/nestorSag/riskmodels/actions/workflows/build.yaml/badge.svg)
 
 This library focuses on extreme value models for risk analysis in one and two dimensions. MLE-based and Bayesian generalised Pareto tail models are available for one-dimensional data, while for two-dimensional data, logistic and Gaussian (MLE-based) extremal dependence models are also available. Logistic models are appropriate for data whose extremal occurrences are strongly associated, while a Gaussian model offer an asymptotically independent, but still parametric, copula.
 
