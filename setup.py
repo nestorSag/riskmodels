@@ -1,6 +1,7 @@
 import os
 import setuptools
 from distutils.core import Extension
+from setuptools import setup, find_namespace_packages, Extension
 
 VERSION = os.environ.get("RISKMODELS_VERSION", "1.0.0")
 
@@ -8,7 +9,7 @@ with open("README.md", "r") as fh:
 
     long_description = fh.read()
 
-setuptools.setup(
+    setup(
 
      name='riskmodels',  
 
@@ -18,7 +19,7 @@ setuptools.setup(
 
      author_email="nestor.sag@gmail.com",
 
-     packages = setuptools.find_namespace_packages(include=['riskmodels.*']),
+     packages = find_namespace_packages(include=['riskmodels.*']),
 
      description="Extreme value models for applications in energy procurement",
 

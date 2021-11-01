@@ -5,13 +5,14 @@
 
 This library focuses on extreme value models for risk analysis in one and two dimensions. MLE-based and Bayesian generalised Pareto tail models are available for one-dimensional data, while for two-dimensional data, logistic and Gaussian (MLE-based) extremal dependence models are also available. Logistic models are appropriate for data whose extremal occurrences are strongly associated, while a Gaussian model offer an asymptotically independent, but still parametric, copula.
 
-The `powersys` submodule offers utilities for applications in energy procurement, with functionality to model available conventional generation (ACG) as well as to calculate loss of load expectation (LOLE) and expected energy unserved (EEU) indices on a wide set of models; efficient parallel time series based simulation for univariate and bivariate power surpluses is also available. 
+The `powersys` submodule offers utilities for applications in energy procurement, with functionality to model available conventional generation (ACG) as well as to calculate loss of load expectation (LOLE) and expected energy unserved (EEU) indices on a wide set of models; efficient parallel time series based simulation for univariate and bivariate power surpluses is also available.
 
 ## Table of contents
 
-[Quickstart - extreme value modelling](#ev-modelling)  
+[Quickstart - extreme value modelling](#ev-modelling)
 
-[Quickstart - energy procurement modelling](#nrg-proc-modelling)  
+[Quickstart - energy procurement modelling](#nrg-proc-modelling)
+
 ## Requirements
 
 Python >= 3.7
@@ -40,18 +41,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def fetch_data() -> pd.DataFrame:
-  """Fetch data from different sources to reconstruct demand net of wind time series in Great Britain and Denmark.
+  """Fetch data from different sources to reconstruct demand net of wind time series 
+  in Great Britain and Denmark.
   
   Returns:
       pd.DataFrame: Cleaned data
   """
   def fetch_gb_data():
-    wind_url = "https://www.renewables.ninja/country_downloads/GB/ninja_wind_country_GB_current-merra-2_corrected.csv"
+    rn_prefix = "https://www.renewables.ninja/country_downloads"
+    wind_url = f"{rn_prefix}/GB/ninja_wind_country_GB_current-merra-2_corrected.csv"
     wind_capacity = 13150
     #
+    ngeso_prefix = "https://data.nationalgrideso.com/backend/dataset/8f2fe0af-871c-488d-8bad-960426f24601/resource"
     demand_urls = [
-      "https://data.nationalgrideso.com/backend/dataset/8f2fe0af-871c-488d-8bad-960426f24601/resource/2f0f75b8-39c5-46ff-a914-ae38088ed022/download/demanddata_2017.csv",
-      "https://data.nationalgrideso.com/backend/dataset/8f2fe0af-871c-488d-8bad-960426f24601/resource/fcb12133-0db0-4f27-a4a5-1669fd9f6d33/download/demanddata_2018.csv"]
+      f"{ngeso_prefix}/2f0f75b8-39c5-46ff-a914-ae38088ed022/download/demanddata_2017.csv",
+      f"{ngeso_prefix}/fcb12133-0db0-4f27-a4a5-1669fd9f6d33/download/demanddata_2018.csv"]
     proxy_header = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0'
     #
     # function to retrieve reconstructed wind data
@@ -81,8 +85,12 @@ def fetch_data() -> pd.DataFrame:
       # fetch data from website
       demand_df = pd.concat([pd.read_csv(url) for url in demand_urls])
       # format time columns
-      demand_df["date"] = pd.to_datetime(demand_df["SETTLEMENT_DATE"].astype(str).str.lower(), utc=True)
-      demand_df["time"] = demand_df["date"] + pd.to_timedelta([timedelta(days=max((x-1),0.1)/48) for x in demand_df["SETTLEMENT_PERIOD"]])
+      demand_df["date"] = (pd.to_datetime(demand_df["SETTLEMENT_DATE"]
+        .astype(str)
+        .str.lower(), utc=True))
+      timedeltas = [timedelta(days=max((x-1),0.1)/48) for x in demand_df["SETTLEMENT_PERIOD"]]
+      demand_df["time"] = (demand_df["date"] 
+        + pd.to_timedelta(timedeltas))
       demand_df["demand"] = demand_df["ND"]
       return demand_df.filter(items=["time","demand"], axis=1)
     #
@@ -116,13 +124,17 @@ def fetch_data() -> pd.DataFrame:
     request = requests.post(api_url, json={'query': query}, headers=headers)
     dk_df = pd.DataFrame(request.json()["data"]["electricitybalancenonv"]).dropna(axis=0)
     dk_df["time"] = pd.to_datetime(dk_df["HourUTC"], utc=True)
-    dk_df["net_demand"] = dk_df["TotalLoad"] - dk_df["SolarPower"] - dk_df["OnshoreWindPower"] - dk_df["OffshoreWindPower"]
+    dk_df["net_demand"] = (dk_df["TotalLoad"] 
+      - dk_df["SolarPower"] 
+      - dk_df["OnshoreWindPower"] 
+      - dk_df["OffshoreWindPower"])
     return dk_df.filter(items=["time","net_demand"], axis=1)
   #
   gb_df = fetch_gb_data()
   dk_df = fetch_dk_data()
   # leave only peak winter season
-  df = gb_df.merge(dk_df, on="time", suffixes=("_gb", "_dk")).query("(time.dt.month >= 11 and time.dt.year == 2017) or (time.dt.month <=3 and time.dt.year == 2018)")
+  query_str = "(time.dt.month >= 11 and time.dt.year == 2017) or (time.dt.month <=3 and time.dt.year == 2018)"
+  df = gb_df.merge(dk_df, on="time", suffixes=("_gb", "_dk")).query(query_str)
   return df
 
 
@@ -142,8 +154,10 @@ import riskmodels.bivariate as bivar
 
 # prepare data
 gb_nd, dk_nd = np.array(df["net_demand_gb"]), np.array(df["net_demand_dk"])
-# Initialise Empirical distribution objects. Round observations to nearest MW; this will come n handy for energy procurement modelling, and does not affect fitted tail models
-gb_nd_dist, dk_nd_dist = univar.Empirical.from_data(gb_nd).to_integer(), univar.Empirical.from_data(dk_nd).to_integer()
+# Initialise Empirical distribution objects. Round observations to nearest MW
+# this will come n handy for energy procurement modelling, and does not affect fitted tail models
+gb_nd_dist, dk_nd_dist = (univar.Empirical.from_data(gb_nd).to_integer(), 
+  univar.Empirical.from_data(dk_nd).to_integer())
 
 #look at mean residual life to decide whether threshold values are appropriate
 q_th = 0.95
@@ -231,7 +245,7 @@ bivar_ev_model.plot_diagnostics();plt.show()
 
 #### Energy procurement modelling
 
-For the sake of this example, synthetic conventional generator fleets are going to be created for both areas in order to compute risk indices for a hypothetical interconnected system. 
+For the sake of this example, synthetic conventional generator fleets are going to be created for both areas in order to compute risk indices for a hypothetical interconnected system.
 
 ```py
 from riskmodels.powersys.iid.convgen import IndependentFleetModel
@@ -287,12 +301,12 @@ plt.grid()
 plt.legend()
 plt.show()
 ```
+
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
     <em>Post-interconnection LOLE indices</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
   <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/bivariate-sequential/readme_imgs/post_itc_lole.png" alt="post-interconnection LOLE indices" width="640px">
 </p>
-
 
 <a name="myfootnote1">1</a>: A more in-depth explanation of asymptotic dependence vs independence is given in 'Statistics of Extremes: Theory and Applications' by Beirlant et al, page 342.

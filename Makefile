@@ -25,7 +25,7 @@ format: ## Formats modules code using Black
 
 build: ## Bundles objects for release to PyPI
 	@$(call verify_install, build);\
-	python -m build --sdist --wheel --outdir dist/
+	python -m build --sdist --outdir dist/
 	#twine check dist/* && twine upload dist/*
 
 help: ## Shows Makefile's help.
