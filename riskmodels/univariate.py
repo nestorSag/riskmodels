@@ -2067,6 +2067,7 @@ class EmpiricalWithGPTail(Mixture):
                     return_levels + 1.96 * return_stdevs,
                     alpha=0.2,
                     color=self._figure_color_palette[1],
+                    linestyle="dashed"
                 )
             else:
                 warnings.warn(
@@ -2412,6 +2413,7 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
             q975_return_levels,
             alpha=0.2,
             color=self._figure_color_palette[1],
+            linestyle="dashed"
         )
         plt.xscale("log")
         plt.title("Exceedance return levels")

@@ -1010,16 +1010,49 @@ class Empirical(BaseDistribution):
             weights=np.array([p, 1 - p]),
         )
 
-    def test_asymptotic_dependence(self, quantile_threshold: float = 0.95) -> float:
+    def test_asymptotic_dependence(
+        self, 
+        quantile_threshold: float = 0.95, 
+        prior: t.Optional[str] = "flat") -> float:
         """Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta$\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). A uniform prior is placed on the hypothesis space \\($\\eta \\in [0,1]$\\) with \\($\\eta = 1$\\) corresponding to asymptotic dependence and vice versa. The posterior density is approximated through Gaussian Kernel density estimation.
 
         Args:
             quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
+            log_prior (str, optional): Name of prior distribution to use for Bayesian inference. must be one of 'flat', which uses a flat prior on the support, or 'jeffreys' which uses an uninformative Jeffreys prior; defaults to 'flat'.
 
         Returns:
             float: Savage-Dickey ratio. If larger than 1, this favors the asymptotic dependence hypothesis and vice versa.
         """
+        def flat_prior(theta):
+            scale, shape = theta
+            if scale > 0 and shape >= 0 and shape <= 1:
+                return 0.0
+            else:
+                return -np.Inf
 
+        def jeffreys_prior(theta):
+            scale, shape = theta
+            if scale > 0 and shape >= 0 and shape <= 1:
+                return -np.log(scale) - np.log(1+shape) - 0.5*np.log(1+2*shape)
+            else:
+                return -np.Inf
+
+        log_priors = {
+            "flat": flat_prior,
+            "jeffreys": jeffreys_prior
+        }
+        # Savage-Dickey ratios use the prior density for eta = 1. Compute it for both priors
+        prior_density = {
+            "flat": 1, # prior is uniform in [0,1]
+            "jeffreys": np.exp(log_priors["jeffreys"]([1,1]))/(np.pi/6) #constant factor is pi/6 (integral in [0,1])
+        }
+
+        try:
+            log_prior = log_priors[prior]
+        except KeyError as e:
+            raise ValueError(f"Prior name not recognised. Must be one of {log_priors.keys()}")
+
+        ### compute savage-dickey density ratio
         # Use generalised pareto to fit tails
         x, y = self.data.T
         x_dist, y_dist = univar.Empirical.from_data(x), univar.Empirical.from_data(y)
@@ -1032,16 +1065,6 @@ class Empirical(BaseDistribution):
         z1, z2 = -1 / np.log(u1), -1 / np.log(u2)
         t = np.minimum(z1, z2)
 
-        ### compute savage-dickey density ratio
-
-        # log prior for this particular problem, since we know the tail index to be in [0,1].
-        def log_prior(theta):
-            scale, shape = theta
-            if scale > 0 and shape >= 0 and shape <= 1:
-                return 0.0
-            else:
-                return -np.Inf
-
         t_dist = univar.Empirical.from_data(t)
         # Pass initial point that enforces theoretical constraints of 0 <= eta <= 1. Approximation inaccuracies from the transformation to Frechet margins and MLE estimation can violate the bounds.
         mle_tail = t_dist.fit_tail_model(t_dist.ppf(quantile_threshold))
@@ -1052,13 +1075,18 @@ class Empirical(BaseDistribution):
         )
 
         # approximate posterior distribution through Kernel density estimation. Evaluating it on 1 gives us the savage-dickey ratio
-        return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]
+        #return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]
 
-    def plot_pickands(self, quantile_threshold: float = 0.95):
+        return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]/prior_density[prior]
+
+    def plot_pickands(self, quantile_threshold: float = 0.95)  -> matplotlib.figure.Figure:
         """Returns a plot of the empirical Pickands dependence function induced by joint exceedances above the specified quantile threshold. The Pickands dependence function \\($A: [0,1] \\to [1/2,1]$\\) is convex and bounded by \\($\\max\\{t,1-t\\} \\leq A(t) \\leq 1$\\); it can be used to assess extremal dependence, as there is a one-to-one correspondence between \\($A(t)$\\) and extremal copulas; the closer it is to its lower bound, the stronger the extremal dependence. Conversely, for asymptotically independent data \\(A(t) = 1$\\).
 
         Args:
             quantile_threshold (float, optional): Quantile threshold over which Pickands dependence will be approximated.
+        
+        Returns:
+            matplotlib.figure.Figure: figure
         """
         fig = plt.figure(figsize=(5, 5))
 
@@ -1109,3 +1137,46 @@ class Empirical(BaseDistribution):
         plt.title("Empirical Pickands dependence of joint exceedances")
         plt.grid()
         return fig
+
+    def plot_asymptotic_dep(self)  -> matplotlib.figure.Figure:
+        """"Returns a plot of the empirical estimates of the coefficient of asymptotic dependence , defined as \\( $\\xi = \\ \\lim_{p \\to \\infty} mathcal{P}(Y > q_y(p) \\,|\\, X > q_x (p) $\\), where \\( $q_x, q_y$\\) are the corresponding quantiles for a given probability level \\($p$\\). There is asymptotic dependence when \\($\\xi > 0$\\) and vice versa.
+        
+        Returns:
+            matplotlib.figure.Figure: figure
+        """
+        def chi(p: np.ndarray) -> t.Tuple[np.ndarray, np.ndarray]:
+            """Returns xi estimates and the corresponding estimate's standard deviation
+            
+            Args:
+                t (np.ndarray): input probability levels
+            
+            Returns:
+                t.Tuple[np.ndarray, np.ndarray]: estimate and standard deviation arrays
+            """
+            x, y = self.get_marginals()
+            q1, q2 = x.ppf(p), y.ppf(p) # marginal quantiles
+            q = np.stack([q1,q2], axis=1)
+            joint_p = 1 - x.cdf(q1) - y.cdf(q2) + self.cdf(q) # P(Y > q_y, X > q_x)
+            estimate = joint_p/(1-x.cdf(q1)) # xi = P(Y > q_y | X > q_x)
+            n_obs = len(x.data) * (1-p)
+            std = np.sqrt(estimate*(1-estimate)/n_obs)
+            return estimate, std
+
+
+        fig = plt.figure(figsize=(5, 5))
+        p = np.linspace(0.01, 0.99, 99)
+        chi_central, chi_std = chi(p)
+        ci_l, ci_u = chi_central - 1.96*chi_std, chi_central + 1.96*chi_std
+
+        plt.plot(p, chi_central, color=self._figure_color_palette[0])
+        plt.scatter(p, chi_central, color=self._figure_color_palette[0])
+        plt.fill_between(p, ci_l, ci_u, linestyle="dashed", color=self._figure_color_palette[1], alpha = 0.2)
+        plt.xlabel("quantiles")
+        plt.ylabel("Xi")
+        plt.title("Empirical coefficient of asymptotic dependence (Xi)")
+        plt.grid()
+        return fig
+
+
+
+
