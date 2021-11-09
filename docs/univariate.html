@@ -2097,6 +2097,7 @@ class EmpiricalWithGPTail(Mixture):
                     return_levels + 1.96 * return_stdevs,
                     alpha=0.2,
                     color=self._figure_color_palette[1],
+                    linestyle=&#34;dashed&#34;
                 )
             else:
                 warnings.warn(
@@ -2408,7 +2409,7 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
             )
 
     def plot_return_levels(self) -&gt; matplotlib.figure.Figure:
-        &#34;&#34;&#34;Returns a figure with a return level plot using the fitted tail model
+        &#34;&#34;&#34;Returns a figure with a return levels using the fitted tail model
 
         Returns:
             matplotlib.figure.Figure: figure
@@ -2442,6 +2443,7 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
             q975_return_levels,
             alpha=0.2,
             color=self._figure_color_palette[1],
+            linestyle=&#34;dashed&#34;
         )
         plt.xscale(&#34;log&#34;)
         plt.title(&#34;Exceedance return levels&#34;)
@@ -4847,7 +4849,7 @@ def pdf_lookup(self):
             )
 
     def plot_return_levels(self) -&gt; matplotlib.figure.Figure:
-        &#34;&#34;&#34;Returns a figure with a return level plot using the fitted tail model
+        &#34;&#34;&#34;Returns a figure with a return levels using the fitted tail model
 
         Returns:
             matplotlib.figure.Figure: figure
@@ -4881,6 +4883,7 @@ def pdf_lookup(self):
             q975_return_levels,
             alpha=0.2,
             color=self._figure_color_palette[1],
+            linestyle=&#34;dashed&#34;
         )
         plt.xscale(&#34;log&#34;)
         plt.title(&#34;Exceedance return levels&#34;)
@@ -4973,6 +4976,66 @@ def from_data(
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="riskmodels.univariate.EmpiricalWithBayesianGPTail.plot_return_levels"><code class="name flex">
+<span>def <span class="ident">plot_return_levels</span></span>(<span>self) ‑> matplotlib.figure.Figure</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a figure with a return levels using the fitted tail model</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>matplotlib.figure.Figure</code></dt>
+<dd>figure</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_return_levels(self) -&gt; matplotlib.figure.Figure:
+    &#34;&#34;&#34;Returns a figure with a return levels using the fitted tail model
+
+    Returns:
+        matplotlib.figure.Figure: figure
+
+    &#34;&#34;&#34;
+    fig = plt.figure()
+    exs_prob = self.exs_prob
+
+    exceedance_frequency = 1 / np.logspace(1, 4, 20)
+    exceedance_frequency = exceedance_frequency[
+        exceedance_frequency &lt; exs_prob
+    ]  # plot only levels inside fitted tail model
+
+    return_levels = [self.ppf(1 - x, return_all=True) for x in exceedance_frequency]
+
+    # hat_return_levels are not the mean of posterior return level samples, as the mean is not an unbiased estimator
+    hat_return_levels = np.array(
+        [self.ppf(1 - x, return_all=False) for x in exceedance_frequency]
+    )
+    q025_return_levels = np.array([np.quantile(r, 0.025) for r in return_levels])
+    q975_return_levels = np.array([np.quantile(r, 0.975) for r in return_levels])
+
+    plt.plot(
+        1.0 / exceedance_frequency,
+        hat_return_levels,
+        color=self._figure_color_palette[0],
+    )
+    plt.fill_between(
+        1.0 / exceedance_frequency,
+        q025_return_levels,
+        q975_return_levels,
+        alpha=0.2,
+        color=self._figure_color_palette[1],
+        linestyle=&#34;dashed&#34;
+    )
+    plt.xscale(&#34;log&#34;)
+    plt.title(&#34;Exceedance return levels&#34;)
+    plt.xlabel(&#34;1/frequency&#34;)
+    plt.ylabel(&#34;Return level&#34;)
+    plt.grid()
+
+    return fig</code></pre>
+</details>
+</dd>
 <dt id="riskmodels.univariate.EmpiricalWithBayesianGPTail.ppf"><code class="name flex">
 <span>def <span class="ident">ppf</span></span>(<span>self, q: t.Union[float, np.ndarray], return_all=False) ‑> Union[float, numpy.ndarray]</span>
 </code></dt>
@@ -5036,7 +5099,6 @@ def from_data(
 <li><code><a title="riskmodels.univariate.EmpiricalWithGPTail.moment" href="#riskmodels.univariate.Mixture.moment">moment</a></code></li>
 <li><code><a title="riskmodels.univariate.EmpiricalWithGPTail.pdf" href="#riskmodels.univariate.Mixture.pdf">pdf</a></code></li>
 <li><code><a title="riskmodels.univariate.EmpiricalWithGPTail.plot" href="#riskmodels.univariate.BaseDistribution.plot">plot</a></code></li>
-<li><code><a title="riskmodels.univariate.EmpiricalWithGPTail.plot_return_levels" href="#riskmodels.univariate.EmpiricalWithGPTail.plot_return_levels">plot_return_levels</a></code></li>
 <li><code><a title="riskmodels.univariate.EmpiricalWithGPTail.simulate" href="#riskmodels.univariate.Mixture.simulate">simulate</a></code></li>
 <li><code><a title="riskmodels.univariate.EmpiricalWithGPTail.std" href="#riskmodels.univariate.Mixture.std">std</a></code></li>
 <li><code><a title="riskmodels.univariate.EmpiricalWithGPTail.tail" href="#riskmodels.univariate.EmpiricalWithGPTail.tail">tail</a></code></li>
@@ -5228,6 +5290,7 @@ def from_data(
                     return_levels + 1.96 * return_stdevs,
                     alpha=0.2,
                     color=self._figure_color_palette[1],
+                    linestyle=&#34;dashed&#34;
                 )
             else:
                 warnings.warn(
@@ -5490,6 +5553,7 @@ def tail(self) -&gt; GPTail:
                 return_levels + 1.96 * return_stdevs,
                 alpha=0.2,
                 color=self._figure_color_palette[1],
+                linestyle=&#34;dashed&#34;
             )
         else:
             warnings.warn(
@@ -8292,6 +8356,7 @@ def check_weigths(cls, weights):
 <h4><code><a title="riskmodels.univariate.EmpiricalWithBayesianGPTail" href="#riskmodels.univariate.EmpiricalWithBayesianGPTail">EmpiricalWithBayesianGPTail</a></code></h4>
 <ul class="">
 <li><code><a title="riskmodels.univariate.EmpiricalWithBayesianGPTail.from_data" href="#riskmodels.univariate.EmpiricalWithBayesianGPTail.from_data">from_data</a></code></li>
+<li><code><a title="riskmodels.univariate.EmpiricalWithBayesianGPTail.plot_return_levels" href="#riskmodels.univariate.EmpiricalWithBayesianGPTail.plot_return_levels">plot_return_levels</a></code></li>
 <li><code><a title="riskmodels.univariate.EmpiricalWithBayesianGPTail.ppf" href="#riskmodels.univariate.EmpiricalWithBayesianGPTail.ppf">ppf</a></code></li>
 <li><code><a title="riskmodels.univariate.EmpiricalWithBayesianGPTail.threshold" href="#riskmodels.univariate.EmpiricalWithBayesianGPTail.threshold">threshold</a></code></li>
 </ul>

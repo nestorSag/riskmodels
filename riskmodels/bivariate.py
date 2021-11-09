@@ -230,7 +230,7 @@ class Independent(BaseDistribution):
 
 class ExceedanceDistribution(BaseDistribution):
 
-    """Main interface for exceedance distributions, which are defined on a region of the form \\( $U \\nleq u$ \\), or equivalently \\( \\max\\{U_1,U_2\\} > u \\)."""
+    """Main interface for exceedance distributions, which are defined on a region of the form \\( U \\nleq u \\), or equivalently \\( \\max\\{U_1,U_2\\} > u \\)."""
 
     quantile_threshold: float
 
@@ -295,13 +295,9 @@ class ExceedanceDistribution(BaseDistribution):
 
 class Logistic(ExceedanceDistribution):
 
-    """This model is equivalent to a Gumbel-Hougaard copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} > u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought as a pre-limit bivariate Generalised Pareto with logistic dependence in the context of extreme value theory. Consequently, under this model there is asymptotic dependence between components, this is, extreme values across components are strongly associated. Use it if there is strong evidence of asymptotic dependence in the data.
+    """This model assumes association between exceedances at different components follow a Gumbel-Hougaard copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gumbel-Hougaard copula, but the normalisation constant is different.
 
-    In Gumbel scale (this is, when both marginal distributions follow a standard Gumbel distribution), its cumulative probability function is given by
-
-    $$ F(\\textbf{x}) - \\exp \\left( - \\left( \\exp(-\\textbf{x}_1/\\alpha) + \\exp(-\\textbf{x}_2/\\alpha) \\right)^\\alpha \\right), \\,\\,\\, \\textbf{x} \\nleq \\textbf{a}, \\,\\,\\, \\alpha \\in (0,1)$$
-
-    where \\( \\textbf{a} \\) is the vector formed by the marginal quantiles of a probability threshold \\( p \\) such that exceedances with probability less than \\(1-p\\) are considered extreme (say \\(p = 0.95\\) )
+    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
     """
 
     alpha: float
@@ -397,7 +393,7 @@ class Logistic(ExceedanceDistribution):
 
         nlogp = (np.exp(-x / alpha) + np.exp(-y / alpha)) ** alpha
         lognlogp = alpha * np.log(np.exp(-x / alpha) + np.exp(-y / alpha))
-        rescaler = 1 - cls.logistic_gumbel_cdf(alpha, cls.bundle(threshold, threshold))
+        rescaler = 1 - cls.unconditioned_cdf(alpha, cls.bundle(threshold, threshold))
 
         # a = np.exp((x + y - nlogp*alpha)/alpha)
         log_a = (x + y) / alpha - nlogp
@@ -427,7 +423,7 @@ class Logistic(ExceedanceDistribution):
         return np.sum(cls.logpdf(alpha, threshold, data))
 
     @classmethod
-    def logistic_gumbel_cdf(cls, alpha: float, data: t.Union[np.ndarray, t.Iterable]):
+    def unconditioned_cdf(cls, alpha: float, data: t.Union[np.ndarray, t.Iterable]):
         """Calculates unconstrained standard Gumbel CDF"""
         x, y = cls.unbundle(data)
         return np.exp(-((np.exp(-x / alpha) + np.exp(-y / alpha)) ** (alpha)))
@@ -506,9 +502,6 @@ class Logistic(ExceedanceDistribution):
         res = minimize(fun=loss, x0=x0, method="BFGS", args=(mapped_exceedances,))
 
         if return_opt_results:
-            warn.warnings(
-                "Returning raw results for rescaled exceedance data (sdev ~ 1)."
-            )
             return res
         else:
             phi = res.x[0]
@@ -635,12 +628,21 @@ class Logistic(ExceedanceDistribution):
         plt.tight_layout()
         return fig
 
-    def simulate(self, size: int):
-        alpha = self.alpha
-        exs_prob = 1 - self.quantile_threshold
+    @classmethod
+    def simulate_logistic_gumbel(self, size: int, alpha: float, quantile_threshold: float) -> np.ndarray:
+        """Simulate logistic model in Gumbel scale
+        
+        Args:
+            size (int): Simulated sample size
+            alpha (float): Dependence parameter
+            threshold (float): Exceedance threshold in both components
+        
+        Returns:
+            np.ndarray: Simulated sample
+        """
         ### simulate in Gumbel scale maximum component: z = max(x1, x2) ~ Gumbel(loc=alpha*np.log(2)) using inverse function method
         q0 = gumbel.cdf(
-            self.model_scale_threshold, loc=alpha * np.log(2)
+            quantile_threshold, loc=alpha * np.log(2)
         )  # quantile of model's threshold in the maximum's distribution
         u = np.random.uniform(size=size, low=q0)
         maxima = gumbel.ppf(q=u, loc=alpha * np.log(2))
@@ -696,22 +698,27 @@ class Logistic(ExceedanceDistribution):
             axis=0,
         )
 
-        return self.model_to_data_dist(self.bundle(x, y))
+        return cls.bundle(x,y)
+
+
+    def simulate(self, size: int):
+
+        return self.model_to_data_dist(self.simulate_logistic_gumbel(size, self.alpha, self.quantile_threshold))
 
     def cdf(self, data: np.ndarray):
         mapped_data = self.data_to_model_dist(data)
-        gumbel_threshold = self.model_scale_threshold
-        u = np.minimum(mapped_data, gumbel_threshold)
+        model_threshold = self.model_scale_threshold
+        u = np.minimum(mapped_data, model_threshold)
         norm_factor = float(
             1
-            - self.logistic_gumbel_cdf(
-                self.alpha, self.bundle(gumbel_threshold, gumbel_threshold)
+            - self.unconditioned_cdf(
+                self.alpha, self.bundle(model_threshold, model_threshold)
             )
         )
 
         return (
-            self.logistic_gumbel_cdf(self.alpha, mapped_data)
-            - self.logistic_gumbel_cdf(self.alpha, u)
+            self.unconditioned_cdf(self.alpha, mapped_data)
+            - self.unconditioned_cdf(self.alpha, u)
         ) / norm_factor
 
     def dx_dz(self, z: t.Union[float, np.ndarray], component: int):
@@ -734,7 +741,7 @@ class Logistic(ExceedanceDistribution):
         else:
             # estimate by finite differences
             eps = 1e-3
-            dx = (margin.pdf(z + eps) - margin.pdf(z - eps)) / (2 * eps)
+            dx = (margin.cdf(z + eps) - margin.cdf(z - eps)) / (2 * eps)
         return dx
 
     def pdf(self, data: t.Union[np.ndarray, t.Iterable]):
@@ -752,10 +759,9 @@ class Logistic(ExceedanceDistribution):
 
 class Gaussian(Logistic):
 
-    """This model is equivalent to a Gaussian copula model restricted to the region of the form \\( \\mathbf{U} \\nleq u \\), or equivalently \\( \\max\\{\\mathbf{U}_1,\\mathbf{U}_2\\} > u \\), which represents threshold exceedances above \\( u \\) in at least one component. This model can also be thought of as a pre-limit bivariate Generalised Pareto with Gaussian dependence, which is degenerate in the limit. Consequently, under this model there is asymptotic independence between components, this is, extreme values across components are weakly dependent, and occur more or less independently of each other. Use it if there is weak evidence for asymptotic dependence in the data.
+    """This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
 
-    In Gaussian scale (i.e. when both marginal distributions are gaussian), its density function is given by a bivariate normal distribution restricted to the region described above, where \\( u \\) would be the quantile corresponding to a probability value \\( p \\) such that exceedances of probability less than \\(1 - p\\) are considered extreme.
-
+    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a Gaussian dependence model (see Rootzen and Tajvidi, 2006). Because Gaussian copulas are asymptotically independent (this is, dependence  weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at \\(-\\infty\\). This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.
     """
 
     alpha: float
@@ -770,7 +776,7 @@ class Gaussian(Logistic):
         return np.array([[1, self.alpha], [self.alpha, 1]])
 
     @classmethod
-    def logistic_gumbel_cdf(cls, alpha: float, data: np.ndarray):
+    def unconditioned_cdf(cls, alpha: float, data: np.ndarray):
         """Calculates unconstrained standard Gaussian CDF"""
         return mv_gaussian.cdf(data, cov=np.array([[1, alpha], [alpha, 1]]))
 
@@ -949,11 +955,11 @@ class Empirical(BaseDistribution):
         margin1: univar.BaseDistribution = None,
         margin2: univar.BaseDistribution = None,
     ):
-        """Fits a parametric model for threshold exceedances in the data. For a given threshold \\( u \\), exceedances are defined as vectors \\(U\\) such that \\( \\max\\{U_1,U_2\\} > u \\), this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
+        """Fits a parametric model for threshold exceedances in the data. For a given threshold \\( u \\), exceedances are defined as vectors \\(Z\\) such that \\( \\max\\{Z_1,Z_2\\} > u \\), this is, an exceedance in at least one component, and encompasses an inverted L-shaped subset of Euclidean space.
         Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extreme occurrences across components, and the latter exhibiting asymptotic independence, in which extremes occur relatively independently across components.
 
         Args:
-            model (str): name of selected model, currently one of 'gaussian' or 'logistic'
+            model (str): name of selected model, currently one of 'gaussian' or 'logistic'. For more information, see `Gaussian` and `Logisstic` classes.
             margin1 (univar.BaseDistribution, optional): Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
             margin2 (univar.BaseDistribution, optional): Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
             quantile_threshold (float): Quantile threshold to use for the definition of exceedances
@@ -1013,12 +1019,12 @@ class Empirical(BaseDistribution):
     def test_asymptotic_dependence(
         self, 
         quantile_threshold: float = 0.95, 
-        prior: t.Optional[str] = "flat") -> float:
-        """Computes the Savage-Dickey ratio for the coefficient of tail dependence \\($\\eta$\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). A uniform prior is placed on the hypothesis space \\($\\eta \\in [0,1]$\\) with \\($\\eta = 1$\\) corresponding to asymptotic dependence and vice versa. The posterior density is approximated through Gaussian Kernel density estimation.
+        prior: t.Optional[str] = "jeffreys") -> float:
+        """Computes q Savage-Dickey ratio for the coefficient of tail dependence \\(\\eta\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). The hypothesis space is \\(\\eta \\in [0,1]\\) with \\(\\eta = 1\\) corresponding to asymptotic dependence. The posterior density is approximated through Gaussian Kernel density estimation.
 
         Args:
             quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
-            log_prior (str, optional): Name of prior distribution to use for Bayesian inference. must be one of 'flat', which uses a flat prior on the support, or 'jeffreys' which uses an uninformative Jeffreys prior; defaults to 'flat'.
+            log_prior (str, optional): Name of prior distribution to use for Bayesian inference. must be one of 'flat', which uses a flat prior on the support, or 'jeffreys' which uses an uninformative Jeffreys prior; defaults to 'jeffreys'.
 
         Returns:
             float: Savage-Dickey ratio. If larger than 1, this favors the asymptotic dependence hypothesis and vice versa.
@@ -1041,9 +1047,9 @@ class Empirical(BaseDistribution):
             "flat": flat_prior,
             "jeffreys": jeffreys_prior
         }
-        # Savage-Dickey ratios use the prior density for eta = 1. Compute it for both priors
+        # Savage-Dickey ratios use the prior marginal density for eta = 1. Compute it for both priors
         prior_density = {
-            "flat": 1, # prior is uniform in [0,1]
+            "flat": 1, # prior is uniform in [0,1] for eta
             "jeffreys": np.exp(log_priors["jeffreys"]([1,1]))/(np.pi/6) #constant factor is pi/6 (integral in [0,1])
         }
 
@@ -1079,33 +1085,23 @@ class Empirical(BaseDistribution):
 
         return gaussian_kde(t_dist.tail.shapes).evaluate(1)[0]/prior_density[prior]
 
-    def plot_pickands(self, quantile_threshold: float = 0.95)  -> matplotlib.figure.Figure:
-        """Returns a plot of the empirical Pickands dependence function induced by joint exceedances above the specified quantile threshold. The Pickands dependence function \\($A: [0,1] \\to [1/2,1]$\\) is convex and bounded by \\($\\max\\{t,1-t\\} \\leq A(t) \\leq 1$\\); it can be used to assess extremal dependence, as there is a one-to-one correspondence between \\($A(t)$\\) and extremal copulas; the closer it is to its lower bound, the stronger the extremal dependence. Conversely, for asymptotically independent data \\(A(t) = 1$\\).
+    @classmethod
+    def pickands(self, p: np.ndarray, data: np.ndarray, quantile_threshold: float = 0.95) -> np.ndarray:
+        """Non-parametric Pickands dependence function approximation based on Hall and Tajvidi (2000).
 
         Args:
+            p (np.ndarray): Pickands dependence function arguments
+            data: (np.ndarray): data matrix of n x 2
             quantile_threshold (float, optional): Quantile threshold over which Pickands dependence will be approximated.
-        
+
         Returns:
-            matplotlib.figure.Figure: figure
+            np.ndarray: Nonparametric estimate of the Pickands dependence function
         """
-        fig = plt.figure(figsize=(5, 5))
-
-        def pickands(v: float) -> float:
-            """Non-parametric Pickands dependence function approximation based on Hall and Tajvidi (2000).
-
-            Args:
-                v (float): Pickands dependence function argument
-
-            Returns:
-                float: Nonparametric estimate of the Pickands dependence function
-            """
-            # s and t arrays come from outer scope and are exponentially distributed maps of original data
-            a = (n * s / np.sum(s)) / (1 - v)
-            b = (n * t / np.sum(t)) / v
-            return 1.0 / np.mean(np.minimum(a, b))
-
         # find joint extremes
-        x, y = self.data.T
+        if np.any(p > 1) or np.any(p < 0):
+            raise ValueError("All argument values must be in [0,1]")
+
+        x, y = data.T
         joint_extremes_idx = np.logical_and(
             x > np.quantile(x, quantile_threshold),
             y > np.quantile(y, quantile_threshold),
@@ -1119,15 +1115,36 @@ class Empirical(BaseDistribution):
             univar.Empirical.from_data(y_exs),
         )
 
-        # normalise to avoid values on the border of the unit square
+        # normalise to avoid copula values on the border of the unit square
         u1, u2 = n / (n + 1) * x_exs_model.cdf(x_exs), n / (n + 1) * y_exs_model.cdf(
             y_exs
         )
         # map to exponential
         s, t = -np.log(u1), -np.log(u2)
 
+        pk = []
+        for p_ in p:
+            a = (n * s / np.sum(s)) / (1 - p_)
+            b = (n * t / np.sum(t)) / p_
+            pk.append(1.0 / np.mean(np.minimum(a, b)))
+            
+        return np.array(pk)
+
+    def plot_pickands(self, quantile_threshold: float = 0.95)  -> matplotlib.figure.Figure:
+        """Returns a plot of the empirical Pickands dependence function induced by joint exceedances above the specified quantile threshold. 
+        The Pickands dependence function \\(A: [0,1] \\to [1/2,1]\\) is convex and bounded by \\(\\max\\{t,1-t\\} \\leq A(t) \\leq 1\\); it can be used to assess extremal dependence, as there is a one-to-one correspondence between \\(A(t)\\) and extremal copulas; the closer it is to its lower bound, the stronger the extremal dependence. Conversely, for asymptotically independent data \\(A(t) = 1\\).
+        The non-parametric approximation used here is based on Hall and Tajvidi (2000).
+
+        Args:
+            quantile_threshold (float, optional): Quantile threshold over which Pickands dependence will be approximated.
+        
+        Returns:
+            matplotlib.figure.Figure: figure
+        """
+        fig = plt.figure(figsize=(5, 5))
+
         x = np.linspace(0, 1, 101)
-        pk = np.array([pickands(_) for _ in x])
+        pk = self.pickands(x, self.data)
 
         plt.plot(x, pk, color="darkorange", label="Empirical")
         plt.plot(x, np.maximum(1 - x, x), linestyle="dashed", color="black")
@@ -1138,14 +1155,17 @@ class Empirical(BaseDistribution):
         plt.grid()
         return fig
 
-    def plot_asymptotic_dep(self)  -> matplotlib.figure.Figure:
-        """"Returns a plot of the empirical estimates of the coefficient of asymptotic dependence , defined as \\( $\\xi = \\ \\lim_{p \\to \\infty} mathcal{P}(Y > q_y(p) \\,|\\, X > q_x (p) $\\), where \\( $q_x, q_y$\\) are the corresponding quantiles for a given probability level \\($p$\\). There is asymptotic dependence when \\($\\xi > 0$\\) and vice versa.
+    def plot_chi(self, direct_estimate: bool = True)  -> matplotlib.figure.Figure:
+        """Returns a plot of the empirical estimate of the coefficient of asymptotic dependence , defined as \\( \\chi = \\ \\lim_{p \\to 1} \\mathbb{P}(Y > q_y(p) \\,|\\, X > q_x (p)) \\), where \\( q_x, q_y\\) are the corresponding quantiles for a given probability level \\(p\\). There is asymptotic dependence when \\(\\chi > 0\\) and vice versa.
+
+        Args:
+            direct_estimate (optional, bool): if True, use the empirical copula's probability estimates directly. Otherwise use the approximation given by \\(\\chi = \\lim_{u \\to 1} 2 - \\log C(u,u) / \\log(u) \\) where \\(C(u,u)\\) is the empirical copula.
         
         Returns:
             matplotlib.figure.Figure: figure
         """
         def chi(p: np.ndarray) -> t.Tuple[np.ndarray, np.ndarray]:
-            """Returns xi estimates and the corresponding estimate's standard deviation
+            """Returns chi estimates and the corresponding estimate's standard deviation
             
             Args:
                 t (np.ndarray): input probability levels
@@ -1153,13 +1173,21 @@ class Empirical(BaseDistribution):
             Returns:
                 t.Tuple[np.ndarray, np.ndarray]: estimate and standard deviation arrays
             """
-            x, y = self.get_marginals()
-            q1, q2 = x.ppf(p), y.ppf(p) # marginal quantiles
-            q = np.stack([q1,q2], axis=1)
-            joint_p = 1 - x.cdf(q1) - y.cdf(q2) + self.cdf(q) # P(Y > q_y, X > q_x)
-            estimate = joint_p/(1-x.cdf(q1)) # xi = P(Y > q_y | X > q_x)
-            n_obs = len(x.data) * (1-p)
-            std = np.sqrt(estimate*(1-estimate)/n_obs)
+            x, y = self.get_marginals()            
+            n = len(x.data)
+            # map to rescaled copula values in the open set (0,1)
+            u1, u2 = x.cdf(x.data) * n/(n+1), y.cdf(y.data) * n/(n+1)
+            empirical_copula = Empirical.from_data(np.stack([u1,u2], axis=1))
+            if direct_estimate:
+                joint_p = 1 - 2*p + empirical_copula.cdf(np.stack([p,p], axis=1))
+                estimate = joint_p/(1-p)
+                n_obs = len(x.data) * (1-p)
+                std = np.sqrt(estimate*(1-estimate)/n_obs)
+            else:
+                vals = empirical_copula.cdf(np.stack([p,p], axis=1))
+                estimate = 2 - np.log(vals)/np.log(p)
+                # standard error approximation using delta method
+                std = np.sqrt(vals*(1-vals)/n * 1/np.log(p)**2 * 1/vals**2)
             return estimate, std
 
 
@@ -1172,8 +1200,7 @@ class Empirical(BaseDistribution):
         plt.scatter(p, chi_central, color=self._figure_color_palette[0])
         plt.fill_between(p, ci_l, ci_u, linestyle="dashed", color=self._figure_color_palette[1], alpha = 0.2)
         plt.xlabel("quantiles")
-        plt.ylabel("Xi")
-        plt.title("Empirical coefficient of asymptotic dependence (Xi)")
+        plt.ylabel("Chi(u)")
         plt.grid()
         return fig
 

@@ -2379,7 +2379,7 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
             )
 
     def plot_return_levels(self) -> matplotlib.figure.Figure:
-        """Returns a figure with a return level plot using the fitted tail model
+        """Returns a figure with a return levels using the fitted tail model
 
         Returns:
             matplotlib.figure.Figure: figure
