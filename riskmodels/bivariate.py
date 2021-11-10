@@ -26,18 +26,19 @@ import matplotlib
 import numpy as np
 import emcee
 
-from scipy.optimize import LinearConstraint, minimize, root_scalar
+from scipy.optimize import LinearConstraint, minimize, root_scalar, approx_fprime
 from scipy.signal import fftconvolve
 from scipy.special import lambertw
 from scipy.stats import (
     genpareto as gpdist,
+    expon as exponential,
     gumbel_r as gumbel,
     norm as gaussian,
     multivariate_normal as mv_gaussian,
     gaussian_kde,
 )
 
-from pydantic import BaseModel, ValidationError, validator, PositiveFloat
+from pydantic import BaseModel, ValidationError, validator, PositiveFloat, Field
 from functools import reduce
 
 import riskmodels.univariate as univar
@@ -142,6 +143,16 @@ class BaseDistribution(BaseModel, ABC):
         return fig
 
 
+class Frechet(object):
+    """Minimal implementation of a unit Frechet distribution"""
+    @classmethod
+    def cdf(cls, x: np.ndarray):
+        return np.exp(-1/x)
+
+    @classmethod
+    def ppf(cls, p: np.ndarray):
+        return -1.0/np.log(p)
+
 class Mixture(BaseDistribution):
 
     """Base interface for a bivariate mixture distribution"""
@@ -232,7 +243,14 @@ class ExceedanceDistribution(BaseDistribution):
 
     """Main interface for exceedance distributions, which are defined on a region of the form \\( U \\nleq u \\), or equivalently \\( \\max\\{U_1,U_2\\} > u \\)."""
 
+
     quantile_threshold: float
+
+    params: t.Optional[np.ndarray] = np.array([0.5])
+    _param_names = {}
+
+    margin1: univar.BaseDistribution
+    margin2: univar.BaseDistribution
 
     @classmethod
     @abstractmethod
@@ -299,13 +317,14 @@ class Logistic(ExceedanceDistribution):
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
     """
+    params: t.Optional[np.ndarray] = Field(default_factory=lambda: np.zeros((1,), dtype=np.float32))
 
-    alpha: float
-    margin1: univar.BaseDistribution
-    margin2: univar.BaseDistribution
+    _param_names = {0:"alpha"} #mapping from params array indices to names for diagnostic plots
 
     _model_marginal_dist = gumbel
-    _marginal_model_name = "Gumbel"
+    #_plotting_dist = gumbel
+    _plotting_dist_name = "Gumbel"
+    _default_x0 = np.array([0.0])
 
     def __repr__(self):
         return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha} and quantile threshold {self.quantile_threshold}"
@@ -320,12 +339,12 @@ class Logistic(ExceedanceDistribution):
             self.bundle(self.model_scale_threshold, self.model_scale_threshold)
         )
 
-    @validator("alpha")
-    def validate_alpha(cls, alpha):
-        if alpha < 0 or alpha > 1:
+    @validator("params", allow_reuse=True)
+    def validate_params(cls, params):
+        if not np.all(params > 0) or not np.all(params < 1):
             raise TypeError("alpha must be in the open interval (0,1) ")
         else:
-            return alpha
+            return params
 
     @validator("data")
     def validate_data(cls, data):
@@ -333,6 +352,10 @@ class Logistic(ExceedanceDistribution):
             raise ValueError("Data needs to be an n x 2 matrix array")
         else:
             return data
+
+    @property
+    def alpha(self):
+        return self.params[0]
 
     def data_to_model_dist(self, data: t.Union[np.ndarray, t.Iterable]) -> np.ndarray:
         """Transforms original data scale to standard Gumbel scale
@@ -378,22 +401,24 @@ class Logistic(ExceedanceDistribution):
 
     @classmethod
     def logpdf(
-        cls, alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable]
+        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
     ):
         """Calculates logpdf function for Gumbel exceedances
-
-
+        
+        
         Args:
-            alpha (float): Dependence parameter
+            params (np.ndarray): array with dependence parameter as only element
             threshold (float): Exceedance threshold in Gumbel scale
             data (t.Union[np.ndarray, t.Iterable]): Observed data in Gumbel scale
-
+        
         """
+        alpha = params[0]
+
         x, y = cls.unbundle(data)
 
         nlogp = (np.exp(-x / alpha) + np.exp(-y / alpha)) ** alpha
         lognlogp = alpha * np.log(np.exp(-x / alpha) + np.exp(-y / alpha))
-        rescaler = 1 - cls.unconditioned_cdf(alpha, cls.bundle(threshold, threshold))
+        rescaler = 1 - cls.unconditioned_cdf(params, cls.bundle(threshold, threshold))
 
         # a = np.exp((x + y - nlogp*alpha)/alpha)
         log_a = (x + y) / alpha - nlogp
@@ -417,14 +442,15 @@ class Logistic(ExceedanceDistribution):
 
     @classmethod
     def loglik(
-        cls, alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable]
+        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
     ):
         """Calculates log-likelihood for Gumbel exceedances"""
-        return np.sum(cls.logpdf(alpha, threshold, data))
+        return np.sum(cls.logpdf(params, threshold, data))
 
     @classmethod
-    def unconditioned_cdf(cls, alpha: float, data: t.Union[np.ndarray, t.Iterable]):
+    def unconditioned_cdf(cls, params: np.ndarray, data: t.Union[np.ndarray, t.Iterable]):
         """Calculates unconstrained standard Gumbel CDF"""
+        alpha = params[0]
         x, y = cls.unbundle(data)
         return np.exp(-((np.exp(-x / alpha) + np.exp(-y / alpha)) ** (alpha)))
 
@@ -473,7 +499,6 @@ class Logistic(ExceedanceDistribution):
             raise ValueError("quantile_threshold must be in the open interval (0,1)")
 
         mapped_data = cls(
-            alpha=0.5,
             margin1=margin1,
             margin2=margin2,
             quantile_threshold=quantile_threshold,
@@ -488,28 +513,27 @@ class Logistic(ExceedanceDistribution):
         x = x[exs_idx]
         y = y[exs_idx]
 
+        x0 = cls._default_x0 if x0 is None else x0
+
         mapped_exceedances = cls.bundle(x, y)
+        n = len(mapped_exceedances)
 
         def logistic(x):
             return 1.0 / (1 + np.exp(-x))
 
-        x0 = 0.5 if x0 is None else x0
-
-        def loss(phi, data):
-            alpha = logistic(phi)
-            return -np.mean(cls.loglik(alpha, model_scale_threshold, data))
+        def loss(x, data):
+            params = logistic(x)
+            # optimise normalised log-likelihood
+            return -cls.loglik(params, model_scale_threshold, data)/n
 
         res = minimize(fun=loss, x0=x0, method="BFGS", args=(mapped_exceedances,))
 
         if return_opt_results:
             return res
-        else:
-            phi = res.x[0]
-            alpha = logistic(phi)
 
         return cls(
             quantile_threshold=quantile_threshold,
-            alpha=alpha,
+            params=logistic(res.x),
             data=data[exs_idx, :],
             margin1=margin1,
             margin2=margin2,
@@ -517,165 +541,185 @@ class Logistic(ExceedanceDistribution):
 
     @classmethod
     def hessian(
-        cls, alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable]
-    ):
-        """Calculates loglikelihood's second deriviative (i.e., negative estimator's precision)
-
+        cls, 
+        params: np.ndarray, 
+        threshold: float, 
+        data: t.Union[np.ndarray, t.Iterable],
+        eps = 1e-6) ->np.ndarray:
+        """Numerical approximation for the loglikelihood function's Hessian
+        
         Args:
-            alpha (float): dependence parameter
+            params (np.ndarray): parameter array
             threshold (float): Threshold in standard scale (i.e. Gumbel or Gaussian)
             data (t.Union[np.ndarray, t.Iterable]): Data in standard scale (i.e. Gumbel or Gaussian)
-
+            eps (float, optional): Numerical delta in each component
+        
         Returns:
-            TYPE: Description
-
+            np.ndarray: Hessian matrix
+        
         """
-        delta = 1e-3
-        n = len(data)
-        return (
-            cls.loglik(alpha - delta, threshold, data)
-            - 2 * cls.loglik(alpha, threshold, data)
-            + cls.loglik(alpha + delta, threshold, data)
-        ) / (n * delta ** 2)
+        x0 = params
+        grad0 = approx_fprime(x0, cls.loglik, eps, threshold, data) 
+        n = len(x0)
+        hessian = np.zeros((n,n), dtype=np.float32)
+        # The next loop fill in the matrix
+        xx = x0
+        for j in range( n ):
+            xx0 = xx[j] # Store old value
+            xx[j] = xx0 + eps # Perturb with finite difference
+            # Recalculate the partial derivatives for this new point
+            current_grad = approx_fprime(xx, cls.loglik, eps, threshold, data) 
+            hessian[:, j] = (current_grad - grad0)/eps # scale...
+            xx[j] = xx0 # Restore initial value of x0        
+        return hessian
 
-    def plot_diagnostics(self) -> matplotlib.figure.Figure:
-        """Returns diagnostic plots for the fitted model
-
-        Returns:
-            matplotlib.figure.Figure: figure
-
+    def plot_diagnostics(self, eps=1e-6):
+        """Returns a figure with the fitted exceedance model's profile log-likelihoods and fitted density in model scale.
+        
+        Args:
+            eps (float, optional): numeric delta when calculating the Hessian matrix numerically; this is used to plot profile loglikelihoods.
+        
         """
-
+        # unbundle data
         x, y = self.unbundle(self.data)
         z1, z2 = self.unbundle(self.data_to_model_dist(self.data))
         n = len(z1)
+        params = self.params
 
-        fig, axs = plt.subplots(1, 2)
+        # create plot mosaic
+        n_params = len(params)
+        r, c = int(np.ceil(n_params/2 + 1/2)), 2
+        # this function is needed to handle mosaics with a varying number of rows
+        def get_subplot(k):
+            if r == 1:
+                return axs[k]
+            else:
+                return axs[k//2,k%2]
+        fig, axs = plt.subplots(r,c)
 
-        ####### loglikelihood plot
-
+        # compute mle sdev
         model_scale_threshold = self.model_scale_threshold
-        sdev = np.sqrt(
-            -1.0 / self.hessian(self.alpha, model_scale_threshold, self.bundle(z1, z2))
-        )
-        grid = np.linspace(self.alpha - sdev, self.alpha + sdev, 100)
-        grid = grid[np.logical_and(grid > 0, grid < 1)]
-        ll = np.array(
-            [
-                self.loglik(alpha, model_scale_threshold, self.bundle(z1, z2))
-                for alpha in grid
-            ]
-        )
+        try:
+            hessian = self.hessian(params, model_scale_threshold, self.bundle(z1, z2), eps)
+            sdevs = np.sqrt(-np.linalg.inv(hessian))
+        except Exception as e:
+            raise Exception(f"Error when estimating fitted parameter variances; if fitted parameters are at the edge of their support, passing a lower eps value might help. Full trace: {traceback.format_exc()}")
+        # create profile log-likelihood plots
+        for k in range(n_params):
+            param = params[k]
+            sdev = sdevs[k,k]
+            grid = np.linspace(param - 1.96*sdev, param + 1.96*sdev, 100)
+            feasible_grid = grid[np.logical_and(grid > 0, grid < 1)]
+            perturbed_params = np.copy(params)
+            profile_ll = []
+            for x in feasible_grid:
+                perturbed_params[k] = x
+                profile_ll.append(self.loglik(perturbed_params, model_scale_threshold, self.bundle(z1, z2)))
+            # filter to almost optimal values
+            profile_ll = np.array(profile_ll)
+            max_ll = max(profile_ll)
+            almost_optimal = np.abs(profile_ll - max_ll) < np.abs(2 * max_ll)
+            profile_ll = profile_ll[almost_optimal]
+            feasible_grid = feasible_grid[almost_optimal]
+            get_subplot(k).plot(feasible_grid, profile_ll, color=self._figure_color_palette[0])
+            get_subplot(k).vlines(
+                x=param,
+                ymin=min(profile_ll),
+                ymax=max(profile_ll),
+                linestyle="dashed",
+                colors=self._figure_color_palette[1],
+            )
+            get_subplot(k).title.set_text("Profile log-likelihood")
+            get_subplot(k).set_xlabel(self._param_names.get(k, f"params[{k}]"))
+            get_subplot(k).set_ylabel("")
+            get_subplot(k).grid()
 
-        # filter to almost optimal values
-        max_ll = max(ll)
-        almost_optimal = np.abs(ll - max_ll) < np.abs(2 * max_ll)
-        ll = ll[almost_optimal]
-        grid = grid[almost_optimal]
+        ### last subplot contains the fitted density in model scale
+        # avoid plotting in Frechet scale as it makes it difficult to see anything
+        if isinstance(self._model_marginal_dist, Frechet):
+            # convert Frechet data to Gumbel
+            z1 = np.log(z1)
+            z2 = np.log(z2)
+            dist_name = "Gumbel"
+            logpdf = Logistic.logpdf
+            contour_dist_threshold = np.log(model_scale_threshold)
+        else:
+            dist_name = self._plotting_dist_name
+            logpdf = self.logpdf
+            contour_dist_threshold = model_scale_threshold
 
-        axs[0].plot(grid, ll, color=self._figure_color_palette[0])
-        axs[0].vlines(
-            x=self.alpha,
-            ymin=min(ll),
-            ymax=max(ll),
-            linestyle="dashed",
-            colors=self._figure_color_palette[1],
-        )
-        axs[0].title.set_text("Log-likelihood")
-        axs[0].set_xlabel("Alpha")
-        axs[0].set_ylabel("log-likelihood")
-        axs[0].grid()
-
-        # print("loglikelihood plot finished")
-
-        ####### density plot
-        z1_range = max(z1) - min(z1)
-        z2_range = max(z2) - min(z2)
-
-        x_range = np.linspace(min(z1) - 0.05 * z1_range, max(z1) + 0.05 * z1_range, 50)
-        y_range = np.linspace(min(z2) - 0.05 * z2_range, max(z2) + 0.05 * z2_range, 50)
+        x_range = np.linspace(np.min(z1), np.max(z1), 50)
+        y_range = np.linspace(np.min(z2), np.max(z2), 50)
 
         X, Y = np.meshgrid(x_range, y_range)
         bundled_grid = self.bundle(X.reshape((-1, 1)), Y.reshape((-1, 1)))
-        Z = self.logpdf(
-            data=bundled_grid, threshold=model_scale_threshold, alpha=self.alpha
+        Z = logpdf(
+            data=bundled_grid, threshold=contour_dist_threshold, params=params
         ).reshape(X.shape)
-        axs[1].contourf(X, Y, Z)
-        axs[1].scatter(z1, z2, color=self._figure_color_palette[1], s=0.9)
-        axs[1].title.set_text(f"Model density ({self._marginal_model_name} scale)")
-        axs[1].set_xlabel("x")
-        axs[1].set_ylabel("y")
-
-        # ##### log odds plot
-        # cdf_values = self.cdf(self.data)
-        # model_logodds = np.log(cdf_values / (1 - cdf_values))
-        # ecdf_values = Empirical.from_data(self.data).cdf(self.data)
-        # empirical_logodds = np.log(ecdf_values / (1 - ecdf_values))
-
-        # axs[1, 0].scatter(
-        #     model_logodds, empirical_logodds, color=self._figure_color_palette[0]
-        # )
-
-        # axs[1, 0].title.set_text("Model vs data log-odds")
-        # axs[1, 0].set_xlabel("Empirical log-odds")
-        # axs[1, 0].set_ylabel("Model log-odds")
-        # axs[1, 0].set_xlim(-5, 5)
-        # axs[1, 0].set_ylim(-5, 5)
-        # min_e, max_e = max(-5, min(empirical_logodds)), min(5, max(empirical_logodds))
-        # axs[1, 0].plot([min_e, max_e], [min_e, max_e], linestyle="--", color="black")
-        # axs[1, 0].grid()
+        get_subplot(-1).contourf(X, Y, Z)
+        get_subplot(-1).scatter(z1, z2, color=self._figure_color_palette[1], s=0.9)
+        get_subplot(-1).title.set_text(f"Model density ({dist_name} scale)")
+        get_subplot(-1).set_xlabel("x")
+        get_subplot(-1).set_ylabel("y")
 
         plt.tight_layout()
         return fig
+           
 
     @classmethod
-    def simulate_logistic_gumbel(self, size: int, alpha: float, quantile_threshold: float) -> np.ndarray:
-        """Simulate logistic model in Gumbel scale
+    def simulate_model(cls, size: int, params: np.ndarray, quantile_threshold: float) -> np.ndarray:
+        """Simulates logistic exceedance model in Gumbel scale
         
         Args:
             size (int): Simulated sample size
-            alpha (float): Dependence parameter
+            params (np.ndarray): Array with dependence parameter
             threshold (float): Exceedance threshold in both components
         
         Returns:
             np.ndarray: Simulated sample
         """
         ### simulate in Gumbel scale maximum component: z = max(x1, x2) ~ Gumbel(loc=alpha*np.log(2)) using inverse function method
-        q0 = gumbel.cdf(
-            quantile_threshold, loc=alpha * np.log(2)
-        )  # quantile of model's threshold in the maximum's distribution
+        threshold = gumbel.ppf(quantile_threshold)
+        alpha = params[0]
+
+        q0 = gumbel.cdf(threshold, loc=alpha * np.log(2))  # quantile of model's threshold in the maximum's distribution
         u = np.random.uniform(size=size, low=q0)
         maxima = gumbel.ppf(q=u, loc=alpha * np.log(2))
 
-        ###simulate difference between maxima and minima r = max(x,y) - min(x,y) using inverse function method
-        u = np.random.uniform(size=size)
-        r = (
-            alpha
-            * np.log(
-                (
-                    -(
-                        (alpha - 1)
-                        * np.exp(maxima)
-                        * lambertw(
-                            -(
-                                np.exp(
-                                    -maxima
-                                    - (2 ** alpha * np.exp(-maxima) * alpha)
-                                    / (alpha - 1)
+        if alpha == 0:
+            r = 0
+        elif alpha == 1:
+            r = np.log(exponential.rvs(size=size, loc=1, scale = np.exp(maxima)))
+        else:
+            ###simulate difference between maxima and minima r = max(x,y) - min(x,y) using inverse function method
+            u = np.random.uniform(size=size)
+            r = (
+                alpha
+                * np.log(
+                    (
+                        -(
+                            (alpha - 1)
+                            * np.exp(maxima)
+                            * lambertw(
+                                -(
+                                    np.exp(
+                                        -maxima
+                                        - (2 ** alpha * np.exp(-maxima) * alpha)
+                                        / (alpha - 1)
+                                    )
+                                    * (-(2 ** (alpha - 1)) * (u - 1))
+                                    ** (alpha / (alpha - 1))
+                                    * alpha
                                 )
-                                * (-(2 ** (alpha - 1)) * (u - 1))
-                                ** (alpha / (alpha - 1))
-                                * alpha
+                                / (alpha - 1)
                             )
-                            / (alpha - 1)
                         )
+                        / alpha
                     )
-                    / alpha
+                    ** (1 / alpha)
+                    - 1
                 )
-                ** (1 / alpha)
-                - 1
-            )
-        ).real
+            ).real
 
         minima = maxima - r
 
@@ -703,54 +747,47 @@ class Logistic(ExceedanceDistribution):
 
     def simulate(self, size: int):
 
-        return self.model_to_data_dist(self.simulate_logistic_gumbel(size, self.alpha, self.quantile_threshold))
+        return self.model_to_data_dist(self.simulate_model(size, self.params, self.quantile_threshold))
 
-    def cdf(self, data: np.ndarray):
-        mapped_data = self.data_to_model_dist(data)
+    def cdf(self, x: np.ndarray):
+        mapped_data = self.data_to_model_dist(x)
         model_threshold = self.model_scale_threshold
         u = np.minimum(mapped_data, model_threshold)
         norm_factor = float(
             1
             - self.unconditioned_cdf(
-                self.alpha, self.bundle(model_threshold, model_threshold)
+                self.params, self.bundle(model_threshold, model_threshold)
             )
         )
 
         return (
-            self.unconditioned_cdf(self.alpha, mapped_data)
-            - self.unconditioned_cdf(self.alpha, u)
+            self.unconditioned_cdf(self.params, mapped_data)
+            - self.unconditioned_cdf(self.params, u)
         ) / norm_factor
 
-    def dx_dz(self, z: t.Union[float, np.ndarray], component: int):
-        """Calculate analytically or otherwise, the derivative of the standardised marginal distributions with respect to original data scale. This is necessary to calculate pdf values in the original data scale
-
+    def pdf(self, x: np.ndarray, eps = 1e-5) -> np.ndarray:
+        """Numerical approximation to the model's pdf in the original data scale. This is only non-zero when both marginal distributions are continuous on x
+        
         Args:
-            z (t.Union[float, np.ndarray]): values in original scale
-            component (int): component index(0 or 1)
-
+            x (np.ndarray): Points to evaluate
+            eps (float, optional): Numeric delta
+        
+        Returns:
+            np.ndarray: pdf approximation
         """
-        margin = self.margin1 if component == 0 else self.margin2
-        if isinstance(margin, univar.EmpiricalWithGPTail):
-            mu, sigma, xi = margin.tail.threshold, margin.tail.scale, margin.tail.shape
-            p = self.quantile_threshold
-            dx = -((1 - p) * ((xi * (z - mu)) / sigma + 1) ** (-1 / xi - 1)) / (
-                sigma
-                * ((1 - p) * (1 - ((xi * (z - mu)) / sigma + 1) ** (-1 / xi)) + p)
-                * np.log((1 - p) * (1 - ((xi * (z - mu)) / sigma + 1) ** (-1 / xi)) + p)
-            )
-        else:
-            # estimate by finite differences
-            eps = 1e-3
-            dx = (margin.cdf(z + eps) - margin.cdf(z - eps)) / (2 * eps)
-        return dx
+        x1, x2 = self.unbundle(x)
+        model_scale_data = self.data_to_model_dist(x)
+        n = len(model_scale_data)
 
-    def pdf(self, data: t.Union[np.ndarray, t.Iterable]):
-        z1, z2 = self.unbundle(data)
-        model_scale_data = self.data_to_model_dist(data)
+        e1, e2 = (np.stack([np.ones((n,), dtype=np.float32), np.zeros((n,), dtype=np.float32)], axis=1),
+            np.stack([np.zeros((n,), dtype=np.float32), np.ones((n,), dtype=np.float32)], axis=1))
+
+        dz1_dx1 = (self.data_to_model_dist(x + eps*e1)[:,0] - self.data_to_model_dist(x - eps*e1)[:,0])/(2*eps)
+        dz2_dx2 = (self.data_to_model_dist(x + eps*e2)[:,1] - self.data_to_model_dist(x - eps*e2)[:,1])/(2*eps)
+
         return (
-            np.exp(self.logpdf(self.alpha, self.quantile_threshold, model_scale_data))
-            * self.dx_dz(z1, 0)
-            * self.dx_dz(z2, 1)
+            np.exp(self.logpdf(self.params, self.quantile_threshold, model_scale_data))
+            * dz1_dx1 * dz2_dx2
         )
 
 
@@ -764,35 +801,40 @@ class Gaussian(Logistic):
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a Gaussian dependence model (see Rootzen and Tajvidi, 2006). Because Gaussian copulas are asymptotically independent (this is, dependence  weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at \\(-\\infty\\). This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.
     """
 
-    alpha: float
-    margin1: univar.BaseDistribution
-    margin2: univar.BaseDistribution
-
     _model_marginal_dist = gaussian
-    _marginal_model_name = "Gaussian"
+    #_plotting_dist = gaussian
+    _plotting_dist_name = "Gaussian"
+    _param_names = {0:"rho"} #mapping from params array indices to names for diagnostic plots
 
     @property
     def cov(self):
-        return np.array([[1, self.alpha], [self.alpha, 1]])
+        rho = self.params[0]
+        return np.array([[1, rho], [rho, 1]])
 
+    @property
+    def rho(self):
+        return self.params[0]
+    
     @classmethod
-    def unconditioned_cdf(cls, alpha: float, data: np.ndarray):
+    def unconditioned_cdf(cls, params: np.ndarray, data: np.ndarray):
+        rho = params[0]
         """Calculates unconstrained standard Gaussian CDF"""
-        return mv_gaussian.cdf(data, cov=np.array([[1, alpha], [alpha, 1]]))
+        return mv_gaussian.cdf(data, cov=np.array([[1, rho], [rho, 1]]))
 
     @classmethod
     def logpdf(
-        cls, alpha: float, threshold: float, data: t.Union[np.ndarray, t.Iterable]
+        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
     ):
         """Calculates logpdf for Gaussian exceedances"""
+        rho = params[0]
         x, y = cls.unbundle(data)
-        if isinstance(alpha, (list, np.ndarray)):
-            alpha = alpha[0]
+        if isinstance(rho, (list, np.ndarray)):
+            rho = rho[0]
         norm_factor = 1 - mv_gaussian.cdf(
-            cls.bundle(threshold, threshold), cov=np.array([[1, alpha], [alpha, 1]])
+            cls.bundle(threshold, threshold), cov=np.array([[1, rho], [rho, 1]])
         )
         density = mv_gaussian.logpdf(
-            data, cov=np.array([[1, alpha], [alpha, 1]])
+            data, cov=np.array([[1, rho], [rho, 1]])
         ) - np.log(norm_factor)
 
         # density is 0 when both coordinates are below the threshold
@@ -801,23 +843,29 @@ class Gaussian(Logistic):
 
         return density
 
-    def simulate(self, size: int):
-        """Simulate exceedances
-
+    @classmethod
+    def simulate_model(cls, size: int, params: np.ndarray, quantile_threshold: float) -> np.ndarray:
+        """Simulate Gaussian exceedance model in Gaussian scale
+        
         Args:
-            size (int): Description
-
+            size (int): Simulated sample size
+            params (np.ndarray): Array with dependence parameter
+            threshold (float): Exceedance threshold in both components
+        
         Returns:
-            TYPE: Description
+            np.ndarray: Simulated sample
         """
 
         # exceedance subregions:
         # r1 => exceedance in second component only, r2 => exceedance in both components, r3 => exceedance in first component only
-        threshold = self.model_scale_threshold
-        th = self.bundle(threshold, threshold)
-        p1 = self.quantile_threshold - mv_gaussian.cdf(th, cov=self.cov)
-        p2 = 1 - 2 * self.quantile_threshold + mv_gaussian.cdf(th, cov=self.cov)
-        p3 = 1 - mv_gaussian.cdf(th, cov=self.cov) - (p1 + p2)
+        rho = params[0]
+        cov = np.array([[1, rho], [rho, 1]])
+        threshold = gaussian.ppf(quantile_threshold)
+
+        th = cls.bundle(threshold, threshold)
+        p1 = quantile_threshold - mv_gaussian.cdf(th, cov=cov)
+        p2 = 1 - 2 * quantile_threshold + mv_gaussian.cdf(th, cov=cov)
+        p3 = 1 - mv_gaussian.cdf(th, cov=cov) - (p1 + p2)
 
         p = np.array([p1, p2, p3])
         p = p / np.sum(p)
@@ -829,7 +877,7 @@ class Gaussian(Logistic):
         r1_samples = (
             tmvn(
                 mu=np.zeros((2,)),
-                cov=self.cov,
+                cov=cov,
                 lb=np.array([-np.Inf, threshold]),
                 ub=np.array([threshold, np.Inf]),
             )
@@ -840,7 +888,7 @@ class Gaussian(Logistic):
         r2_samples = (
             tmvn(
                 mu=np.zeros((2,)),
-                cov=self.cov,
+                cov=cov,
                 lb=np.array([threshold, threshold]),
                 ub=np.array([np.Inf, np.Inf]),
             )
@@ -851,7 +899,7 @@ class Gaussian(Logistic):
         r3_samples = (
             tmvn(
                 mu=np.zeros((2,)),
-                cov=self.cov,
+                cov=cov,
                 lb=np.array([threshold, -np.Inf]),
                 ub=np.array([np.Inf, threshold]),
             )
@@ -861,20 +909,172 @@ class Gaussian(Logistic):
 
         samples = np.concatenate([r1_samples, r2_samples, r3_samples], axis=0)
 
-        return self.model_to_data_dist(samples)
+class AsymmetricLogistic(Logistic):
 
-    def dx_dz(z: t.Union[float, np.ndarray], component: int):
-        """Calculate analytically or otherwise, the derivative of the standard Gumbel transform with respect to original data scale. This is necessary to calculate pdf values in the original data scale
+    """This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet margin is given by 
+    
+    $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left( \\frac{1 - \\beta}{\\mathbf{x}_1} - \\frac{1 - \\gamma}{\\mathbf{x}_2} - \\left( \\frac{\\beta}{\\mathbf{x}_2} + \\frac{\\gamma}{\\mathbf{x}_2} \\right)^\\alpha \\right), \\, \\0 \\leq \\alpha, \\beta, \\gamma \\leq 1, \\, \\mathbf{X} > 0$$
 
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this model is only defined in the corresponding inverted-L-shaped.
+
+    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with an asymmetric logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile threshold grows.
+    """
+
+    params: t.Optional[np.ndarray] = Field(default_factory=lambda: np.zeros((3,), dtype=np.float32))
+
+    _param_names = {0:"alpha", 1:"beta", 2:"gamma"} #mapping from params array indices to names for diagnostic plots
+    _default_x0 = np.array([0,0,0])
+
+    _model_marginal_dist = Frechet()
+    
+    #_plotting_dist = Frechet
+    _plotting_dist_name = "Frechet"
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha}, asymmetry parameters {self.beta},{self.gamma} quantile threshold {self.quantile_threshold}"
+
+
+    @classmethod
+    def logpdf(
+        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
+    ):
+        """Calculates logpdf function for asymmetric logistic Frechet exceedances
+        
+        
         Args:
-            z (t.Union[float, np.ndarray]): values in original scale
-            component (int): component index(0 or 1)
-
+            params (np.ndarray): array with dependence and asymmetry parameters
+            threshold (float): Exceedance threshold in Gumbel scale
+            data (t.Union[np.ndarray, t.Iterable]): Observed data in Frechet scale
+        
         """
-        margin = self.margin1 if component == 0 else margin2
-        eps = 1e-3
-        dx = (margin.pdf(z + eps) - margin.pdf(z - eps)) / (2 * eps)
-        return dx
+        alpha, beta, gamma = params
+
+        x, y = cls.unbundle(data)
+        rescaler = 1 - cls.unconditioned_cdf(params, cls.bundle(threshold, threshold))
+
+        alpha_prenorm = (beta/x)**(1/alpha) + (gamma/y)**(1/alpha)
+        alpha_norm = (alpha_prenorm)**alpha
+
+        log_a = (-1+beta)/x + (-1+gamma-y*alpha_norm)/y
+        log_b = -(2*np.log(x) + 2*np.log(y) + np.log(alpha))
+
+        c_1 = -x*y*(-1+alpha)*(beta*gamma/(x*y))**(1/alpha)*alpha_prenorm**(-2+alpha)
+        c_2 = alpha * (1 - beta + x*(beta/x)**(1/alpha)*alpha_prenorm**(-1+alpha))*(1 - gamma + y*(gamma/y)**(1/alpha)*alpha_prenorm**(-1+alpha))
+        log_c = np.log(c_1+c_2)
+
+        log_density = log_a + log_b + log_c - np.log(rescaler)
+
+        # density is 0 when both coordinates are below the threshold
+        nil_density_idx = np.logical_and(x <= threshold, y <= threshold)
+        log_density[nil_density_idx] = -np.Inf
+
+        return log_density
+
+    @classmethod
+    def unconditioned_cdf(cls, params: np.ndarray, data: t.Union[np.ndarray, t.Iterable]) -> np.ndarray:
+        """Calculates unconstrained standard Frechet cdf with asymmetric logistic dependence
+        
+        Args:
+            params (np.ndarray): array with dependence and asymmetry parameters
+            data (t.Union[np.ndarray, t.Iterable]): Observed data in Frechet scale
+        
+        Returns:
+            np.ndarray: cdf values
+        """
+        x, y = cls.unbundle(data)
+        alpha, beta, gamma = params
+        return np.exp(-(1-beta)/x - (1-gamma)/y - ((beta/x)**(1/alpha) + (gamma/y)**(1/alpha))**alpha)
+
+    def simulate_model(self, size: int, params: np.ndarray, quantile_threshold: float) -> np.ndarray:
+        """Simulate asymmetric logistic model variates using the method outlined in 'Simulating Multivariate Extreme Value Distributions of Logistic Type' by Stephenson (2003).
+        
+        Args:
+            size (int): Sample size
+            params (np.ndarray): array with dependence and asymmetry parameters
+            quantile_threshold (float): Quantile threshold for simulated exceedances
+        
+        Returns:
+            np.ndarray: Simulated sample
+        """
+
+        # Gumbel scales are used instead of Frechet.
+        gumbel_logistic = super().simulate_model
+        threshold = gumbel.ppf(quantile_threshold)
+
+        def sample_raw_b2(size: int, alpha: float, a: float, b: float) -> np.ndarray:
+            """
+            Samples a non-deterministic number of observations from \\( B_2\\) in the reference paper. The expected number of samples is the passed size parameters but non-deterministic behaviour comes from the fact that some samples are dropped due to not being in the target region, which in turn is because the underlying logistic sampler assumes thresholds are the same for both components which does not hold for asymmetric logistic models, so some algebraic retrofitting needs to be done, and some samples are lost in the process.
+            
+            Args:
+                size (int): Sample size
+                alpha (float): Dependence parameter
+                a (float): asymmetry parameter for first component
+                b (float): ASymmetry parameter for second component
+            
+            Returns:
+                np.ndarray: Sample
+            
+            """
+            alpha_param = np.array([alpha])
+            #
+            #threshold from which we want to sample
+            target_th = np.array([threshold, threshold]).reshape((1,2))
+            ## offset from asymmetry parameters
+            offset = np.array([np.log(a), np.log(b)]).reshape((1,2))
+            # pre-asymmetry-parameter threshold
+            offset_th = target_th - offset 
+            #compute symmetric threshold to use as a proxy
+            min_offset = np.min(offset_th)
+            effective_th = min_offset * np.ones((2,)).reshape((1,2)) 
+            effective_q = gumbel.cdf(min_offset)
+            # compute average sample drop rate
+            s_effective = 1 - Logistic.unconditioned_cdf(alpha_param, effective_th)
+            s_offset = 1 - Logistic.unconditioned_cdf(alpha_param, offset_th)
+            drop_rate = (s_effective - s_offset)/s_effective        
+            if drop_rate >= 1 or drop_rate < 0:
+                raise Exception(f"Invalid drop rate ({drop_rate})")
+            effective_size = int(size/(1-drop_rate))
+            # sample from logistic model
+            b2 = gumbel_logistic(effective_size, alpha_param, effective_q)
+            # skew to symmetric logistic parameters
+            b2[:,0] += np.log(a)
+            b2[:,1] += np.log(b)
+            # drop samples outside target region
+            target_th1, target_th2 = target_th.reshape(-1)
+            exs_idx = np.logical_or(b2[:,0] > target_th1, b2[:,1] > target_th2)
+            b2 = b2[exs_idx,:]
+            return b2
+
+        def sample_b2(size: int, alpha: float, a: float, b: float) -> np.ndarray:
+            """Samples from \\( B_2\\) in the referenced paper.
+            
+            Args:
+                size (int): Sample size
+                alpha (float): dependence parameter
+                a (float): asymmetry parameter for first component
+                b (float): asymmetry parameter for second component
+            
+            Returns:
+                np.ndarray: Sample
+            """
+            # get bivariate samples ($B_2$ in the referenced paper)
+            #
+            b2 = sample_raw_b2(size, alpha, a, b)
+            while len(b2) < size:
+                k = size - len(b2)
+                b2 = np.concatenate([b2, sample_raw_b2(max(100,2*k), alpha, a, b)], axis=0)
+            b2 = b2[0:size,:]
+            return b2
+
+        alpha, beta, gamma = params
+
+        b2 = sample_b2(size, alpha, beta, gamma)
+        # in the bivariate case B_1 reduces to the following
+        b1 = sample_b2(size, 1, 1-beta, 1-gamma)
+
+        z = np.maximum(b1,b2)
+
+        return z
 
 
 class Empirical(BaseDistribution):
@@ -884,7 +1084,7 @@ class Empirical(BaseDistribution):
     data: np.ndarray
     pdf_values: np.ndarray
 
-    _exceedance_models = {"logistic": Logistic, "gaussian": Gaussian}
+    _exceedance_models = {"logistic": Logistic, "gaussian": Gaussian, "asymmetric_logistic": AsymmetricLogistic}
 
     def __repr__(self):
         return f"Bivariate empirical distribution with {len(data)} points"
