@@ -246,27 +246,67 @@ class ExceedanceDistribution(BaseDistribution):
 
     quantile_threshold: float
 
-    params: t.Optional[np.ndarray] = np.array([0.5])
-    _param_names = {}
 
     margin1: univar.BaseDistribution
     margin2: univar.BaseDistribution
 
+    # default method variables below are the same as for the logistic model
+    # this does not matter as this class should not be instantiated directly
+    params: t.Optional[np.ndarray] = Field(default_factory=lambda: np.zeros((1,), dtype=np.float32))
+    _param_names = {0:"alpha"} #mapping from params array indices to names for diagnostic plots
+    _model_marginal_dist = gumbel
+    _plotting_dist_name = "Gumbel"
+    _default_x0 = np.array([0.0])
+
+    @validator("params", allow_reuse=True)
+    def validate_params(cls, params):
+        if not np.all(params > 0) or not np.all(params < 1):
+            raise TypeError("alpha must be in the open interval (0,1) ")
+        else:
+            return params
+
+    @validator("data")
+    def validate_data(cls, data):
+        if data is None or len(data.shape) != 2 or data.shape[1] != 2:
+            raise ValueError("Data needs to be an n x 2 matrix array")
+        else:
+            return data
+
     @classmethod
     @abstractmethod
-    def fit(cls, data: np.ndarray, threshold: float):
-        """Fit the model through maximum likelihood estimation
-
+    def unconditioned_cdf(cls, params: np.ndarray, data: np.ndarray):
+        """Computes the raw model cdf, without conditioning to the exceedance region.
+        
         Args:
-            data (np.ndarray): Observed data
-            threshold (float): Exceedance threshold
+            params (np.ndarray): array with dependence parameter as only element
+            data (t.Union[np.ndarray, t.Iterable]): Observed data in model scale
         """
         pass
 
+    @classmethod
     @abstractmethod
-    def plot_diagnostics(self):
-        """Plot diagnostics for the fitted model."""
+    def logpdf(
+        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
+    ):
+        """Calculates logpdf function for exceedance distribution
+        
+        
+        Args:
+            params (np.ndarray): array with model parameters
+            threshold (float): Exceedance threshold in model scale
+            data (t.Union[np.ndarray, t.Iterable]): Observed data in model scale
+        """
         pass
+
+    @property
+    def model_scale_threshold(self):
+        return self._model_marginal_dist.ppf(self.quantile_threshold)
+
+    @property
+    def data_scale_threshold(self):
+        return self.model_to_data_dist(
+            self.bundle(self.model_scale_threshold, self.model_scale_threshold)
+        )
 
     @classmethod
     def unbundle(
@@ -310,53 +350,6 @@ class ExceedanceDistribution(BaseDistribution):
             )
         return z
 
-
-class Logistic(ExceedanceDistribution):
-
-    """This model assumes association between exceedances at different components follow a Gumbel-Hougaard copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gumbel-Hougaard copula, but the normalisation constant is different.
-
-    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
-    """
-    params: t.Optional[np.ndarray] = Field(default_factory=lambda: np.zeros((1,), dtype=np.float32))
-
-    _param_names = {0:"alpha"} #mapping from params array indices to names for diagnostic plots
-
-    _model_marginal_dist = gumbel
-    #_plotting_dist = gumbel
-    _plotting_dist_name = "Gumbel"
-    _default_x0 = np.array([0.0])
-
-    def __repr__(self):
-        return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha} and quantile threshold {self.quantile_threshold}"
-
-    @property
-    def model_scale_threshold(self):
-        return self._model_marginal_dist.ppf(self.quantile_threshold)
-
-    @property
-    def data_scale_threshold(self):
-        return self.model_to_data_dist(
-            self.bundle(self.model_scale_threshold, self.model_scale_threshold)
-        )
-
-    @validator("params", allow_reuse=True)
-    def validate_params(cls, params):
-        if not np.all(params > 0) or not np.all(params < 1):
-            raise TypeError("alpha must be in the open interval (0,1) ")
-        else:
-            return params
-
-    @validator("data")
-    def validate_data(cls, data):
-        if data is None or len(data.shape) != 2 or data.shape[1] != 2:
-            raise ValueError("Data needs to be an n x 2 matrix array")
-        else:
-            return data
-
-    @property
-    def alpha(self):
-        return self.params[0]
-
     def data_to_model_dist(self, data: t.Union[np.ndarray, t.Iterable]) -> np.ndarray:
         """Transforms original data scale to standard Gumbel scale
 
@@ -399,46 +392,9 @@ class Logistic(ExceedanceDistribution):
 
         return self.bundle(u, w)
 
-    @classmethod
-    def logpdf(
-        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
-    ):
-        """Calculates logpdf function for Gumbel exceedances
-        
-        
-        Args:
-            params (np.ndarray): array with dependence parameter as only element
-            threshold (float): Exceedance threshold in Gumbel scale
-            data (t.Union[np.ndarray, t.Iterable]): Observed data in Gumbel scale
-        
-        """
-        alpha = params[0]
+    def simulate(self, size: int):
 
-        x, y = cls.unbundle(data)
-
-        nlogp = (np.exp(-x / alpha) + np.exp(-y / alpha)) ** alpha
-        lognlogp = alpha * np.log(np.exp(-x / alpha) + np.exp(-y / alpha))
-        rescaler = 1 - cls.unconditioned_cdf(params, cls.bundle(threshold, threshold))
-
-        # a = np.exp((x + y - nlogp*alpha)/alpha)
-        log_a = (x + y) / alpha - nlogp
-
-        # b = nlogp
-        log_b = lognlogp
-
-        # c = 1 + alpha*(nlogp - 1)
-        log_c = np.log(1 + alpha * (nlogp - 1))
-
-        # d = 1.0/(alpha*(np.exp(x/alpha) + np.exp(y/alpha))**2)
-        log_d = -(np.log(alpha) + 2 * np.log(np.exp(x / alpha) + np.exp(y / alpha)))
-
-        log_density = log_a + log_b + log_c + log_d - np.log(rescaler)
-
-        # density is 0 when both coordinates are below the threshold
-        nil_density_idx = np.logical_and(x <= threshold, y <= threshold)
-        log_density[nil_density_idx] = -np.Inf
-
-        return log_density
+        return self.model_to_data_dist(self.simulate_model(size, self.params, self.quantile_threshold))
 
     @classmethod
     def loglik(
@@ -447,12 +403,46 @@ class Logistic(ExceedanceDistribution):
         """Calculates log-likelihood for Gumbel exceedances"""
         return np.sum(cls.logpdf(params, threshold, data))
 
-    @classmethod
-    def unconditioned_cdf(cls, params: np.ndarray, data: t.Union[np.ndarray, t.Iterable]):
-        """Calculates unconstrained standard Gumbel CDF"""
-        alpha = params[0]
-        x, y = cls.unbundle(data)
-        return np.exp(-((np.exp(-x / alpha) + np.exp(-y / alpha)) ** (alpha)))
+    def cdf(self, x: np.ndarray):
+        mapped_data = self.data_to_model_dist(x)
+        model_threshold = self.model_scale_threshold
+        u = np.minimum(mapped_data, model_threshold)
+        norm_factor = float(
+            1
+            - self.unconditioned_cdf(
+                self.params, self.bundle(model_threshold, model_threshold)
+            )
+        )
+
+        return (
+            self.unconditioned_cdf(self.params, mapped_data)
+            - self.unconditioned_cdf(self.params, u)
+        ) / norm_factor
+
+    def pdf(self, x: np.ndarray, eps = 1e-5) -> np.ndarray:
+        """Numerical approximation to the model's pdf in the original data scale. This is only non-zero when both marginal distributions are continuous on x
+        
+        Args:
+            x (np.ndarray): Points to evaluate
+            eps (float, optional): Numeric delta
+        
+        Returns:
+            np.ndarray: pdf approximation
+        """
+        x1, x2 = self.unbundle(x)
+        model_scale_data = self.data_to_model_dist(x)
+        n = len(model_scale_data)
+
+        e1, e2 = (np.stack([np.ones((n,), dtype=np.float32), np.zeros((n,), dtype=np.float32)], axis=1),
+            np.stack([np.zeros((n,), dtype=np.float32), np.ones((n,), dtype=np.float32)], axis=1))
+
+        dz1_dx1 = (self.data_to_model_dist(x + eps*e1)[:,0] - self.data_to_model_dist(x - eps*e1)[:,0])/(2*eps)
+        dz2_dx2 = (self.data_to_model_dist(x + eps*e2)[:,1] - self.data_to_model_dist(x - eps*e2)[:,1])/(2*eps)
+
+        return (
+            np.exp(self.logpdf(self.params, self.quantile_threshold, model_scale_data))
+            * dz1_dx1 * dz2_dx2
+        )
 
     @classmethod
     def fit(
@@ -664,7 +654,79 @@ class Logistic(ExceedanceDistribution):
 
         plt.tight_layout()
         return fig
-           
+
+
+
+class Logistic(ExceedanceDistribution):
+
+    """This model assumes association between exceedances at different components follow a Gumbel-Hougaard copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gumbel-Hougaard copula, but the normalisation constant is different.
+
+    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
+    """
+    params: t.Optional[np.ndarray] = Field(default_factory=lambda: np.zeros((1,), dtype=np.float32))
+
+    _param_names = {0:"alpha"} #mapping from params array indices to names for diagnostic plots
+
+    _model_marginal_dist = gumbel
+    #_plotting_dist = gumbel
+    _plotting_dist_name = "Gumbel"
+    _default_x0 = np.array([0.0])
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha} and quantile threshold {self.quantile_threshold}"
+
+    @property
+    def alpha(self):
+        return self.params[0]
+
+
+    @classmethod
+    def logpdf(
+        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
+    ):
+        """Calculates logpdf function for Gumbel exceedances
+        
+        
+        Args:
+            params (np.ndarray): array with dependence parameter as only element
+            threshold (float): Exceedance threshold in Gumbel scale
+            data (t.Union[np.ndarray, t.Iterable]): Observed data in Gumbel scale
+        
+        """
+        alpha = params[0]
+
+        x, y = cls.unbundle(data)
+
+        nlogp = (np.exp(-x / alpha) + np.exp(-y / alpha)) ** alpha
+        lognlogp = alpha * np.log(np.exp(-x / alpha) + np.exp(-y / alpha))
+        rescaler = 1 - cls.unconditioned_cdf(params, cls.bundle(threshold, threshold))
+
+        # a = np.exp((x + y - nlogp*alpha)/alpha)
+        log_a = (x + y) / alpha - nlogp
+
+        # b = nlogp
+        log_b = lognlogp
+
+        # c = 1 + alpha*(nlogp - 1)
+        log_c = np.log(1 + alpha * (nlogp - 1))
+
+        # d = 1.0/(alpha*(np.exp(x/alpha) + np.exp(y/alpha))**2)
+        log_d = -(np.log(alpha) + 2 * np.log(np.exp(x / alpha) + np.exp(y / alpha)))
+
+        log_density = log_a + log_b + log_c + log_d - np.log(rescaler)
+
+        # density is 0 when both coordinates are below the threshold
+        nil_density_idx = np.logical_and(x <= threshold, y <= threshold)
+        log_density[nil_density_idx] = -np.Inf
+
+        return log_density
+
+    @classmethod
+    def unconditioned_cdf(cls, params: np.ndarray, data: t.Union[np.ndarray, t.Iterable]):
+        """Calculates unconstrained standard Gumbel CDF"""
+        alpha = params[0]
+        x, y = cls.unbundle(data)
+        return np.exp(-((np.exp(-x / alpha) + np.exp(-y / alpha)) ** (alpha)))           
 
     @classmethod
     def simulate_model(cls, size: int, params: np.ndarray, quantile_threshold: float) -> np.ndarray:
@@ -745,56 +807,7 @@ class Logistic(ExceedanceDistribution):
         return cls.bundle(x,y)
 
 
-    def simulate(self, size: int):
-
-        return self.model_to_data_dist(self.simulate_model(size, self.params, self.quantile_threshold))
-
-    def cdf(self, x: np.ndarray):
-        mapped_data = self.data_to_model_dist(x)
-        model_threshold = self.model_scale_threshold
-        u = np.minimum(mapped_data, model_threshold)
-        norm_factor = float(
-            1
-            - self.unconditioned_cdf(
-                self.params, self.bundle(model_threshold, model_threshold)
-            )
-        )
-
-        return (
-            self.unconditioned_cdf(self.params, mapped_data)
-            - self.unconditioned_cdf(self.params, u)
-        ) / norm_factor
-
-    def pdf(self, x: np.ndarray, eps = 1e-5) -> np.ndarray:
-        """Numerical approximation to the model's pdf in the original data scale. This is only non-zero when both marginal distributions are continuous on x
-        
-        Args:
-            x (np.ndarray): Points to evaluate
-            eps (float, optional): Numeric delta
-        
-        Returns:
-            np.ndarray: pdf approximation
-        """
-        x1, x2 = self.unbundle(x)
-        model_scale_data = self.data_to_model_dist(x)
-        n = len(model_scale_data)
-
-        e1, e2 = (np.stack([np.ones((n,), dtype=np.float32), np.zeros((n,), dtype=np.float32)], axis=1),
-            np.stack([np.zeros((n,), dtype=np.float32), np.ones((n,), dtype=np.float32)], axis=1))
-
-        dz1_dx1 = (self.data_to_model_dist(x + eps*e1)[:,0] - self.data_to_model_dist(x - eps*e1)[:,0])/(2*eps)
-        dz2_dx2 = (self.data_to_model_dist(x + eps*e2)[:,1] - self.data_to_model_dist(x - eps*e2)[:,1])/(2*eps)
-
-        return (
-            np.exp(self.logpdf(self.params, self.quantile_threshold, model_scale_data))
-            * dz1_dx1 * dz2_dx2
-        )
-
-
-# This class inherits from Logistic for coding convenience, but they are not theoretically related
-
-
-class Gaussian(Logistic):
+class Gaussian(ExceedanceDistribution):
 
     """This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
 
@@ -909,7 +922,8 @@ class Gaussian(Logistic):
 
         samples = np.concatenate([r1_samples, r2_samples, r3_samples], axis=0)
 
-class AsymmetricLogistic(Logistic):
+
+class AsymmetricLogistic(ExceedanceDistribution):
 
     """This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet margin is given by 
     
@@ -997,8 +1011,8 @@ class AsymmetricLogistic(Logistic):
             np.ndarray: Simulated sample
         """
 
-        # Gumbel scales are used instead of Frechet.
-        gumbel_logistic = super().simulate_model
+        # Gumbel scales are used instead of Frechet, and a logistic model is used as a baseline sampler
+        gumbel_logistic = Logistic.simulate_model
         threshold = gumbel.ppf(quantile_threshold)
 
         def sample_raw_b2(size: int, alpha: float, a: float, b: float) -> np.ndarray:
@@ -1009,10 +1023,10 @@ class AsymmetricLogistic(Logistic):
                 size (int): Sample size
                 alpha (float): Dependence parameter
                 a (float): asymmetry parameter for first component
-                b (float): ASymmetry parameter for second component
+                b (float): Asymmetry parameter for second component
             
             Returns:
-                np.ndarray: Sample
+                np.ndarray: Simulated sample
             
             """
             alpha_param = np.array([alpha])
@@ -1023,7 +1037,7 @@ class AsymmetricLogistic(Logistic):
             offset = np.array([np.log(a), np.log(b)]).reshape((1,2))
             # pre-asymmetry-parameter threshold
             offset_th = target_th - offset 
-            #compute symmetric threshold to use as a proxy
+            #compute lower symmetric threshold to use as a proxy
             min_offset = np.min(offset_th)
             effective_th = min_offset * np.ones((2,)).reshape((1,2)) 
             effective_q = gumbel.cdf(min_offset)
@@ -1074,7 +1088,8 @@ class AsymmetricLogistic(Logistic):
 
         z = np.maximum(b1,b2)
 
-        return z
+        # return in canonical model scale, i.e. unit Frechet
+        return np.exp(z)
 
 
 class Empirical(BaseDistribution):
