@@ -1000,7 +1000,7 @@ class AsymmetricLogistic(ExceedanceDistribution):
         return np.exp(-(1-beta)/x - (1-gamma)/y - ((beta/x)**(1/alpha) + (gamma/y)**(1/alpha))**alpha)
 
     def simulate_model(self, size: int, params: np.ndarray, quantile_threshold: float) -> np.ndarray:
-        """Simulate asymmetric logistic model variates using the method outlined in 'Simulating Multivariate Extreme Value Distributions of Logistic Type' by Stephenson (2003).
+        """Simulate asymmetric logistic exceedance model variates in Frechet scale using a method inspired in the one outlined in 'Simulating Multivariate Extreme Value Distributions of Logistic Type' by Stephenson (2003).
         
         Args:
             size (int): Sample size
@@ -1011,13 +1011,18 @@ class AsymmetricLogistic(ExceedanceDistribution):
             np.ndarray: Simulated sample
         """
 
-        # Gumbel scales are used instead of Frechet, and a logistic model is used as a baseline sampler
+        # Gumbel scales are used instead of Frechet in this method, and a the existing logistic model is used as a baseline sampler
+        # in Gumbel scales asymmetry constants are offsets instead of rescaling factors
         gumbel_logistic = Logistic.simulate_model
         threshold = gumbel.ppf(quantile_threshold)
+        #threshold from which we want to sample
+        target_th = np.array([threshold, threshold]).reshape((1,2))
+        # unpack params
+        alpha, beta, gamma = params
 
-        def sample_raw_b2(size: int, alpha: float, a: float, b: float) -> np.ndarray:
+        def logistic_exs(size: int, alpha: float, a: float, b: float) -> np.ndarray:
             """
-            Samples a non-deterministic number of observations from \\( B_2\\) in the reference paper. The expected number of samples is the passed size parameters but non-deterministic behaviour comes from the fact that some samples are dropped due to not being in the target region, which in turn is because the underlying logistic sampler assumes thresholds are the same for both components which does not hold for asymmetric logistic models, so some algebraic retrofitting needs to be done, and some samples are lost in the process.
+            Samples a non-deterministic number of exceedances from a logistic exceedance model. A smaller , symmetric proxy threshold is used to simulate variates that are later offset to match the target threshold. Because the proxy threshold is symmetric but the target threshold may not be, some samples may be discarded. The expected sample size is the passed size parameter. The target threshold value comes from outer scope.
             
             Args:
                 size (int): Sample size
@@ -1030,14 +1035,10 @@ class AsymmetricLogistic(ExceedanceDistribution):
             
             """
             alpha_param = np.array([alpha])
-            #
-            #threshold from which we want to sample
-            target_th = np.array([threshold, threshold]).reshape((1,2))
             ## offset from asymmetry parameters
             offset = np.array([np.log(a), np.log(b)]).reshape((1,2))
-            # pre-asymmetry-parameter threshold
             offset_th = target_th - offset 
-            #compute lower symmetric threshold to use as a proxy
+            #compute lower symmetric threshold to use as a proxy when sampling (some samples may be dropped)
             min_offset = np.min(offset_th)
             effective_th = min_offset * np.ones((2,)).reshape((1,2)) 
             effective_q = gumbel.cdf(min_offset)
@@ -1059,8 +1060,50 @@ class AsymmetricLogistic(ExceedanceDistribution):
             b2 = b2[exs_idx,:]
             return b2
 
-        def sample_b2(size: int, alpha: float, a: float, b: float) -> np.ndarray:
-            """Samples from \\( B_2\\) in the referenced paper.
+        def logistic_non_exs(size: int, alpha: float, a: float, b: float) -> np.ndarray:
+            """
+            same as above for non-exceedances
+            
+            Args:
+                size (int): Sample size
+                alpha (float): Dependence parameter
+                a (float): asymmetry parameter for first component
+                b (float): Asymmetry parameter for second component
+            
+            Returns:
+                np.ndarray: Simulated sample
+            
+            """
+            alpha_param = np.array([alpha])
+            ## offset from asymmetry parameters
+            offset = np.array([np.log(a), np.log(b)]).reshape((1,2))
+            offset_th = target_th - offset 
+            #compute lower symmetric threshold to use as a proxy when sampling (some samples may be dropped)
+            min_offset = np.min(offset_th)
+            effective_th = min_offset * np.ones((2,)).reshape((1,2)) 
+            # compute average sample drop rate
+            drop_rate = 1 - Logistic.unconditioned_cdf(alpha_param, effective_th)    
+            if drop_rate >= 1 or drop_rate < 0:
+                raise Exception(f"Invalid drop rate ({drop_rate})")
+            effective_size = int(size/(1-drop_rate))
+            # sample from logistic model
+            b2 = gumbel_logistic(effective_size, alpha_param, 0)
+            # skew to symmetric logistic parameters
+            b2[:,0] += np.log(a)
+            b2[:,1] += np.log(b)
+            # drop samples outside target region
+            target_th1, target_th2 = target_th.reshape(-1)
+            exs_idx = np.logical_and(b2[:,0] <= target_th1, b2[:,1] <= target_th2)
+            b2 = b2[exs_idx,:]
+            return b2
+
+        def sample(
+            sampler: t.Callable,
+            size: int, 
+            alpha: float, 
+            a: float, 
+            b: float) -> np.ndarray:
+            """Wrapper for the functions above that makes the sample size deterministic
             
             Args:
                 size (int): Sample size
@@ -1073,24 +1116,93 @@ class AsymmetricLogistic(ExceedanceDistribution):
             """
             # get bivariate samples ($B_2$ in the referenced paper)
             #
-            b2 = sample_raw_b2(size, alpha, a, b)
+            b2 = sampler(size, alpha, a, b)
             while len(b2) < size:
                 k = size - len(b2)
-                b2 = np.concatenate([b2, sample_raw_b2(max(100,2*k), alpha, a, b)], axis=0)
+                updated_size = max(100,2*k)
+                b2 = np.concatenate([b2, sampler(updated_size, alpha, a, b)], axis=0)
             b2 = b2[0:size,:]
             return b2
 
-        alpha, beta, gamma = params
+        # The paper referenced above takes the maximum from logistic model samples and rescales them (or offsets them, in Gumbel scale) in order to sample from an asymmetric logistic. To do that for exceedances only, like here, some additional issues need to be addressed
+        # B_1 = bivariate independent offset Gumbel samples
+        # B_2 = bivariate logistic offset Gumbel
+        # B_1 is independent from B_2. Let M = max(B_1, B_2), then M ~ asym. logistic Gumbel
+        # exceedance in M <=> exceedance in B_1 or exceedance in B_2
+        # exceedances can then be split in three cases: exceedance in B_1 alone, in B_2 alone or in both.
+        # below the 3 cases are simulated separately and then concatenated 
 
-        b2 = sample_b2(size, alpha, beta, gamma)
-        # in the bivariate case B_1 reduces to the following
-        b1 = sample_b2(size, 1, 1-beta, 1-gamma)
+        # pre-asymmetry-parameter-rescaling threshold
+        alpha_param = np.array([alpha])
 
-        z = np.maximum(b1,b2)
+        b2_offset = np.log(np.array([beta,gamma]))
+        b1_offset = np.log(np.array([1-beta,1-gamma]))
+
+        # work out sample size proportions for the three cases
+        p_exs_b1 = float(1 - Logistic.unconditioned_cdf(np.array([1]), target_th - b1_offset))
+        p_exs_b2 = float(1 - Logistic.unconditioned_cdf(alpha_param, target_th - b2_offset))
+        p_exs_any = p_exs_b1 + p_exs_b2 - p_exs_b1*p_exs_b2
+        p_exs = np.array([
+            p_exs_b1*(1-p_exs_b2), 
+            p_exs_b2*(1-p_exs_b1), 
+            p_exs_b1*p_exs_b2])/p_exs_any #relative sample sizes for all three cases
+
+        b1_exs_size, b2_exs_size, both_exs_size = (
+            np.random.multinomial(n=size, pvals=p_exs, size=1)[0].astype(np.int32)
+            )
+
+        # sample 6 cases: (case 1, 2 or 3) * (exceedance or non-exceedance)
+        b1_exs = sample(
+            sampler=logistic_exs,
+            size=b1_exs_size, 
+            alpha=1, 
+            a=1-beta, 
+            b=1-gamma)
+
+        b2_not_exs = sample(
+            sampler=logistic_non_exs,
+            size=b1_exs_size, 
+            alpha=alpha, 
+            a=beta, 
+            b=gamma)
+
+        b2_exs = sample(
+            sampler=logistic_exs,
+            size=b2_exs_size, 
+            alpha=alpha, 
+            a=beta, 
+            b=gamma)
+
+        b1_not_exs = sample(
+            sampler = logistic_non_exs,
+            size=b2_exs_size, 
+            alpha=1, 
+            a=1-beta, 
+            b=1-gamma)
+
+        b1_both_exs = sample(
+            sampler=logistic_exs,
+            size=both_exs_size, 
+            alpha=1, 
+            a=1-beta, 
+            b=1-gamma)
+
+        b2_both_exs = sample(
+            sampler = logistic_exs,
+            size=both_exs_size, 
+            alpha=alpha, 
+            a=beta, 
+            b=gamma)
+
+        # take elementwise maximum and concatenate
+        z = np.concatenate([
+            np.maximum(b1_exs, b2_not_exs),
+            np.maximum(b2_exs, b1_not_exs),
+            np.maximum(b1_both_exs, b2_both_exs)],
+            axis=0)
 
         # return in canonical model scale, i.e. unit Frechet
         return np.exp(z)
-
 
 class Empirical(BaseDistribution):
 
