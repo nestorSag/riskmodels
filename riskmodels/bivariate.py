@@ -1131,8 +1131,6 @@ class AsymmetricLogistic(ExceedanceDistribution):
         # exceedance in M <=> exceedance in B_1 or exceedance in B_2
         # exceedances can then be split in three cases: exceedance in B_1 alone, in B_2 alone or in both.
         # below the 3 cases are simulated separately and then concatenated 
-
-        # pre-asymmetry-parameter-rescaling threshold
         alpha_param = np.array([alpha])
 
         b2_offset = np.log(np.array([beta,gamma]))
