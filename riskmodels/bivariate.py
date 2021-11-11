@@ -193,7 +193,7 @@ class Mixture(BaseDistribution):
 
 class ExceedanceModel(Mixture):
 
-    """Interface for exceedance models"""
+    """Interface for exceedance models. This is a mixture of an empirical distribution with support below the exceedance threshold and an exceedance distribution (see ExceedanceDistribution) above it."""
 
     def __repr__(self):
         return f"Sempirametric model with {self.tail.__class__.__name__} exceedance dependence"
@@ -400,7 +400,7 @@ class ExceedanceDistribution(BaseDistribution):
     def loglik(
         cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
     ):
-        """Calculates log-likelihood for Gumbel exceedances"""
+        """Computes log-likelihood for threshold exceedances"""
         return np.sum(cls.logpdf(params, threshold, data))
 
     def cdf(self, x: np.ndarray):
@@ -659,7 +659,11 @@ class ExceedanceDistribution(BaseDistribution):
 
 class Logistic(ExceedanceDistribution):
 
-    """This model assumes association between exceedances at different components follow a Gumbel-Hougaard copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gumbel-Hougaard copula, but the normalisation constant is different.
+    """This model assumes association between exceedances at different components follow a Gumbel-Hougaard copula; in Gumbel scale, this is given by
+    
+    $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left(- \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha \\right), \\, 0 \\leq \\alpha\\leq 1, \\, \\mathbf{X} \\in \\mathbb{R}$$
+
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
     """
@@ -811,7 +815,7 @@ class Gaussian(ExceedanceDistribution):
 
     """This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
 
-    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a Gaussian dependence model (see Rootzen and Tajvidi, 2006). Because Gaussian copulas are asymptotically independent (this is, dependence  weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at \\(-\\infty\\). This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.
+    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with a Gaussian dependence model. Because Gaussian copulas are asymptotically independent (this is, dependence  weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at \\(-\\infty\\). This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.
     """
 
     _model_marginal_dist = gaussian
@@ -927,11 +931,11 @@ class AsymmetricLogistic(ExceedanceDistribution):
 
     """This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet margin is given by 
     
-    $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left( \\frac{1 - \\beta}{\\mathbf{x}_1} - \\frac{1 - \\gamma}{\\mathbf{x}_2} - \\left( \\frac{\\beta}{\\mathbf{x}_2} + \\frac{\\gamma}{\\mathbf{x}_2} \\right)^\\alpha \\right), \\, \\0 \\leq \\alpha, \\beta, \\gamma \\leq 1, \\, \\mathbf{X} > 0$$
+    $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left( - \\frac{1 - \\beta}{\\mathbf{x}_1} - \\frac{1 - \\gamma}{\\mathbf{x}_2} - \\left(  \\left( \\frac{\\beta}{\\mathbf{x}_1} \\right)^{1/\\alpha} + \\left( \\frac{\\gamma}{\\mathbf{x}_2} \\right)^{1/\\alpha}\\right)^\\alpha \\right), \\, 0 \\leq \\alpha, \\beta, \\gamma \\leq 1, \\, \\mathbf{X} > 0$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this model is only defined in the corresponding inverted-L-shaped.
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
 
-    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with an asymmetric logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile threshold grows.
+    If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with an asymmetric logistic dependence model, to which this model converges as the quantile threshold grows.
     """
 
     params: t.Optional[np.ndarray] = Field(default_factory=lambda: np.zeros((3,), dtype=np.float32))
@@ -1000,7 +1004,7 @@ class AsymmetricLogistic(ExceedanceDistribution):
         return np.exp(-(1-beta)/x - (1-gamma)/y - ((beta/x)**(1/alpha) + (gamma/y)**(1/alpha))**alpha)
 
     def simulate_model(self, size: int, params: np.ndarray, quantile_threshold: float) -> np.ndarray:
-        """Simulate asymmetric logistic exceedance model variates in Frechet scale using a method inspired in the one outlined in 'Simulating Multivariate Extreme Value Distributions of Logistic Type' by Stephenson (2003).
+        """Simulate asymmetric logistic exceedance model variates in Frechet scale using a method inspired by the one outlined in 'Simulating Multivariate Extreme Value Distributions of Logistic Type' by Stephenson (2003).
         
         Args:
             size (int): Sample size
