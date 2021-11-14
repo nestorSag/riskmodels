@@ -1,8 +1,8 @@
 name: Release to PYPI
-on: 
-  create:
+on:  
+  push:
     tags:
-      - v*
+      - 'v*'
 jobs:
   release-and-upload:
     runs-on: ubuntu-latest

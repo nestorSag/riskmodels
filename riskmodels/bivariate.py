@@ -193,7 +193,7 @@ class Mixture(BaseDistribution):
 
 class ExceedanceModel(Mixture):
 
-    """Interface for exceedance models. This is a mixture of an empirical distribution with support below the exceedance threshold and an exceedance distribution (see ExceedanceDistribution) above it."""
+    """Interface for exceedance models. This is a mixture of an empirical distribution with support below the exceedance threshold and an exceedance distribution (see `ExceedanceDistribution`) above it."""
 
     def __repr__(self):
         return f"Sempirametric model with {self.tail.__class__.__name__} exceedance dependence"
@@ -258,17 +258,10 @@ class ExceedanceDistribution(BaseDistribution):
     _plotting_dist_name = "Gumbel"
     _default_x0 = np.array([0.0])
 
-    @validator("params", allow_reuse=True)
-    def validate_params(cls, params):
-        if not np.all(params > 0) or not np.all(params < 1):
-            raise TypeError("alpha must be in the open interval (0,1) ")
-        else:
-            return params
-
     @validator("data")
     def validate_data(cls, data):
-        if data is None or len(data.shape) != 2 or data.shape[1] != 2:
-            raise ValueError("Data needs to be an n x 2 matrix array")
+        if data is None or len(data.shape) != 2 or data.shape[1] != 2 or np.any(np.isnan(data)):
+            raise ValueError("Data needs to be an n x 2 numpy array")
         else:
             return data
 
@@ -661,7 +654,7 @@ class Logistic(ExceedanceDistribution):
 
     """This model assumes association between exceedances at different components follow a Gumbel-Hougaard copula; in Gumbel scale, this is given by
     
-    $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left(- \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha \\right), \\, 0 \\leq \\alpha\\leq 1, \\, \\mathbf{X} \\in \\mathbb{R}$$
+    $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left(- \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha \\right), \\, 0 \\leq \\alpha\\leq 1, \\, \\mathbf{X} \\in \\mathbb{R}^2$$
 
     Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
 
@@ -678,6 +671,14 @@ class Logistic(ExceedanceDistribution):
 
     def __repr__(self):
         return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha} and quantile threshold {self.quantile_threshold}"
+
+    @validator("params")
+    def validate_params(cls, params):
+        alpha = params[0]
+        if alpha <= 0 or alpha > 1:
+            raise TypeError(f"alpha must be in the interval (0,1]")
+        else:
+            return params
 
     @property
     def alpha(self):
@@ -823,6 +824,14 @@ class Gaussian(ExceedanceDistribution):
     _plotting_dist_name = "Gaussian"
     _param_names = {0:"rho"} #mapping from params array indices to names for diagnostic plots
 
+    @validator("params")
+    def validate_params(cls, params):
+        rho = params[0]
+        if rho < 0 or rho >= 1:
+            raise TypeError(f"rho must be in the interval [0,1)")
+        else:
+            return params
+
     @property
     def cov(self):
         rho = self.params[0]
@@ -951,6 +960,15 @@ class AsymmetricLogistic(ExceedanceDistribution):
     def __repr__(self):
         return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha}, asymmetry parameters {self.beta},{self.gamma} quantile threshold {self.quantile_threshold}"
 
+    @validator("params")
+    def validate_params(cls, params):
+        alpha, beta, gamma = params
+        if alpha <= 0 or alpha > 1:
+            raise TypeError(f"alpha must be in the interval (0,1]")
+        if (beta < 0 or beta > 1) or (gamma < 0 or gamma > 1):
+            raise TypeError(f"beta, gamma must be in the interval [0,1]")
+        else:
+            return params
 
     @classmethod
     def logpdf(
@@ -1213,7 +1231,7 @@ class Empirical(BaseDistribution):
     data: np.ndarray
     pdf_values: np.ndarray
 
-    _exceedance_models = {"logistic": Logistic, "gaussian": Gaussian, "asymmetric_logistic": AsymmetricLogistic}
+    _exceedance_models = {"logistic": Logistic, "gaussian": Gaussian, "asymmetric logistic": AsymmetricLogistic}
 
     def __repr__(self):
         return f"Bivariate empirical distribution with {len(data)} points"
@@ -1288,7 +1306,7 @@ class Empirical(BaseDistribution):
         Currently, logistic and Gaussian models are available, with the former exhibiting asymptotic dependence, a strong type of dependence between extreme occurrences across components, and the latter exhibiting asymptotic independence, in which extremes occur relatively independently across components.
 
         Args:
-            model (str): name of selected model, currently one of 'gaussian' or 'logistic'. For more information, see `Gaussian` and `Logisstic` classes.
+            model (str): name of selected model, currently one of 'gaussian' or 'logistic' or 'asymmetric logistic'. For more information, see `Gaussian`,  `Logistic` and `AsymmetricLogistic` classes.
             margin1 (univar.BaseDistribution, optional): Marginal distribution for first component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
             margin2 (univar.BaseDistribution, optional): Marginal distribution for second component. If not provided, a semiparametric model with a fitted Generalised Pareto upper tail is used.
             quantile_threshold (float): Quantile threshold to use for the definition of exceedances
@@ -1349,7 +1367,7 @@ class Empirical(BaseDistribution):
         self, 
         quantile_threshold: float = 0.95, 
         prior: t.Optional[str] = "jeffreys") -> float:
-        """Computes q Savage-Dickey ratio for the coefficient of tail dependence \\(\\eta\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). The hypothesis space is \\(\\eta \\in [0,1]\\) with \\(\\eta = 1\\) corresponding to asymptotic dependence. The posterior density is approximated through Gaussian Kernel density estimation.
+        """Computes a Savage-Dickey ratio for the coefficient of tail dependence \\(\\eta\\) to test the hypothesis of asymptotic dependence (See 'Statistics of Extremes' by Beirlant, page 345-346). The hypothesis space is \\(\\eta \\in [0,1]\\) with \\(\\eta = 1\\) corresponding to asymptotic dependence. The posterior density is approximated through Gaussian Kernel density estimation.
 
         Args:
             quantile_threshold (float, optional): Quantile threshold over which the coefficient of tail dependence is to be estimated.
