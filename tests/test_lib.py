@@ -10,10 +10,19 @@ import riskmodels.bivariate as bivar
 
 from riskmodels.powersys.ts import convgen
 
+
+from scipy.stats import (
+    gumbel_r as gumbel,
+    norm as gaussian,
+    multivariate_normal as mv_gaussian,
+    rayleigh
+)
+
+
 tol = 1e-6
 
 def test_empirical():
-  """Basic correctness tests for empirical distrubition objects.
+  """Basic correctness tests for empirical distribution objects.
   """
   n = 16
   data = np.arange(1,n+1)
@@ -56,17 +65,20 @@ def test_empirical():
   assert dist2.min == 8
   assert dist2.max == max(data)
 
+season_length = 3360
 
-def test_package():
-  """Integration tests for the most common paths in the package's use. As the package offloads most of the basic computational building blocks to numpy, scipy and statsmodels, correctness is not unit tested at the moment.
+def test_univariate():
+  """Integration tests for the most common paths in the univariate module's use.
   """
-  def validate_vector(x):
+  def is_valid_vector(x):
     return True if (np.sum(np.isnan(x)) == 0 and np.sum(np.isinf(x)) == 0) else False
+
+  def are_valid_scalars(*args):
+    return not np.any(np.isnan(np.array(args)))
 
   np.random.seed(1)
   sample_size = 5000
   q_th = 0.95
-  season_length = 3360
   scale_factor = 1000000
   cov = np.array([[1, 0.7],[0.7, 1]])
   sample = sp.stats.multivariate_normal.rvs(size=sample_size, cov = scale_factor*cov)
@@ -97,26 +109,27 @@ def test_package():
   assert z.max == u.max
 
   # test basic probabilistic functionality
-  assert u.mean() and u.std() and u.cdf(0.5) and u.ppf(0.5) and u.cvar(q_th)
+  assert are_valid_scalars(u.mean(), u.std(), u.cdf(0.5), u.ppf(0.5), u.cvar(q_th))
 
   # test tail fitting 
   mle = u.to_integer().fit_tail_model(threshold=u.ppf(0.9))
   bayesian = u.to_integer().fit_tail_model(threshold=u.ppf(0.9), bayesian=True)
 
   # test basic mle probabilistic functionality
-  assert mle.mean() and mle.std() and mle.cdf(mle.mean()) and mle.ppf(1 - (1-q_th)/2) and mle.cvar(q_th)
+  assert are_valid_scalars(mle.mean(), mle.std(), mle.cdf(mle.mean()), mle.ppf(1 - (1-q_th)/2), mle.cvar(q_th))
 
   # test basic bayesian probabilistic functionality
-  assert bayesian.mean() and bayesian.std() and bayesian.cdf(bayesian.mean()) and bayesian.ppf(1- (1-q_th)/2) and bayesian.cvar(1- (1-q_th)/2)
+  assert are_valid_scalars(bayesian.mean(), bayesian.std(), bayesian.cdf(bayesian.mean()), bayesian.ppf(1- (1-q_th)/2), bayesian.cvar(1- (1-q_th)/2))
 
   # test specific bayesian functionality 
   a, b, c, d, e = bayesian.cdf(bayesian.mean(), return_all=True), bayesian.ppf(1-(1-q_th)/2, return_all=True), bayesian.cvar(1-(1-q_th)/2, return_all=True), bayesian.mean(return_all=True), bayesian.std(return_all=True)
 
-  return validate_vector(a) and validate_vector(b) and validate_vector(c) and validate_vector(d) and validate_vector(e)
+  return is_valid_vector(a) and is_valid_vector(b) and is_valid_vector(c) and is_valid_vector(d) and is_valid_vector(e)
+  
   # test simulation
-  assert validate_vector(u.simulate(size=100))
-  assert validate_vector(mle.simulate(size=100))
-  assert validate_vecotr(bayesian.simulate(size=100))
+  assert is_valid_vector(u.simulate(size=100))
+  assert is_valid_vector(mle.simulate(size=100))
+  assert is_valid_vector(bayesian.simulate(size=100))
 
   # only test lack of errors in what follows
 
@@ -131,18 +144,47 @@ def test_package():
   z = (u_i + mle) >= (u_i + mle).mean()
   z = (u_i + bayesian) >= (u_i+bayesian).mean()
 
-  # test bivariate EV modelling code
-  empirical_models = [univar.Empirical.from_data(v) for v in sample.T]
-  ev_models = [model.fit_tail_model(threshold=model.ppf(q_th)) for model in empirical_models]
-  bivariate_model = bivar.Empirical.from_data(sample)
-  r = bivariate_model.test_asymptotic_dependence(q_th)
-  bivariate_ev = bivariate_model.fit_tail_model(
-    model = "gaussian",
-    quantile_threshold = q_th,
-    margin1 = ev_models[0],
-    margin2 = ev_models[1])
+def test_bivariate():
+  """Integration tests for the most common paths in the bivariate module's use.
+  """
+  gaussian_sampler = bivar.Gaussian(
+    quantile_threshold = 0,
+    params = np.array([0.7]),
+    margin1 = gaussian,
+    margin2 = gaussian)
 
-  ## test C code for sequential generation
+  logistic_sampler = bivar.Logistic(
+    quantile_threshold = 0,
+    params = np.array([0.7]),
+    margin1 = gumbel,
+    margin2 = gumbel)
+
+  asym_log_sampler = bivar.AsymmetricLogistic(
+    quantile_threshold = 0,
+    params = np.array([0.6, 0.6, 0.9]),
+    margin1 = gumbel,
+    margin2 = gumbel)
+
+  samplers = [
+    (gaussian_sampler, "gaussian"),
+    (logistic_sampler, "logistic"), 
+    (asym_log_sampler, "asymmetric logistic")]
+
+  np.random.seed(1)
+  # validate true parameters being within 95% contour bands of estimated parameters
+  for sampler, name in samplers:
+    s = sampler.simulate(size = 5000)
+    x = bivar.Empirical.from_data(s)
+    x = x.fit_tail_model(quantile_threshold=0.95, model = name)
+    cov = x.tail.mle_cov
+    mean = sampler.params
+    mle = x.tail.params
+    dist_bound = rayleigh.ppf(0.95)
+    dist = (mean-mle).reshape((1,-1)).T
+    isotropic_dist = np.sqrt(dist.T.dot(np.linalg.inv(cov).dot(dist)))
+    assert isotropic_dist < dist_bound
+
+  ## test for exceptions in C code for sequential generation
   gen_df = pd.DataFrame([{"availability": 0.95, "capacity": 250, "mttr": 50} for k in range(250)])
   gen = convgen.MarkovChainGenerationModel.from_generator_df(gen_df)
   s = gen.simulate_seasons(size=1000, season_length=season_length, seasons_per_trace=4)

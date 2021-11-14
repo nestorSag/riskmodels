@@ -36,6 +36,7 @@ from scipy.stats import (
     norm as gaussian,
     multivariate_normal as mv_gaussian,
     gaussian_kde,
+    rv_continuous as continuous_dist
 )
 
 from pydantic import BaseModel, ValidationError, validator, PositiveFloat, Field
@@ -56,7 +57,7 @@ class BaseDistribution(BaseModel, ABC):
     _figure_color_palette = ["tab:cyan", "deeppink"]
     _error_tol = 1e-6
 
-    data: t.Optional[np.ndarray]
+    data: t.Optional[np.ndarray] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -246,9 +247,8 @@ class ExceedanceDistribution(BaseDistribution):
 
     quantile_threshold: float
 
-
-    margin1: univar.BaseDistribution
-    margin2: univar.BaseDistribution
+    margin1: t.Union[univar.BaseDistribution, continuous_dist]
+    margin2: t.Union[univar.BaseDistribution, continuous_dist]
 
     # default method variables below are the same as for the logistic model
     # this does not matter as this class should not be instantiated directly
@@ -258,10 +258,10 @@ class ExceedanceDistribution(BaseDistribution):
     _plotting_dist_name = "Gumbel"
     _default_x0 = np.array([0.0])
 
-    @validator("data")
+    @validator("data", allow_reuse=True)
     def validate_data(cls, data):
-        if data is None or len(data.shape) != 2 or data.shape[1] != 2 or np.any(np.isnan(data)):
-            raise ValueError("Data needs to be an n x 2 numpy array")
+        if data is not None and (len(data.shape) != 2 or data.shape[1] != 2 or np.any(np.isnan(data))):
+            raise ValueError("Data is not an n x 2 numpy array")
         else:
             return data
 
@@ -301,6 +301,14 @@ class ExceedanceDistribution(BaseDistribution):
             self.bundle(self.model_scale_threshold, self.model_scale_threshold)
         )
 
+    @property
+    def mle_cov(self):
+        return -np.linalg.inv(
+            self.hessian(
+                self.params, 
+                self.model_scale_threshold, 
+                self.data_to_model_dist(self.data)))
+    
     @classmethod
     def unbundle(
         cls, data: t.Union[np.ndarray, t.Iterable]
@@ -564,6 +572,9 @@ class ExceedanceDistribution(BaseDistribution):
         
         """
         # unbundle data
+        if self.data is None:
+            raise ValueError("Diagnostics cannot be shown for models with no underlying data.")
+
         x, y = self.unbundle(self.data)
         z1, z2 = self.unbundle(self.data_to_model_dist(self.data))
         n = len(z1)
@@ -824,6 +835,9 @@ class Gaussian(ExceedanceDistribution):
     _plotting_dist_name = "Gaussian"
     _param_names = {0:"rho"} #mapping from params array indices to names for diagnostic plots
 
+    def __repr__(self):
+        return f"{self.__class__.__name__} exceedance dependence model with rho = {self.params} and quantile threshold {self.quantile_threshold}"
+
     @validator("params")
     def validate_params(cls, params):
         rho = params[0]
@@ -886,54 +900,62 @@ class Gaussian(ExceedanceDistribution):
         # r1 => exceedance in second component only, r2 => exceedance in both components, r3 => exceedance in first component only
         rho = params[0]
         cov = np.array([[1, rho], [rho, 1]])
-        threshold = gaussian.ppf(quantile_threshold)
 
-        th = cls.bundle(threshold, threshold)
-        p1 = quantile_threshold - mv_gaussian.cdf(th, cov=cov)
-        p2 = 1 - 2 * quantile_threshold + mv_gaussian.cdf(th, cov=cov)
-        p3 = 1 - mv_gaussian.cdf(th, cov=cov) - (p1 + p2)
+        if quantile_threshold == 0:
+            samples = mv_gaussian.rvs(size=size, cov=cov)
+        else:
+            threshold = gaussian.ppf(quantile_threshold)
 
-        p = np.array([p1, p2, p3])
-        p = p / np.sum(p)
+            th = cls.bundle(threshold, threshold)
+            th_cdf = mv_gaussian.cdf(th, cov=cov) 
 
-        # compute number of samples per subregion
-        n1, n2, n3 = np.random.multinomial(n=size, pvals=p, size=1)[0].astype(np.int32)
-        n1, n2, n3 = int(n1), int(n2), int(n3)
+            p1 = quantile_threshold - th_cdf
+            p2 = 1 - 2 * quantile_threshold + th_cdf
+            p3 = 1 - th_cdf - (p1 + p2)
 
-        r1_samples = (
-            tmvn(
-                mu=np.zeros((2,)),
-                cov=cov,
-                lb=np.array([-np.Inf, threshold]),
-                ub=np.array([threshold, np.Inf]),
+            p = np.array([p1, p2, p3])
+            p = p / np.sum(p)
+
+            # compute number of samples per subregion
+            n1, n2, n3 = np.random.multinomial(n=size, pvals=p, size=1)[0].astype(np.int32)
+            n1, n2, n3 = int(n1), int(n2), int(n3)
+
+            r1_samples = (
+                tmvn(
+                    mu=np.zeros((2,)),
+                    cov=cov,
+                    lb=np.array([-np.Inf, threshold]),
+                    ub=np.array([threshold, np.Inf]),
+                )
+                .sample(n1)
+                .T
             )
-            .sample(n1)
-            .T
-        )
 
-        r2_samples = (
-            tmvn(
-                mu=np.zeros((2,)),
-                cov=cov,
-                lb=np.array([threshold, threshold]),
-                ub=np.array([np.Inf, np.Inf]),
+            r2_samples = (
+                tmvn(
+                    mu=np.zeros((2,)),
+                    cov=cov,
+                    lb=np.array([threshold, threshold]),
+                    ub=np.array([np.Inf, np.Inf]),
+                )
+                .sample(n2)
+                .T
             )
-            .sample(n2)
-            .T
-        )
 
-        r3_samples = (
-            tmvn(
-                mu=np.zeros((2,)),
-                cov=cov,
-                lb=np.array([threshold, -np.Inf]),
-                ub=np.array([np.Inf, threshold]),
+            r3_samples = (
+                tmvn(
+                    mu=np.zeros((2,)),
+                    cov=cov,
+                    lb=np.array([threshold, -np.Inf]),
+                    ub=np.array([np.Inf, threshold]),
+                )
+                .sample(n3)
+                .T
             )
-            .sample(n3)
-            .T
-        )
 
-        samples = np.concatenate([r1_samples, r2_samples, r3_samples], axis=0)
+            samples = np.concatenate([r1_samples, r2_samples, r3_samples], axis=0)
+
+        return samples
 
 
 class AsymmetricLogistic(ExceedanceDistribution):
@@ -958,7 +980,7 @@ class AsymmetricLogistic(ExceedanceDistribution):
     _plotting_dist_name = "Frechet"
 
     def __repr__(self):
-        return f"{self.__class__.__name__} exceedance dependence model with alpha = {self.alpha}, asymmetry parameters {self.beta},{self.gamma} quantile threshold {self.quantile_threshold}"
+        return f"{self.__class__.__name__} exceedance dependence model with (alpha, beta, gamma) = {self.params} and quantile threshold {self.quantile_threshold}"
 
     @validator("params")
     def validate_params(cls, params):
@@ -1146,80 +1168,90 @@ class AsymmetricLogistic(ExceedanceDistribution):
             b2 = b2[0:size,:]
             return b2
 
-        # The paper referenced above takes the maximum from logistic model samples and rescales them (or offsets them, in Gumbel scale) in order to sample from an asymmetric logistic. To do that for exceedances only, like here, some additional issues need to be addressed
+        # The paper referenced above takes the maximum from logistic model samples and rescales them (or offsets them, in Gumbel scale) in order to sample from an asymmetric logistic.
         # B_1 = bivariate independent offset Gumbel samples
         # B_2 = bivariate logistic offset Gumbel
         # B_1 is independent from B_2. Let M = max(B_1, B_2), then M ~ asym. logistic Gumbel
-        # exceedance in M <=> exceedance in B_1 or exceedance in B_2
-        # exceedances can then be split in three cases: exceedance in B_1 alone, in B_2 alone or in both.
-        # below the 3 cases are simulated separately and then concatenated 
+
         alpha_param = np.array([alpha])
 
         b2_offset = np.log(np.array([beta,gamma]))
         b1_offset = np.log(np.array([1-beta,1-gamma]))
+        if quantile_threshold == 0:
+            # if simulated region is unconditioned (i.e. the entire plane) use method from cited paper directly
+            # independent gumbel variates (alpha = 1)
+            b1 = gumbel_logistic(size=size, params=np.array([1]), quantile_threshold=0) + b1_offset
+            # logistic gumbel variates
+            b2 = gumbel_logistic(size=size, params=alpha_param, quantile_threshold=0) + b2_offset
+            z = np.maximum(b1,b2)
+        else:
+            # Sampling exceedances requires some additional care:
+            # exceedance in M <=> exceedance in B_1 or exceedance in B_2
+            # exceedances can then be split in three cases: exceedance in B_1 alone, in B_2 alone or in both.
+            # below the 3 cases are simulated separately and then concatenated 
 
-        # work out sample size proportions for the three cases
-        p_exs_b1 = float(1 - Logistic.unconditioned_cdf(np.array([1]), target_th - b1_offset))
-        p_exs_b2 = float(1 - Logistic.unconditioned_cdf(alpha_param, target_th - b2_offset))
-        p_exs_any = p_exs_b1 + p_exs_b2 - p_exs_b1*p_exs_b2
-        p_exs = np.array([
-            p_exs_b1*(1-p_exs_b2), 
-            p_exs_b2*(1-p_exs_b1), 
-            p_exs_b1*p_exs_b2])/p_exs_any #relative sample sizes for all three cases
+            # work out sample size proportions for the three cases
+            p_exs_b1 = float(1 - Logistic.unconditioned_cdf(np.array([1]), target_th - b1_offset))
+            p_exs_b2 = float(1 - Logistic.unconditioned_cdf(alpha_param, target_th - b2_offset))
+            p_exs_any = p_exs_b1 + p_exs_b2 - p_exs_b1*p_exs_b2
+            p_exs = np.array([
+                p_exs_b1*(1-p_exs_b2), 
+                p_exs_b2*(1-p_exs_b1), 
+                p_exs_b1*p_exs_b2])/p_exs_any #relative sample sizes for all three cases
 
-        b1_exs_size, b2_exs_size, both_exs_size = (
-            np.random.multinomial(n=size, pvals=p_exs, size=1)[0].astype(np.int32)
-            )
+            b1_exs_size, b2_exs_size, both_exs_size = (
+                np.random.multinomial(n=size, pvals=p_exs, size=1)[0].astype(np.int32)
+                )
 
-        # sample 6 cases: (case 1, 2 or 3) * (exceedance or non-exceedance)
-        b1_exs = sample(
-            sampler=logistic_exs,
-            size=b1_exs_size, 
-            alpha=1, 
-            a=1-beta, 
-            b=1-gamma)
+            # sample 6 cases: (case 1, 2 or 3) * (exceedance or non-exceedance)
+            b1_exs = sample(
+                sampler=logistic_exs,
+                size=b1_exs_size, 
+                alpha=1, 
+                a=1-beta, 
+                b=1-gamma)
 
-        b2_not_exs = sample(
-            sampler=logistic_non_exs,
-            size=b1_exs_size, 
-            alpha=alpha, 
-            a=beta, 
-            b=gamma)
+            b2_not_exs = sample(
+                sampler=logistic_non_exs,
+                size=b1_exs_size, 
+                alpha=alpha, 
+                a=beta, 
+                b=gamma)
 
-        b2_exs = sample(
-            sampler=logistic_exs,
-            size=b2_exs_size, 
-            alpha=alpha, 
-            a=beta, 
-            b=gamma)
+            b2_exs = sample(
+                sampler=logistic_exs,
+                size=b2_exs_size, 
+                alpha=alpha, 
+                a=beta, 
+                b=gamma)
 
-        b1_not_exs = sample(
-            sampler = logistic_non_exs,
-            size=b2_exs_size, 
-            alpha=1, 
-            a=1-beta, 
-            b=1-gamma)
+            b1_not_exs = sample(
+                sampler = logistic_non_exs,
+                size=b2_exs_size, 
+                alpha=1, 
+                a=1-beta, 
+                b=1-gamma)
 
-        b1_both_exs = sample(
-            sampler=logistic_exs,
-            size=both_exs_size, 
-            alpha=1, 
-            a=1-beta, 
-            b=1-gamma)
+            b1_both_exs = sample(
+                sampler=logistic_exs,
+                size=both_exs_size, 
+                alpha=1, 
+                a=1-beta, 
+                b=1-gamma)
 
-        b2_both_exs = sample(
-            sampler = logistic_exs,
-            size=both_exs_size, 
-            alpha=alpha, 
-            a=beta, 
-            b=gamma)
+            b2_both_exs = sample(
+                sampler = logistic_exs,
+                size=both_exs_size, 
+                alpha=alpha, 
+                a=beta, 
+                b=gamma)
 
-        # take elementwise maximum and concatenate
-        z = np.concatenate([
-            np.maximum(b1_exs, b2_not_exs),
-            np.maximum(b2_exs, b1_not_exs),
-            np.maximum(b1_both_exs, b2_both_exs)],
-            axis=0)
+            # take elementwise maximum and concatenate
+            z = np.concatenate([
+                np.maximum(b1_exs, b2_not_exs),
+                np.maximum(b2_exs, b1_not_exs),
+                np.maximum(b1_both_exs, b2_both_exs)],
+                axis=0)
 
         # return in canonical model scale, i.e. unit Frechet
         return np.exp(z)
