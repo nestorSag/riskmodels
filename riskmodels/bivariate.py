@@ -667,7 +667,7 @@ class Logistic(ExceedanceDistribution):
     
     $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left(- \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha \\right), \\, 0 \\leq \\alpha\\leq 1, \\, \\mathbf{X} \\in \\mathbb{R}^2$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
     """
@@ -825,7 +825,7 @@ class Logistic(ExceedanceDistribution):
 
 class Gaussian(ExceedanceDistribution):
 
-    """This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
+    """This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with a Gaussian dependence model. Because Gaussian copulas are asymptotically independent (this is, dependence  weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at \\(-\\infty\\). This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.
     """
@@ -960,11 +960,11 @@ class Gaussian(ExceedanceDistribution):
 
 class AsymmetricLogistic(ExceedanceDistribution):
 
-    """This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet margin is given by 
+    """This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet scale is given by 
     
     $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left( - \\frac{1 - \\beta}{\\mathbf{x}_1} - \\frac{1 - \\gamma}{\\mathbf{x}_2} - \\left(  \\left( \\frac{\\beta}{\\mathbf{x}_1} \\right)^{1/\\alpha} + \\left( \\frac{\\gamma}{\\mathbf{x}_2} \\right)^{1/\\alpha}\\right)^\\alpha \\right), \\, 0 \\leq \\alpha, \\beta, \\gamma \\leq 1, \\, \\mathbf{X} > 0$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with an asymmetric logistic dependence model, to which this model converges as the quantile threshold grows.
     """
@@ -1256,6 +1256,119 @@ class AsymmetricLogistic(ExceedanceDistribution):
         # return in canonical model scale, i.e. unit Frechet
         return np.exp(z)
 
+
+class LogisticGP(Logistic):
+
+    """This model is an implementation of a bivariate generalised Pareto distribution with logistic dependence. In Gumbel scale this is given by 
+    
+    $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\frac{\\Psi(\\mathbf{x}) - \\Psi(\\min \\{\\mathbf{x},\\mathbf{0}\\})}{-\\Psi(\\mathbf{0})}, \\mathbf{X} \\nleq \\mathbf{0}$$
+
+    where
+
+    $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha, \\, 0 \\leq \\alpha\\leq 1, \\$$
+
+    """
+
+    @validator("quantile_threshold")
+    def val_qt(cls, quantile_threshold):
+        q = Logistic._model_marginal_dist.cdf(0)
+        if quantile_threshold <= q:
+            raise ValueError(f"This model does not support quantile thresholds lower than {np.round(q,2)}")
+        else:
+            return quantile_threshold
+
+    @classmethod
+    def logpdf(
+        cls, params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable]
+    ):
+        """Calculates the logpdf function
+        
+        
+        Args:
+            params (np.ndarray): array with dependence parameter as only element
+            threshold (float): Exceedance threshold in Gumbel scale
+            data (t.Union[np.ndarray, t.Iterable]): Observed data in Gumbel scale
+        
+        """
+        alpha = params[0]
+
+        x, y = cls.unbundle(data)
+
+        rescaler = 1 - Logistic.unconditioned_cdf(params, cls.bundle(threshold, threshold))
+
+        log_a = (-x/alpha-y/alpha)
+        log_b = (-2+alpha)*np.log(np.exp(-x/alpha)+np.exp(-y/alpha))
+        log_c = np.log(1-alpha)
+        log_d = -np.log(alpha)
+
+        log_density = log_a + log_b + log_c + log_d - np.log(rescaler)
+
+        # density is 0 when both coordinates are below the threshold
+        nil_density_idx = np.logical_and(x <= threshold, y <= threshold)
+        log_density[nil_density_idx] = -np.Inf
+
+        return log_density
+
+    @classmethod
+    def unconditioned_cdf(cls, params: np.ndarray, data: t.Union[np.ndarray, t.Iterable]):
+        """Calculates cdf function with an exceedance threshold of zero"""
+        alpha = params[0]
+        x, y = cls.unbundle(data)
+        G0 = Logistic.unconditioned_cdf(params, cls.bundle(0,0))
+        Ga = Logistic.unconditioned_cdf(params, data)
+        Gb = Logistic.unconditioned_cdf(params, np.minimum(data,0))
+        return -1/np.log(G0)*(np.log(Ga)-np.log(Gb))
+
+    @classmethod
+    def simulate_model(cls, size: int, params: np.ndarray, quantile_threshold: float) -> np.ndarray:
+        """Simulates exceedances from bivariate GP model
+        
+        Args:
+            size (int): Simulated sample size
+            params (np.ndarray): Array with dependence parameter
+            threshold (float): Exceedance threshold in both components
+        
+        Returns:
+            np.ndarray: Simulated sample
+        """
+        threshold = gumbel.ppf(quantile_threshold)
+        alpha = params[0]
+
+        maxima = exponential.rvs(size=size, loc = threshold)
+
+        if alpha == 0:
+            r = 0
+        elif alpha == 1:
+            r = np.Inf
+        else:
+            ###simulate difference between maxima and minima r = max(x,y) - min(x,y) using inverse function method
+            u = np.random.uniform(size=size)
+            r = alpha * np.log(((1-u)/2**(1-alpha))**(1/(alpha-1))-1)
+
+        minima = maxima - r
+
+        # allocate maxima randomly between components
+        max_indices = np.random.binomial(1, 0.5, size)
+
+        x = np.concatenate(
+            [
+                maxima[max_indices == 0].reshape((-1, 1)),
+                minima[max_indices == 1].reshape((-1, 1)),
+            ],
+            axis=0,
+        )
+
+        y = np.concatenate(
+            [
+                minima[max_indices == 0].reshape((-1, 1)),
+                maxima[max_indices == 1].reshape((-1, 1)),
+            ],
+            axis=0,
+        )
+
+        return cls.bundle(x,y)
+
+
 class Empirical(BaseDistribution):
 
     """Bivariate empirical distribution induced by a sample of observed data"""
@@ -1263,10 +1376,15 @@ class Empirical(BaseDistribution):
     data: np.ndarray
     pdf_values: np.ndarray
 
-    _exceedance_models = {"logistic": Logistic, "gaussian": Gaussian, "asymmetric logistic": AsymmetricLogistic}
+    _exceedance_models = {
+    "logistic": Logistic, 
+    "gaussian": Gaussian, 
+    "asymmetric logistic": AsymmetricLogistic,
+    "logistic gp": LogisticGP
+    }
 
     def __repr__(self):
-        return f"Bivariate empirical distribution with {len(data)} points"
+        return f"Bivariate empirical distribution with {len(self.data)} points"
 
     @validator("pdf_values", allow_reuse=True)
     def check_pdf_values(cls, pdf_values):
