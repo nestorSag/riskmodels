@@ -531,6 +531,16 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         """
 
         def reducer(mapped):
+            # compute global season number when merging results from different files (each with their own season numbering)
+            trace_length = len(self.demand)
+            seasons_per_trace = trace_length / self.season_length
+            if seasons_per_trace != int(seasons_per_trace):
+                raise ValueError(f"trace length ({trace_length}) is not a multiple of season length ({season_length})")
+            seasons_per_trace = int(seasons_per_trace)
+            past_seasons = 0
+            for df, n_traces in mapped:
+                df["season"] += past_seasons
+                past_seasons += n_traces * seasons_per_trace
             return pd.concat([df for df, n in mapped])
 
         return self.map_reduce(

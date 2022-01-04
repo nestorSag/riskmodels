@@ -9,9 +9,7 @@ import time
 import typing as t
 import traceback
 import warnings
-from argparse import Namespace
 from abc import ABC, abstractmethod
-from multiprocessing import Pool
 from collections.abc import Iterable
 import copy
 
@@ -27,7 +25,6 @@ import numpy as np
 import emcee
 
 from scipy.optimize import LinearConstraint, minimize, root_scalar, approx_fprime
-from scipy.signal import fftconvolve
 from scipy.special import lambertw
 from scipy.stats import (
     genpareto as gpdist,
@@ -45,9 +42,6 @@ from functools import reduce
 import riskmodels.univariate as univar
 
 from riskmodels.utils.tmvn import TruncatedMVN as tmvn
-
-import emcee
-
 
 class BaseDistribution(BaseModel, ABC):
 
@@ -220,7 +214,7 @@ class Independent(BaseDistribution):
     y: univar.BaseDistribution
 
     def __repr__(self):
-        return f"Independent bivariate distribution with marginals:\nx:{x.__repr__()}\ny:{y.__repr__()}"
+        return f"Independent bivariate distribution with marginals:\nx:{self.x.__repr__()}\ny:{self.y.__repr__()}"
 
     def pdf(self, x: np.ndarray):
         x1, x2 = x
@@ -1621,8 +1615,8 @@ class Empirical(BaseDistribution):
 
         pk = []
         for p_ in p:
-            a = (n * s / np.sum(s)) / (1 - p_)
-            b = (n * t / np.sum(t)) / p_
+            a = (s / np.mean(s)) / (1 - p_)
+            b = (t / np.mean(t)) / p_
             pk.append(1.0 / np.mean(np.minimum(a, b)))
             
         return np.array(pk)
