@@ -1,6 +1,6 @@
-"""This module implements models to calculate risk metrics relevant to energy procurement for the case of an interconnected 2-area system, specifically loss of load expectation (LOLE) and expected energy unserved (EEU). As these models assume a time-collapsed setting in which serial dependence does not exist, only metrics based on expected values like the above can be validly calculated. Exact calculations for empirical demand and renewable models are available for both veto and share policies (see below), and Monte Carlo estimation for arbitrary net demand models are available for a veto policy only.
+"""This module implements models to calculate time-collapsed risk metrics relevant to energy procurement for the case of an interconnected 2-area system, specifically loss of load expectation (LOLE) and expected energy unserved (EEU). As these models assume a time-collapsed setting in which serial dependence does not exist, only metrics based on expected values like the above can be validly calculated. Exact calculations for empirical demand and renewable models are available for both veto and share policies (see below), and Monte Carlo estimation for arbitrary net demand models are available for a veto policy only.
 
-In a share policy, power flow through the interconnection is driven by market prices, even in the event of a shortfall; this can create situations in which shortfalls spread to other areas by excessive imports or exports. In a veto policy on the other hand, only spare available generation can flow through the interconnector, and areas never divert generation they are already using somewhere else. 
+In a share policy, power flow through the interconnection is driven by market prices, even in the event of a shortfall; this can create situations in which shortfalls spread to other areas by excessive trading. In a veto policy on the other hand, power is only exported after fulfilling domestic demand. 
 """
 
 from __future__ import annotations
@@ -172,12 +172,12 @@ class BaseBivariateMonteCarlo(BaseModel, BaseSurplus):
 
 class BivariateMonteCarlo(BaseBivariateMonteCarlo):
 
-    """General bivariate power surplus distribution formed by a power generation distribution and a net demand distribution. It calculates risk metrics by simulation and only implements a veto policy between areas, this is, areas will only export spare available capacity.
+    """General bivariate power surplus distribution formed by a power generation distribution and a net demand distribution. It calculates time-collapsed risk metrics by simulation and only implements a veto policy between areas, this is, areas will only export spare available capacity.
 
     Args:
         gen_distribution (BaseDistribution): available conventional generation distribution
         net_demand (BaseDistribution): net demand distribution
-        size (BaseDistribution): Sample size for Monte Carlo estimation
+        size (int): Sample size for Monte Carlo estimation
 
     """
 

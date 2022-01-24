@@ -168,7 +168,9 @@ class Mixture(BaseDistribution):
                 [self.distributions[k] for k in indices], n_samples[indices]
             )
         ]
-        return np.concatenate(samples, axis=0)
+        samples = np.concatenate(samples, axis=0)
+        np.random.shuffle(samples)
+        return samples
 
     def cdf(self, x: np.ndarray, **kwargs) -> float:
         vals = [

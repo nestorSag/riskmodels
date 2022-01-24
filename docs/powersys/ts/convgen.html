@@ -49,7 +49,10 @@ class MarkovChainGenerationModel(IndependentFleetModel):
     chain_states: np.ndarray
 
     &#34;&#34;&#34;Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
-  &#34;&#34;&#34;
+
+    transition_matrices (np.ndarray): 3-dimensional array with transition matrices for generating units
+    chain_states (np.array): 2-dimensional array with vector of generation states for each generating unit
+    &#34;&#34;&#34;
 
     def __str__(self):
         max_cap = np.sum([s[0] for s in self.chain_states])
@@ -175,9 +178,10 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         initial_state: np.ndarray = None,
         simulate_escape_time: bool = True,
         output_array: np.ndarray = None,
+        seed: int = None
     ) -&gt; np.Optional[np.ndarray]:
         &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
-
+        
         Args:
             size (int): Number of traces to simulate
             trace_length (int): length of individual traces
@@ -186,15 +190,16 @@ class MarkovChainGenerationModel(IndependentFleetModel):
             initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
             simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
             output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
-
-        Returns:
+            seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+        
+        No Longer Returned:
             np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
-
-
-        Raises:
+        
+        
+        No Longer Raises:
             ValueError: Description
-
-
+        
+        
         &#34;&#34;&#34;
         n_chains = len(chain_states)
         n_states = len(chain_states[0])
@@ -221,8 +226,8 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         #   seed = np.random.randint(low=0,high=2**31-1)
         # else:
         #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
-        seed = np.random.randint(low=0, high=2 ** 31 - 1)
-
+        seed = np.random.randint(low=0, high=2**20-1) if seed is None else seed
+        #print(f&#34;C seed: {seed}&#34;)
         # set initial state array
         if initial_state is None:
             initial_state = cls.sample_stationary_dists(
@@ -274,12 +279,13 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         if return_output:
             return output_array
 
-    def simulate(self, size: int) -&gt; np.ndarray:
+    def simulate(self, size: int, seed: int = None) -&gt; np.ndarray:
         &#34;&#34;&#34;Simulate a single trace of sequential observations
-
+        
         Args:
             size (int): Number of samples, or equivalently, trace length.
-
+            seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+        
         Returns:
             np.ndarray
         &#34;&#34;&#34;
@@ -290,6 +296,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
             chain_states=self.chain_states,
             initial_state=None,
             simulate_escape_time=True,
+            seed=seed
         ).reshape(-1)
 
     def simulate_seasons(
@@ -298,16 +305,18 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         season_length: int,
         seasons_per_trace: int = 1,
         burn_in: int = 100,
+        seed: int = None
     ) -&gt; np.ndarray:
         &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
-
+        
         Args:
             size (int): number of traces to sample
             season_length (int): peak season length
             seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
             burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
-
-        Returns:
+            seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+        
+        No Longer Returned:
             np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
         &#34;&#34;&#34;
         total_seasons = size * seasons_per_trace
@@ -320,6 +329,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
             chain_states=self.chain_states,
             initial_state=None,
             simulate_escape_time=True,
+            seed=seed
         )
 
         # drop burn in periods and reshape
@@ -355,7 +365,10 @@ class MarkovChainGenerationModel(IndependentFleetModel):
     chain_states: np.ndarray
 
     &#34;&#34;&#34;Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
-  &#34;&#34;&#34;
+
+    transition_matrices (np.ndarray): 3-dimensional array with transition matrices for generating units
+    chain_states (np.array): 2-dimensional array with vector of generation states for each generating unit
+    &#34;&#34;&#34;
 
     def __str__(self):
         max_cap = np.sum([s[0] for s in self.chain_states])
@@ -481,9 +494,10 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         initial_state: np.ndarray = None,
         simulate_escape_time: bool = True,
         output_array: np.ndarray = None,
+        seed: int = None
     ) -&gt; np.Optional[np.ndarray]:
         &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
-
+        
         Args:
             size (int): Number of traces to simulate
             trace_length (int): length of individual traces
@@ -492,15 +506,16 @@ class MarkovChainGenerationModel(IndependentFleetModel):
             initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
             simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
             output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
-
-        Returns:
+            seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+        
+        No Longer Returned:
             np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
-
-
-        Raises:
+        
+        
+        No Longer Raises:
             ValueError: Description
-
-
+        
+        
         &#34;&#34;&#34;
         n_chains = len(chain_states)
         n_states = len(chain_states[0])
@@ -527,8 +542,8 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         #   seed = np.random.randint(low=0,high=2**31-1)
         # else:
         #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
-        seed = np.random.randint(low=0, high=2 ** 31 - 1)
-
+        seed = np.random.randint(low=0, high=2**20-1) if seed is None else seed
+        #print(f&#34;C seed: {seed}&#34;)
         # set initial state array
         if initial_state is None:
             initial_state = cls.sample_stationary_dists(
@@ -580,12 +595,13 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         if return_output:
             return output_array
 
-    def simulate(self, size: int) -&gt; np.ndarray:
+    def simulate(self, size: int, seed: int = None) -&gt; np.ndarray:
         &#34;&#34;&#34;Simulate a single trace of sequential observations
-
+        
         Args:
             size (int): Number of samples, or equivalently, trace length.
-
+            seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+        
         Returns:
             np.ndarray
         &#34;&#34;&#34;
@@ -596,6 +612,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
             chain_states=self.chain_states,
             initial_state=None,
             simulate_escape_time=True,
+            seed=seed
         ).reshape(-1)
 
     def simulate_seasons(
@@ -604,16 +621,18 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         season_length: int,
         seasons_per_trace: int = 1,
         burn_in: int = 100,
+        seed: int = None
     ) -&gt; np.ndarray:
         &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
-
+        
         Args:
             size (int): number of traces to sample
             season_length (int): peak season length
             seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
             burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
-
-        Returns:
+            seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+        
+        No Longer Returned:
             np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
         &#34;&#34;&#34;
         total_seasons = size * seasons_per_trace
@@ -626,6 +645,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
             chain_states=self.chain_states,
             initial_state=None,
             simulate_escape_time=True,
+            seed=seed
         )
 
         # drop burn in periods and reshape
@@ -646,7 +666,9 @@ class MarkovChainGenerationModel(IndependentFleetModel):
 <dl>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.chain_states"><code class="name">var <span class="ident">chain_states</span> : numpy.ndarray</code></dt>
 <dd>
-<div class="desc"><p>Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.</p></div>
+<div class="desc"><p>Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.</p>
+<p>transition_matrices (np.ndarray): 3-dimensional array with transition matrices for generating units
+chain_states (np.array): 2-dimensional array with vector of generation states for each generating unit</p></div>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.transition_matrices"><code class="name">var <span class="ident">transition_matrices</span> : numpy.ndarray</code></dt>
 <dd>
@@ -839,7 +861,7 @@ def sample_stationary_dists(
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.simulate_chains"><code class="name flex">
-<span>def <span class="ident">simulate_chains</span></span>(<span>size: int, trace_length: int, transition_matrices: np.ndarray, chain_states: np.ndarray, initial_state: np.ndarray = None, simulate_escape_time: bool = True, output_array: np.ndarray = None) ‑> np.Optional[np.ndarray]</span>
+<span>def <span class="ident">simulate_chains</span></span>(<span>size: int, trace_length: int, transition_matrices: np.ndarray, chain_states: np.ndarray, initial_state: np.ndarray = None, simulate_escape_time: bool = True, output_array: np.ndarray = None, seed: int = None) ‑> np.Optional[np.ndarray]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.</p>
@@ -859,17 +881,13 @@ def sample_stationary_dists(
 <dd>If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.</dd>
 <dt><strong><code>output_array</code></strong> :&ensp;<code>np.ndarray</code>, optional</dt>
 <dd>Array where results are to be stored. If not provided, one is created.</dd>
+<dt><strong><code>seed</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.</dd>
 </dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>np.Optional[np.ndarray]</code></dt>
-<dd>two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.</dd>
-</dl>
-<h2 id="raises">Raises</h2>
-<dl>
-<dt><code>ValueError</code></dt>
-<dd>Description</dd>
-</dl></div>
+<p>No Longer Returned:
+np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.</p>
+<p>No Longer Raises:
+ValueError: Description</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -884,9 +902,10 @@ def simulate_chains(
     initial_state: np.ndarray = None,
     simulate_escape_time: bool = True,
     output_array: np.ndarray = None,
+    seed: int = None
 ) -&gt; np.Optional[np.ndarray]:
     &#34;&#34;&#34;Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
-
+    
     Args:
         size (int): Number of traces to simulate
         trace_length (int): length of individual traces
@@ -895,15 +914,16 @@ def simulate_chains(
         initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
         simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
         output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
-
-    Returns:
+        seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+    
+    No Longer Returned:
         np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
-
-
-    Raises:
+    
+    
+    No Longer Raises:
         ValueError: Description
-
-
+    
+    
     &#34;&#34;&#34;
     n_chains = len(chain_states)
     n_states = len(chain_states[0])
@@ -930,8 +950,8 @@ def simulate_chains(
     #   seed = np.random.randint(low=0,high=2**31-1)
     # else:
     #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
-    seed = np.random.randint(low=0, high=2 ** 31 - 1)
-
+    seed = np.random.randint(low=0, high=2**20-1) if seed is None else seed
+    #print(f&#34;C seed: {seed}&#34;)
     # set initial state array
     if initial_state is None:
         initial_state = cls.sample_stationary_dists(
@@ -1005,7 +1025,7 @@ def stationary_distributions(self):
 <h3>Methods</h3>
 <dl>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.simulate"><code class="name flex">
-<span>def <span class="ident">simulate</span></span>(<span>self, size: int) ‑> numpy.ndarray</span>
+<span>def <span class="ident">simulate</span></span>(<span>self, size: int, seed: int = None) ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simulate a single trace of sequential observations</p>
@@ -1013,6 +1033,8 @@ def stationary_distributions(self):
 <dl>
 <dt><strong><code>size</code></strong> :&ensp;<code>int</code></dt>
 <dd>Number of samples, or equivalently, trace length.</dd>
+<dt><strong><code>seed</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>np.ndarray</p></div>
@@ -1020,12 +1042,13 @@ def stationary_distributions(self):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def simulate(self, size: int) -&gt; np.ndarray:
+<pre><code class="python">def simulate(self, size: int, seed: int = None) -&gt; np.ndarray:
     &#34;&#34;&#34;Simulate a single trace of sequential observations
-
+    
     Args:
         size (int): Number of samples, or equivalently, trace length.
-
+        seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+    
     Returns:
         np.ndarray
     &#34;&#34;&#34;
@@ -1036,11 +1059,12 @@ def stationary_distributions(self):
         chain_states=self.chain_states,
         initial_state=None,
         simulate_escape_time=True,
+        seed=seed
     ).reshape(-1)</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.convgen.MarkovChainGenerationModel.simulate_seasons"><code class="name flex">
-<span>def <span class="ident">simulate_seasons</span></span>(<span>self, size: int, season_length: int, seasons_per_trace: int = 1, burn_in: int = 100) ‑> numpy.ndarray</span>
+<span>def <span class="ident">simulate_seasons</span></span>(<span>self, size: int, season_length: int, seasons_per_trace: int = 1, burn_in: int = 100, seed: int = None) ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.</p>
@@ -1054,12 +1078,11 @@ def stationary_distributions(self):
 <dd>Number of seasons per trace. The default is 1.</dd>
 <dt><strong><code>burn_in</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.</dd>
+<dt><strong><code>seed</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.</dd>
 </dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>np.ndarray</code></dt>
-<dd>two-dimensional array where each row represent a sampled peak season of available conventional generation.</dd>
-</dl></div>
+<p>No Longer Returned:
+np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1070,16 +1093,18 @@ def stationary_distributions(self):
     season_length: int,
     seasons_per_trace: int = 1,
     burn_in: int = 100,
+    seed: int = None
 ) -&gt; np.ndarray:
     &#34;&#34;&#34;Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
-
+    
     Args:
         size (int): number of traces to sample
         season_length (int): peak season length
         seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
         burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
-
-    Returns:
+        seed (int, optional): Random seed passed to C backend. If not given, numpy&#39;s random numbers are used to initialise it.
+    
+    No Longer Returned:
         np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
     &#34;&#34;&#34;
     total_seasons = size * seasons_per_trace
@@ -1092,6 +1117,7 @@ def stationary_distributions(self):
         chain_states=self.chain_states,
         initial_state=None,
         simulate_escape_time=True,
+        seed=seed
     )
 
     # drop burn in periods and reshape

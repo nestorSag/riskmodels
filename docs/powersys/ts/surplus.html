@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import typing as t
+from zlib import adler32
 from multiprocessing import Pool
 
 import numpy as np
@@ -83,7 +84,15 @@ class MarkovChainGenerationTraces(BaseModel):
 
 class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations.&#34;&#34;&#34;
+    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.
+
+    Args:
+        gen_filepath (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+    
+    &#34;&#34;&#34;
 
     gen_filepath: str
     demand: np.ndarray
@@ -100,7 +109,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
     @property
     def surplus_trace(self):
-        # this return a 2-dimensional array where each row is a peak season sample, and each column is a timestep
+        # this return a 2-dimensional array where each row is a trace sample, and each column is a within-trace  timestep. A trace may contain multiple concatenated peak seasons
         return MarkovChainGenerationTraces.from_file(self.gen_filepath).traces - (
             self.demand - self.renewables
         )
@@ -122,8 +131,39 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
         trace = self.surplus_trace
         return np.mean(trace &lt; x)
 
-    def simulate(self) -&gt; float:
+    def simulate(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for surplus values
+        
+        Returns:
+            np.ndarray: simulated surplus values
+        &#34;&#34;&#34;
         return self.surplus_trace
+
+    def simulate_lold(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for energy unserved
+        
+        Returns:
+            np.ndarray: Simulated energy unserved
+        &#34;&#34;&#34;
+        trace = self.surplus_trace
+        n_traces, trace_length = trace.shape
+        if trace_length % self.season_length != 0:
+            raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
+        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+        return np.sum((np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1) #1e-1 to avoid problems with numerical rounding errors
+
+    def simulate_eu(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for energy unserved
+        
+        Returns:
+            np.ndarray: Simulated energy unserved
+        &#34;&#34;&#34;
+        trace = self.surplus_trace
+        n_traces, trace_length = trace.shape
+        if trace_length % self.season_length != 0:
+            raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
+        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+        return np.sum(np.maximum(0.0, -trace).reshape(target_shape), axis=1)
 
     def lole(self) -&gt; float:
         &#34;&#34;&#34;Evaluates the distribution&#39;s season-wise LOLE. Also returns the number of seasons used to calculate it.
@@ -194,7 +234,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
 class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
+    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
 
     Args:
         univariate_traces (t.List[UnivariateEmpiricalTraces]): Univariate traces
@@ -209,7 +249,7 @@ class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
     @property
     def surplus_trace(self):
-        &#34;&#34;&#34;This returns the traces as a 3-dimensional array where the axes correspond to area, trace number and peak season time step respectively&#34;&#34;&#34;
+        &#34;&#34;&#34;This returns the traces as a 3-dimensional array where the axes correspond to area, simulated trace and within-trace time respectively. Each trace may contain multiple concatenated peak seasons&#34;&#34;&#34;
         return np.array([t.surplus_trace for t in self.univariate_traces])
 
     @property
@@ -287,6 +327,34 @@ class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
         else:
             raise ValueError(&#34;policy must be either &#39;veto&#39; or &#39;share&#39;&#34;)
 
+    def simulate_lold(self, itc_cap: int = 1000) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for loss of load duration
+        
+        Returns:
+            np.ndarray: Simulated loss of load duration
+        &#34;&#34;&#34;
+        lold_vectors = (np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1).T #avoid numerical rounding errors with offset 1e-1
+        n = len(lold_vectors[0])
+        if n % self.season_length != 0:
+            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+        return np.stack(
+            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in lold_vectors],
+            axis=1)
+
+    def simulate_eu(self, itc_cap: int = 1000) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for energy unserved
+        
+        Returns:
+            np.ndarray: Simulated energy unserved
+        &#34;&#34;&#34;
+        eu_vectors = np.maximum(0.0, -self.simulate(itc_cap)).T
+        n = len(eu_vectors[0])
+        if n % self.season_length != 0:
+            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+        return np.stack(
+            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in eu_vectors],
+            axis=1)
+
     def get_surplus_df(
         self, shortfalls_only: bool = True, itc_cap: int = 1000
     ) -&gt; pd.DataFrame:
@@ -318,12 +386,22 @@ class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
 class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
-    &#34;&#34;&#34;Univariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateEmpiricalTraces.&#34;&#34;&#34;
+    &#34;&#34;&#34;Univariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateEmpiricalTraces.
+    
+    Args:
+        gen_dir (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+        n_cores (int, optional): number of cores to use for map-reduce operations
+    
+    &#34;&#34;&#34;
 
     gen_dir: str
     demand: np.ndarray
     renewables: np.ndarray
     season_length: int
+    n_cores: t.Optional[int] = 2
 
     _worker_class = UnivariateEmpiricalTraces
 
@@ -332,7 +410,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
     @classmethod
     def _persist_gen_traces(
-        cls, args: t.Tuple[MarkovChainGenerationModel, t.Dict, Path]
+        cls, args: t.Tuple[MarkovChainGenerationModel, t.Dict, Path, int]
     ) -&gt; None:
         &#34;&#34;&#34;Persists a sequence of traces according to specified arguments as a numpy file
 
@@ -355,9 +433,10 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         season_length: int,
         n_cores: int = 4,
         burn_in: int = 100,
+        seed: int = None
     ) -&gt; BaseSurplus:
         &#34;&#34;&#34;Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.
-
+        
         Args:
             output_dir (str): Output directory for trace files
             n_traces (int): Total number of season traces to simulate
@@ -368,10 +447,11 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
             season_length (int): Peak season length.
             n_cores (int, optional): Number of cores to use.
             burn_in (int, optional): Parameter passed to MarkovChainGenerationModel.simulate_seasons.
-
-        Returns:
+            seed (int, optional): Random seed passed to C backend. If not passed, output file paths are hashed to obtained it; this is because different seeds are needed for each file, otherwise traces are identical across files.
+        
+        No Longer Returned:
             UnivariateEmpiricalMapReduce: Sequential surplus model
-
+        
         &#34;&#34;&#34;
 
         # create dir if it doesn&#39;t exist
@@ -398,13 +478,15 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         # create argument list for multithreaded execution
         arglist = []
         seasons_per_trace = int(trace_length / season_length)
-        for k, file_size in enumerate(file_sizes):
-            output_path = Path(output_dir) / str(k)
+        for idx, file_size in enumerate(file_sizes):
+            output_path = Path(output_dir) / str(idx)
+            file_seed = seed + idx if seed is not None else abs(adler32(str(output_path).encode(&#34;utf-8&#34;))) % (1024*1024)
             call_kwargs = {
                 &#34;size&#34;: file_size,
                 &#34;season_length&#34;: season_length,
                 &#34;seasons_per_trace&#34;: seasons_per_trace,
                 &#34;burn_in&#34;: burn_in,
+                &#34;seed&#34;: file_seed
             }
             arglist.append((gen, call_kwargs, output_path))
 
@@ -421,6 +503,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
+            n_cores = n_cores
         )
 
     def create_mapred_arglist(
@@ -462,12 +545,12 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
         &#34;&#34;&#34;
         worker_kwargs, map_func, str_map_kwargs = call_args
-        surplus = cls._worker_class(**worker_kwargs)
-        n_traces = surplus.n_traces
+        worker = cls._worker_class(**worker_kwargs)
+        n_traces = worker.n_traces
         if isinstance(map_func, str):
-            return getattr(surplus, map_func)(**str_map_kwargs), n_traces
+            return getattr(worker, map_func)(**str_map_kwargs), n_traces
         elif isinstance(map_func, t.Callable):
-            return map_func(surplus), n_traces
+            return map_func(worker), n_traces
         else:
             raise ValueError(&#34;map_func must be a string or a function.&#34;)
 
@@ -475,16 +558,14 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         self,
         mapper: t.Union[str, t.Callable],
         reducer: t.Optional[t.Callable],
-        str_map_kwargs: t.Dict = {},
-        n_cores: int = 4,
+        str_map_kwargs: t.Dict = {}
     ) -&gt; t.Any:
         &#34;&#34;&#34;Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
         Args:
-            mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance. If a function, it must take as only argument a worker instance.
+            mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance (of class UnivariateEmpiricalTraces). If a function, it must take as only argument a worker instance.
             reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
             str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
-            n_cores (int, optional): Number of cores to use.
 
         Returns:
             t.Any: Map-reduce output
@@ -493,9 +574,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
         arglist = self.create_mapred_arglist(mapper, str_map_kwargs)
 
-        # with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
-        #   mapped = list(tqdm(executor.map(self.execute_map, arglist), total=len(arglist)))
-        with Pool(n_cores) as executor:
+        with Pool(self.n_cores) as executor:
             mapped = list(
                 tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
             )
@@ -523,7 +602,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
     def simulate(self):
         raise NotImplementedError(
-            &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the shortfalls or the full sequence of surplus values.&#34;
+            &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the trace of shortfalls or the full trace of surplus values; alternatively see methods simulate_eu() and simulate_lold().&#34;
         )
 
     def lole(self) -&gt; float:
@@ -549,6 +628,30 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
         return self.map_reduce(mapper=&#34;eeu&#34;, reducer=reducer)
 
+    def simulate_eu(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulates per-peak-season energy userved
+        
+        Returns:
+            np.ndarray: array with one entry per peak season
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            eu_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
+            return eu_samples
+
+        return self.map_reduce(mapper=&#34;simulate_eu&#34;, reducer=reducer)
+
+    def simulate_lold(self):
+        &#34;&#34;&#34;Simulates per-peak-season loss of load duration
+        
+        Returns:
+            np.ndarray: array with one entry per peak season
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            lold_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
+            return lold_samples
+
+        return self.map_reduce(mapper=&#34;simulate_lold&#34;, reducer=reducer)
+
     def get_surplus_df(self, shortfalls_only: bool = True) -&gt; pd.DataFrame:
         &#34;&#34;&#34;Returns a data frame with time occurrence information of observed surplus values and shortfalls.
 
@@ -561,6 +664,16 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         &#34;&#34;&#34;
 
         def reducer(mapped):
+            # compute global season number when merging results from different files (each with their own season numbering)
+            trace_length = len(self.demand)
+            seasons_per_trace = trace_length / self.season_length
+            if seasons_per_trace != int(seasons_per_trace):
+                raise ValueError(f&#34;trace length ({trace_length}) is not a multiple of season length ({season_length})&#34;)
+            seasons_per_trace = int(seasons_per_trace)
+            past_seasons = 0
+            for df, n_traces in mapped:
+                df[&#34;season&#34;] += past_seasons
+                past_seasons += n_traces * seasons_per_trace
             return pd.concat([df for df, n in mapped])
 
         return self.map_reduce(
@@ -575,12 +688,15 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
 class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
 
-    &#34;&#34;&#34;Bivariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type BivariateEmpiricalTraces.&#34;&#34;&#34;
+    &#34;&#34;&#34;Bivariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type BivariateEmpiricalTraces.
 
-    # gen_dir: str
-    # demand: np.ndarray
-    # renewables: np.ndarray
-    # season_length: int
+    Args:
+        gen_dir (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+        n_cores (int, optional): number of cores to use for map-reduce operations
+    &#34;&#34;&#34;
 
     _worker_class = BivariateEmpiricalTraces
     _area_indices = [0, 1]
@@ -605,9 +721,9 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         &#34;&#34;&#34;Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
 
         Args:
-            output_dir (str): List of output directories for trace files, with an entry per system.
-            n_traces (int): Total number of season traces to simulate
-            n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably optimal.
+            output_dir (str): output directory for trace files
+            n_traces (int): Total number of traces to simulate; a trace is a sequence of at least one peak season
+            n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably good enough.
             gens (MarkovChainGenerationModel): List of sequential conventional generation instances, one per system.
             demand (np.ndarray): Demand data
             renewables (np.ndarray): Renewables data
@@ -642,6 +758,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
+            n_cores=n_cores
         )
 
     def create_mapred_arglist(
@@ -682,9 +799,9 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
                 ]
             )
 
-        # policy is passed here at the worker instantiation level. This is to take advantage of bivariate surplus code from the iid module. Said module implements everything for a veto policy, so it is reused. But it module does not take policy as an argument, and to overcome this in the inheriting subclass, the policy is passed at instantiation time and a reimplementation of the itc_flow method in BivariateEmpiricalTraces looks at the passed value to pick the correct flow equations.
+        # policy is passed here at the worker instantiation level. This is to take advantage of bivariate surplus code from the iid module. Said module implements everything for a veto policy, so it is reused. But said module does not take policy as an argument, and to overcome this in the inheriting subclass, the policy is passed at instantiation time and a reimplementation of the itc_flow method in BivariateEmpiricalTraces looks at the passed value to pick the correct flow equations. This is convoluted but avoids code duplication.
 
-        # each trace here correspond to a system
+        # each trace here correspond to an area in the system
         for trace_x, trace_y in zip(*univariate_trace_pairs):
             bivariate_args = {
                 &#34;univariate_traces&#34;: [trace_x, trace_y],
@@ -701,18 +818,16 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         reducer: t.Optional[t.Callable],
         str_map_kwargs: t.Dict = {},
         policy: str = &#34;veto&#34;,
-        itc_cap: float = 1000.0,
-        n_cores: int = 4,
+        itc_cap: float = 1000.0
     ) -&gt; t.Any:
         &#34;&#34;&#34;Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
         Args:
-            mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance. If a function, it must take as only argument a worker instance.
-            reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
-            str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
+            mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance (of class `BivariateEmpiricalTraces`). If a function, it must take as only argument a worker instance.
+            reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, the mapper output is returned.
+            str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper method when passed as a string.
             policy (str, optional): shortfall-sharing interconnection policy
             itc_cap (float, optional): Description
-            n_cores (int, optional): Number of cores to use.
 
         Returns:
             t.Any: Description
@@ -725,7 +840,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         # policy is passed as an argument at worker instantiation time to avoid code duplication. See comments on the create_mapred_arglist method.
         arglist = self.create_mapred_arglist(mapper, str_map_kwargs, policy)
 
-        with Pool(n_cores) as executor:
+        with Pool(self.n_cores) as executor:
             mapped = list(
                 tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
             )
@@ -755,11 +870,6 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
             itc_cap=itc_cap,
             policy=policy,
             str_map_kwargs={&#34;x&#34;: x},
-        )
-
-    def simulate(self):
-        raise NotImplementedError(
-            &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the shortfalls or the full sequence of surplus values.&#34;
         )
 
     def lole(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;, area: int = 0):
@@ -824,7 +934,49 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         )
 
     def __str__(self):
-        return f&#34;Map-reduce based sequential surplus model using trace files in {self.gen_dir}&#34;</code></pre>
+        return f&#34;Map-reduce based sequential surplus model using trace files in {self.gen_dir}&#34;
+
+    def simulate_eu(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulates per-peak-season energy unserved for both areas
+        
+        Args:
+            itc_cap (int, optional): interconnection capacity
+            policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+        Returns:
+            np.ndarray: array with one row per peak season and one column per area
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            eu_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
+            return eu_samples
+
+        return self.map_reduce(
+            mapper=&#34;simulate_eu&#34;,
+            reducer=reducer,
+            itc_cap=itc_cap,
+            policy=policy,
+        )
+
+    def simulate_lold(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulates per-peak-season loss of load duration for both areas
+        
+        Args:
+            itc_cap (int, optional): interconnection capacity
+            policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+        Returns:
+            np.ndarray: array with one row per peak season and one column per area
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            lold_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
+            return lold_samples
+
+        return self.map_reduce(
+            mapper=&#34;simulate_lold&#34;,
+            reducer=reducer,
+            itc_cap=itc_cap,
+            policy=policy,
+        )</code></pre>
 </details>
 </section>
 <section>
@@ -842,6 +994,19 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
 </code></dt>
 <dd>
 <div class="desc"><p>Bivariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type BivariateEmpiricalTraces.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>gen_dir</code></strong> :&ensp;<code>str</code></dt>
+<dd>folder with conventional generation data</dd>
+<dt><strong><code>demand</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>demand data</dd>
+<dt><strong><code>renewables</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>renewables data</dd>
+<dt><strong><code>season_length</code></strong> :&ensp;<code>int</code></dt>
+<dd>number of timesteps per peak season</dd>
+<dt><strong><code>n_cores</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>number of cores to use for map-reduce operations</dd>
+</dl>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
@@ -850,12 +1015,15 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
 </summary>
 <pre><code class="python">class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
 
-    &#34;&#34;&#34;Bivariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type BivariateEmpiricalTraces.&#34;&#34;&#34;
+    &#34;&#34;&#34;Bivariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type BivariateEmpiricalTraces.
 
-    # gen_dir: str
-    # demand: np.ndarray
-    # renewables: np.ndarray
-    # season_length: int
+    Args:
+        gen_dir (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+        n_cores (int, optional): number of cores to use for map-reduce operations
+    &#34;&#34;&#34;
 
     _worker_class = BivariateEmpiricalTraces
     _area_indices = [0, 1]
@@ -880,9 +1048,9 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         &#34;&#34;&#34;Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
 
         Args:
-            output_dir (str): List of output directories for trace files, with an entry per system.
-            n_traces (int): Total number of season traces to simulate
-            n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably optimal.
+            output_dir (str): output directory for trace files
+            n_traces (int): Total number of traces to simulate; a trace is a sequence of at least one peak season
+            n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably good enough.
             gens (MarkovChainGenerationModel): List of sequential conventional generation instances, one per system.
             demand (np.ndarray): Demand data
             renewables (np.ndarray): Renewables data
@@ -917,6 +1085,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
+            n_cores=n_cores
         )
 
     def create_mapred_arglist(
@@ -957,9 +1126,9 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
                 ]
             )
 
-        # policy is passed here at the worker instantiation level. This is to take advantage of bivariate surplus code from the iid module. Said module implements everything for a veto policy, so it is reused. But it module does not take policy as an argument, and to overcome this in the inheriting subclass, the policy is passed at instantiation time and a reimplementation of the itc_flow method in BivariateEmpiricalTraces looks at the passed value to pick the correct flow equations.
+        # policy is passed here at the worker instantiation level. This is to take advantage of bivariate surplus code from the iid module. Said module implements everything for a veto policy, so it is reused. But said module does not take policy as an argument, and to overcome this in the inheriting subclass, the policy is passed at instantiation time and a reimplementation of the itc_flow method in BivariateEmpiricalTraces looks at the passed value to pick the correct flow equations. This is convoluted but avoids code duplication.
 
-        # each trace here correspond to a system
+        # each trace here correspond to an area in the system
         for trace_x, trace_y in zip(*univariate_trace_pairs):
             bivariate_args = {
                 &#34;univariate_traces&#34;: [trace_x, trace_y],
@@ -976,18 +1145,16 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         reducer: t.Optional[t.Callable],
         str_map_kwargs: t.Dict = {},
         policy: str = &#34;veto&#34;,
-        itc_cap: float = 1000.0,
-        n_cores: int = 4,
+        itc_cap: float = 1000.0
     ) -&gt; t.Any:
         &#34;&#34;&#34;Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
         Args:
-            mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance. If a function, it must take as only argument a worker instance.
-            reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
-            str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
+            mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance (of class `BivariateEmpiricalTraces`). If a function, it must take as only argument a worker instance.
+            reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, the mapper output is returned.
+            str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper method when passed as a string.
             policy (str, optional): shortfall-sharing interconnection policy
             itc_cap (float, optional): Description
-            n_cores (int, optional): Number of cores to use.
 
         Returns:
             t.Any: Description
@@ -1000,7 +1167,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         # policy is passed as an argument at worker instantiation time to avoid code duplication. See comments on the create_mapred_arglist method.
         arglist = self.create_mapred_arglist(mapper, str_map_kwargs, policy)
 
-        with Pool(n_cores) as executor:
+        with Pool(self.n_cores) as executor:
             mapped = list(
                 tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
             )
@@ -1030,11 +1197,6 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
             itc_cap=itc_cap,
             policy=policy,
             str_map_kwargs={&#34;x&#34;: x},
-        )
-
-    def simulate(self):
-        raise NotImplementedError(
-            &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the shortfalls or the full sequence of surplus values.&#34;
         )
 
     def lole(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;, area: int = 0):
@@ -1099,7 +1261,49 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         )
 
     def __str__(self):
-        return f&#34;Map-reduce based sequential surplus model using trace files in {self.gen_dir}&#34;</code></pre>
+        return f&#34;Map-reduce based sequential surplus model using trace files in {self.gen_dir}&#34;
+
+    def simulate_eu(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulates per-peak-season energy unserved for both areas
+        
+        Args:
+            itc_cap (int, optional): interconnection capacity
+            policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+        Returns:
+            np.ndarray: array with one row per peak season and one column per area
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            eu_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
+            return eu_samples
+
+        return self.map_reduce(
+            mapper=&#34;simulate_eu&#34;,
+            reducer=reducer,
+            itc_cap=itc_cap,
+            policy=policy,
+        )
+
+    def simulate_lold(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulates per-peak-season loss of load duration for both areas
+        
+        Args:
+            itc_cap (int, optional): interconnection capacity
+            policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+        Returns:
+            np.ndarray: array with one row per peak season and one column per area
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            lold_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
+            return lold_samples
+
+        return self.map_reduce(
+            mapper=&#34;simulate_lold&#34;,
+            reducer=reducer,
+            itc_cap=itc_cap,
+            policy=policy,
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1116,6 +1320,10 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
 <div class="desc"></div>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.gen_dir"><code class="name">var <span class="ident">gen_dir</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.n_cores"><code class="name">var <span class="ident">n_cores</span> : Optional[int]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1138,11 +1346,11 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>output_dir</code></strong> :&ensp;<code>str</code></dt>
-<dd>List of output directories for trace files, with an entry per system.</dd>
+<dd>output directory for trace files</dd>
 <dt><strong><code>n_traces</code></strong> :&ensp;<code>int</code></dt>
-<dd>Total number of season traces to simulate</dd>
+<dd>Total number of traces to simulate; a trace is a sequence of at least one peak season</dd>
 <dt><strong><code>n_files</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably optimal.</dd>
+<dd>Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably good enough.</dd>
 <dt><strong><code>gens</code></strong> :&ensp;<code>MarkovChainGenerationModel</code></dt>
 <dd>List of sequential conventional generation instances, one per system.</dd>
 <dt><strong><code>demand</code></strong> :&ensp;<code>np.ndarray</code></dt>
@@ -1181,9 +1389,9 @@ def init(
     &#34;&#34;&#34;Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
 
     Args:
-        output_dir (str): List of output directories for trace files, with an entry per system.
-        n_traces (int): Total number of season traces to simulate
-        n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably optimal.
+        output_dir (str): output directory for trace files
+        n_traces (int): Total number of traces to simulate; a trace is a sequence of at least one peak season
+        n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably good enough.
         gens (MarkovChainGenerationModel): List of sequential conventional generation instances, one per system.
         demand (np.ndarray): Demand data
         renewables (np.ndarray): Renewables data
@@ -1218,6 +1426,7 @@ def init(
         demand=np.array(demand),
         renewables=np.array(renewables),
         season_length=season_length,
+        n_cores=n_cores
     )</code></pre>
 </details>
 </dd>
@@ -1281,7 +1490,7 @@ def filedirs(self):
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.create_mapred_arglist"><code class="name flex">
-<span>def <span class="ident">create_mapred_arglist</span></span>(<span>self, mapper: t.Union[str, t.Callable], str_map_kwargs: t.Dict, policy: str) ‑> List[Dict]</span>
+<span>def <span class="ident">create_mapred_arglist</span></span>(<span>self, mapper: t.Union[str, t.Callable], str_map_kwargs: t.Dict, policy: str) ‑> List[Dict[~KT, ~VT]]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create named arguments list to instantiate each worker in map reduce execution</p>
@@ -1341,9 +1550,9 @@ def filedirs(self):
             ]
         )
 
-    # policy is passed here at the worker instantiation level. This is to take advantage of bivariate surplus code from the iid module. Said module implements everything for a veto policy, so it is reused. But it module does not take policy as an argument, and to overcome this in the inheriting subclass, the policy is passed at instantiation time and a reimplementation of the itc_flow method in BivariateEmpiricalTraces looks at the passed value to pick the correct flow equations.
+    # policy is passed here at the worker instantiation level. This is to take advantage of bivariate surplus code from the iid module. Said module implements everything for a veto policy, so it is reused. But said module does not take policy as an argument, and to overcome this in the inheriting subclass, the policy is passed at instantiation time and a reimplementation of the itc_flow method in BivariateEmpiricalTraces looks at the passed value to pick the correct flow equations. This is convoluted but avoids code duplication.
 
-    # each trace here correspond to a system
+    # each trace here correspond to an area in the system
     for trace_x, trace_y in zip(*univariate_trace_pairs):
         bivariate_args = {
             &#34;univariate_traces&#34;: [trace_x, trace_y],
@@ -1441,24 +1650,22 @@ def filedirs(self):
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.map_reduce"><code class="name flex">
-<span>def <span class="ident">map_reduce</span></span>(<span>self, mapper: t.Union[str, t.Callable], reducer: t.Optional[t.Callable], str_map_kwargs: t.Dict = {}, policy: str = 'veto', itc_cap: float = 1000.0, n_cores: int = 4) ‑> Any</span>
+<span>def <span class="ident">map_reduce</span></span>(<span>self, mapper: t.Union[str, t.Callable], reducer: t.Optional[t.Callable], str_map_kwargs: t.Dict = {}, policy: str = 'veto', itc_cap: float = 1000.0) ‑> Any</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>mapper</code></strong> :&ensp;<code>t.Union[str, t.Callable]</code></dt>
-<dd>If a string, the method with that name is called on each worker instance. If a function, it must take as only argument a worker instance.</dd>
+<dd>If a string, the method with that name is called on each worker instance (of class <code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces">BivariateEmpiricalTraces</a></code>). If a function, it must take as only argument a worker instance.</dd>
 <dt><strong><code>reducer</code></strong> :&ensp;<code>t.Optional[t.Callable]</code></dt>
-<dd>This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.</dd>
+<dd>This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, the mapper output is returned.</dd>
 <dt><strong><code>str_map_kwargs</code></strong> :&ensp;<code>t.Dict</code>, optional</dt>
-<dd>Named arguments passed to the mapper function when passed as a string.</dd>
+<dd>Named arguments passed to the mapper method when passed as a string.</dd>
 <dt><strong><code>policy</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>shortfall-sharing interconnection policy</dd>
 <dt><strong><code>itc_cap</code></strong> :&ensp;<code>float</code>, optional</dt>
 <dd>Description</dd>
-<dt><strong><code>n_cores</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Number of cores to use.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1475,18 +1682,16 @@ def filedirs(self):
     reducer: t.Optional[t.Callable],
     str_map_kwargs: t.Dict = {},
     policy: str = &#34;veto&#34;,
-    itc_cap: float = 1000.0,
-    n_cores: int = 4,
+    itc_cap: float = 1000.0
 ) -&gt; t.Any:
     &#34;&#34;&#34;Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
     Args:
-        mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance. If a function, it must take as only argument a worker instance.
-        reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
-        str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
+        mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance (of class `BivariateEmpiricalTraces`). If a function, it must take as only argument a worker instance.
+        reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, the mapper output is returned.
+        str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper method when passed as a string.
         policy (str, optional): shortfall-sharing interconnection policy
         itc_cap (float, optional): Description
-        n_cores (int, optional): Number of cores to use.
 
     Returns:
         t.Any: Description
@@ -1499,7 +1704,7 @@ def filedirs(self):
     # policy is passed as an argument at worker instantiation time to avoid code duplication. See comments on the create_mapred_arglist method.
     arglist = self.create_mapred_arglist(mapper, str_map_kwargs, policy)
 
-    with Pool(n_cores) as executor:
+    with Pool(self.n_cores) as executor:
         mapped = list(
             tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
         )
@@ -1510,18 +1715,89 @@ def filedirs(self):
         return mapped</code></pre>
 </details>
 </dd>
-<dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate"><code class="name flex">
-<span>def <span class="ident">simulate</span></span>(<span>self)</span>
+<dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate_eu"><code class="name flex">
+<span>def <span class="ident">simulate_eu</span></span>(<span>self, itc_cap: float = 1000.0, policy='veto') ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Simulates per-peak-season energy unserved for both areas</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>interconnection capacity</dd>
+<dt><strong><code>policy</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>array with one row per peak season and one column per area</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def simulate(self):
-    raise NotImplementedError(
-        &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the shortfalls or the full sequence of surplus values.&#34;
+<pre><code class="python">def simulate_eu(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;) -&gt; np.ndarray:
+    &#34;&#34;&#34;Simulates per-peak-season energy unserved for both areas
+    
+    Args:
+        itc_cap (int, optional): interconnection capacity
+        policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+    Returns:
+        np.ndarray: array with one row per peak season and one column per area
+    &#34;&#34;&#34;
+    def reducer(mapped):
+        eu_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
+        return eu_samples
+
+    return self.map_reduce(
+        mapper=&#34;simulate_eu&#34;,
+        reducer=reducer,
+        itc_cap=itc_cap,
+        policy=policy,
+    )</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate_lold"><code class="name flex">
+<span>def <span class="ident">simulate_lold</span></span>(<span>self, itc_cap: float = 1000.0, policy='veto') ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Simulates per-peak-season loss of load duration for both areas</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>interconnection capacity</dd>
+<dt><strong><code>policy</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>array with one row per peak season and one column per area</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate_lold(self, itc_cap: float = 1000.0, policy=&#34;veto&#34;) -&gt; np.ndarray:
+    &#34;&#34;&#34;Simulates per-peak-season loss of load duration for both areas
+    
+    Args:
+        itc_cap (int, optional): interconnection capacity
+        policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+    Returns:
+        np.ndarray: array with one row per peak season and one column per area
+    &#34;&#34;&#34;
+    def reducer(mapped):
+        lold_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
+        return lold_samples
+
+    return self.map_reduce(
+        mapper=&#34;simulate_lold&#34;,
+        reducer=reducer,
+        itc_cap=itc_cap,
+        policy=policy,
     )</code></pre>
 </details>
 </dd>
@@ -1541,7 +1817,7 @@ def filedirs(self):
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.</p>
+<div class="desc"><p>Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>univariate_traces</code></strong> :&ensp;<code>t.List[<a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces">UnivariateEmpiricalTraces</a>]</code></dt>
@@ -1557,7 +1833,7 @@ def filedirs(self):
 </summary>
 <pre><code class="python">class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
+    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
 
     Args:
         univariate_traces (t.List[UnivariateEmpiricalTraces]): Univariate traces
@@ -1572,7 +1848,7 @@ def filedirs(self):
 
     @property
     def surplus_trace(self):
-        &#34;&#34;&#34;This returns the traces as a 3-dimensional array where the axes correspond to area, trace number and peak season time step respectively&#34;&#34;&#34;
+        &#34;&#34;&#34;This returns the traces as a 3-dimensional array where the axes correspond to area, simulated trace and within-trace time respectively. Each trace may contain multiple concatenated peak seasons&#34;&#34;&#34;
         return np.array([t.surplus_trace for t in self.univariate_traces])
 
     @property
@@ -1650,6 +1926,34 @@ def filedirs(self):
         else:
             raise ValueError(&#34;policy must be either &#39;veto&#39; or &#39;share&#39;&#34;)
 
+    def simulate_lold(self, itc_cap: int = 1000) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for loss of load duration
+        
+        Returns:
+            np.ndarray: Simulated loss of load duration
+        &#34;&#34;&#34;
+        lold_vectors = (np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1).T #avoid numerical rounding errors with offset 1e-1
+        n = len(lold_vectors[0])
+        if n % self.season_length != 0:
+            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+        return np.stack(
+            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in lold_vectors],
+            axis=1)
+
+    def simulate_eu(self, itc_cap: int = 1000) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for energy unserved
+        
+        Returns:
+            np.ndarray: Simulated energy unserved
+        &#34;&#34;&#34;
+        eu_vectors = np.maximum(0.0, -self.simulate(itc_cap)).T
+        n = len(eu_vectors[0])
+        if n % self.season_length != 0:
+            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+        return np.stack(
+            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in eu_vectors],
+            axis=1)
+
     def get_surplus_df(
         self, shortfalls_only: bool = True, itc_cap: int = 1000
     ) -&gt; pd.DataFrame:
@@ -1718,14 +2022,14 @@ def n_traces(self):
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.surplus_trace"><code class="name">var <span class="ident">surplus_trace</span></code></dt>
 <dd>
-<div class="desc"><p>This returns the traces as a 3-dimensional array where the axes correspond to area, trace number and peak season time step respectively</p></div>
+<div class="desc"><p>This returns the traces as a 3-dimensional array where the axes correspond to area, simulated trace and within-trace time respectively. Each trace may contain multiple concatenated peak seasons</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def surplus_trace(self):
-    &#34;&#34;&#34;This returns the traces as a 3-dimensional array where the axes correspond to area, trace number and peak season time step respectively&#34;&#34;&#34;
+    &#34;&#34;&#34;This returns the traces as a 3-dimensional array where the axes correspond to area, simulated trace and within-trace time respectively. Each trace may contain multiple concatenated peak seasons&#34;&#34;&#34;
     return np.array([t.surplus_trace for t in self.univariate_traces])</code></pre>
 </details>
 </dd>
@@ -1805,6 +2109,64 @@ def surplus_trace(self):
     df[&#34;season&#34;] = (df[&#34;time&#34;] / self.season_length).astype(np.int32)
     df = df.drop(columns=[&#34;time&#34;])
     return df</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.simulate_eu"><code class="name flex">
+<span>def <span class="ident">simulate_eu</span></span>(<span>self, itc_cap: int = 1000) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a simulated trace for energy unserved</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>Simulated energy unserved</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate_eu(self, itc_cap: int = 1000) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a simulated trace for energy unserved
+    
+    Returns:
+        np.ndarray: Simulated energy unserved
+    &#34;&#34;&#34;
+    eu_vectors = np.maximum(0.0, -self.simulate(itc_cap)).T
+    n = len(eu_vectors[0])
+    if n % self.season_length != 0:
+        raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+    return np.stack(
+        [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in eu_vectors],
+        axis=1)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.simulate_lold"><code class="name flex">
+<span>def <span class="ident">simulate_lold</span></span>(<span>self, itc_cap: int = 1000) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a simulated trace for loss of load duration</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>Simulated loss of load duration</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate_lold(self, itc_cap: int = 1000) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a simulated trace for loss of load duration
+    
+    Returns:
+        np.ndarray: Simulated loss of load duration
+    &#34;&#34;&#34;
+    lold_vectors = (np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1).T #avoid numerical rounding errors with offset 1e-1
+    n = len(lold_vectors[0])
+    if n % self.season_length != 0:
+        raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+    return np.stack(
+        [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in lold_vectors],
+        axis=1)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1907,6 +2269,19 @@ def from_file(cls, trace_filepath: str):
 </code></dt>
 <dd>
 <div class="desc"><p>Univariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateEmpiricalTraces.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>gen_dir</code></strong> :&ensp;<code>str</code></dt>
+<dd>folder with conventional generation data</dd>
+<dt><strong><code>demand</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>demand data</dd>
+<dt><strong><code>renewables</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>renewables data</dd>
+<dt><strong><code>season_length</code></strong> :&ensp;<code>int</code></dt>
+<dd>number of timesteps per peak season</dd>
+<dt><strong><code>n_cores</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>number of cores to use for map-reduce operations</dd>
+</dl>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
@@ -1915,12 +2290,22 @@ def from_file(cls, trace_filepath: str):
 </summary>
 <pre><code class="python">class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
-    &#34;&#34;&#34;Univariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateEmpiricalTraces.&#34;&#34;&#34;
+    &#34;&#34;&#34;Univariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateEmpiricalTraces.
+    
+    Args:
+        gen_dir (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+        n_cores (int, optional): number of cores to use for map-reduce operations
+    
+    &#34;&#34;&#34;
 
     gen_dir: str
     demand: np.ndarray
     renewables: np.ndarray
     season_length: int
+    n_cores: t.Optional[int] = 2
 
     _worker_class = UnivariateEmpiricalTraces
 
@@ -1929,7 +2314,7 @@ def from_file(cls, trace_filepath: str):
 
     @classmethod
     def _persist_gen_traces(
-        cls, args: t.Tuple[MarkovChainGenerationModel, t.Dict, Path]
+        cls, args: t.Tuple[MarkovChainGenerationModel, t.Dict, Path, int]
     ) -&gt; None:
         &#34;&#34;&#34;Persists a sequence of traces according to specified arguments as a numpy file
 
@@ -1952,9 +2337,10 @@ def from_file(cls, trace_filepath: str):
         season_length: int,
         n_cores: int = 4,
         burn_in: int = 100,
+        seed: int = None
     ) -&gt; BaseSurplus:
         &#34;&#34;&#34;Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.
-
+        
         Args:
             output_dir (str): Output directory for trace files
             n_traces (int): Total number of season traces to simulate
@@ -1965,10 +2351,11 @@ def from_file(cls, trace_filepath: str):
             season_length (int): Peak season length.
             n_cores (int, optional): Number of cores to use.
             burn_in (int, optional): Parameter passed to MarkovChainGenerationModel.simulate_seasons.
-
-        Returns:
+            seed (int, optional): Random seed passed to C backend. If not passed, output file paths are hashed to obtained it; this is because different seeds are needed for each file, otherwise traces are identical across files.
+        
+        No Longer Returned:
             UnivariateEmpiricalMapReduce: Sequential surplus model
-
+        
         &#34;&#34;&#34;
 
         # create dir if it doesn&#39;t exist
@@ -1995,13 +2382,15 @@ def from_file(cls, trace_filepath: str):
         # create argument list for multithreaded execution
         arglist = []
         seasons_per_trace = int(trace_length / season_length)
-        for k, file_size in enumerate(file_sizes):
-            output_path = Path(output_dir) / str(k)
+        for idx, file_size in enumerate(file_sizes):
+            output_path = Path(output_dir) / str(idx)
+            file_seed = seed + idx if seed is not None else abs(adler32(str(output_path).encode(&#34;utf-8&#34;))) % (1024*1024)
             call_kwargs = {
                 &#34;size&#34;: file_size,
                 &#34;season_length&#34;: season_length,
                 &#34;seasons_per_trace&#34;: seasons_per_trace,
                 &#34;burn_in&#34;: burn_in,
+                &#34;seed&#34;: file_seed
             }
             arglist.append((gen, call_kwargs, output_path))
 
@@ -2018,6 +2407,7 @@ def from_file(cls, trace_filepath: str):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
+            n_cores = n_cores
         )
 
     def create_mapred_arglist(
@@ -2059,12 +2449,12 @@ def from_file(cls, trace_filepath: str):
 
         &#34;&#34;&#34;
         worker_kwargs, map_func, str_map_kwargs = call_args
-        surplus = cls._worker_class(**worker_kwargs)
-        n_traces = surplus.n_traces
+        worker = cls._worker_class(**worker_kwargs)
+        n_traces = worker.n_traces
         if isinstance(map_func, str):
-            return getattr(surplus, map_func)(**str_map_kwargs), n_traces
+            return getattr(worker, map_func)(**str_map_kwargs), n_traces
         elif isinstance(map_func, t.Callable):
-            return map_func(surplus), n_traces
+            return map_func(worker), n_traces
         else:
             raise ValueError(&#34;map_func must be a string or a function.&#34;)
 
@@ -2072,16 +2462,14 @@ def from_file(cls, trace_filepath: str):
         self,
         mapper: t.Union[str, t.Callable],
         reducer: t.Optional[t.Callable],
-        str_map_kwargs: t.Dict = {},
-        n_cores: int = 4,
+        str_map_kwargs: t.Dict = {}
     ) -&gt; t.Any:
         &#34;&#34;&#34;Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
         Args:
-            mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance. If a function, it must take as only argument a worker instance.
+            mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance (of class UnivariateEmpiricalTraces). If a function, it must take as only argument a worker instance.
             reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
             str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
-            n_cores (int, optional): Number of cores to use.
 
         Returns:
             t.Any: Map-reduce output
@@ -2090,9 +2478,7 @@ def from_file(cls, trace_filepath: str):
 
         arglist = self.create_mapred_arglist(mapper, str_map_kwargs)
 
-        # with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
-        #   mapped = list(tqdm(executor.map(self.execute_map, arglist), total=len(arglist)))
-        with Pool(n_cores) as executor:
+        with Pool(self.n_cores) as executor:
             mapped = list(
                 tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
             )
@@ -2120,7 +2506,7 @@ def from_file(cls, trace_filepath: str):
 
     def simulate(self):
         raise NotImplementedError(
-            &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the shortfalls or the full sequence of surplus values.&#34;
+            &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the trace of shortfalls or the full trace of surplus values; alternatively see methods simulate_eu() and simulate_lold().&#34;
         )
 
     def lole(self) -&gt; float:
@@ -2146,6 +2532,30 @@ def from_file(cls, trace_filepath: str):
 
         return self.map_reduce(mapper=&#34;eeu&#34;, reducer=reducer)
 
+    def simulate_eu(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulates per-peak-season energy userved
+        
+        Returns:
+            np.ndarray: array with one entry per peak season
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            eu_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
+            return eu_samples
+
+        return self.map_reduce(mapper=&#34;simulate_eu&#34;, reducer=reducer)
+
+    def simulate_lold(self):
+        &#34;&#34;&#34;Simulates per-peak-season loss of load duration
+        
+        Returns:
+            np.ndarray: array with one entry per peak season
+        &#34;&#34;&#34;
+        def reducer(mapped):
+            lold_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
+            return lold_samples
+
+        return self.map_reduce(mapper=&#34;simulate_lold&#34;, reducer=reducer)
+
     def get_surplus_df(self, shortfalls_only: bool = True) -&gt; pd.DataFrame:
         &#34;&#34;&#34;Returns a data frame with time occurrence information of observed surplus values and shortfalls.
 
@@ -2158,6 +2568,16 @@ def from_file(cls, trace_filepath: str):
         &#34;&#34;&#34;
 
         def reducer(mapped):
+            # compute global season number when merging results from different files (each with their own season numbering)
+            trace_length = len(self.demand)
+            seasons_per_trace = trace_length / self.season_length
+            if seasons_per_trace != int(seasons_per_trace):
+                raise ValueError(f&#34;trace length ({trace_length}) is not a multiple of season length ({season_length})&#34;)
+            seasons_per_trace = int(seasons_per_trace)
+            past_seasons = 0
+            for df, n_traces in mapped:
+                df[&#34;season&#34;] += past_seasons
+                past_seasons += n_traces * seasons_per_trace
             return pd.concat([df for df, n in mapped])
 
         return self.map_reduce(
@@ -2191,6 +2611,10 @@ def from_file(cls, trace_filepath: str):
 <div class="desc"></div>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.gen_dir"><code class="name">var <span class="ident">gen_dir</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.n_cores"><code class="name">var <span class="ident">n_cores</span> : Optional[int]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -2238,18 +2662,18 @@ def execute_map(
 
     &#34;&#34;&#34;
     worker_kwargs, map_func, str_map_kwargs = call_args
-    surplus = cls._worker_class(**worker_kwargs)
-    n_traces = surplus.n_traces
+    worker = cls._worker_class(**worker_kwargs)
+    n_traces = worker.n_traces
     if isinstance(map_func, str):
-        return getattr(surplus, map_func)(**str_map_kwargs), n_traces
+        return getattr(worker, map_func)(**str_map_kwargs), n_traces
     elif isinstance(map_func, t.Callable):
-        return map_func(surplus), n_traces
+        return map_func(worker), n_traces
     else:
         raise ValueError(&#34;map_func must be a string or a function.&#34;)</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.init"><code class="name flex">
-<span>def <span class="ident">init</span></span>(<span>output_dir: str, n_traces: int, n_files: int, gen: MarkovChainGenerationModel, demand: np.ndarray, renewables: np.ndarray, season_length: int, n_cores: int = 4, burn_in: int = 100) ‑> <a title="riskmodels.powersys.iid.surplus.BaseSurplus" href="../iid/surplus.html#riskmodels.powersys.iid.surplus.BaseSurplus">BaseSurplus</a></span>
+<span>def <span class="ident">init</span></span>(<span>output_dir: str, n_traces: int, n_files: int, gen: MarkovChainGenerationModel, demand: np.ndarray, renewables: np.ndarray, season_length: int, n_cores: int = 4, burn_in: int = 100, seed: int = None) ‑> <a title="riskmodels.powersys.iid.surplus.BaseSurplus" href="../iid/surplus.html#riskmodels.powersys.iid.surplus.BaseSurplus">BaseSurplus</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.</p>
@@ -2273,12 +2697,11 @@ def execute_map(
 <dd>Number of cores to use.</dd>
 <dt><strong><code>burn_in</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Parameter passed to MarkovChainGenerationModel.simulate_seasons.</dd>
+<dt><strong><code>seed</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Random seed passed to C backend. If not passed, output file paths are hashed to obtained it; this is because different seeds are needed for each file, otherwise traces are identical across files.</dd>
 </dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce">UnivariateEmpiricalMapReduce</a></code></dt>
-<dd>Sequential surplus model</dd>
-</dl></div>
+<p>No Longer Returned:
+UnivariateEmpiricalMapReduce: Sequential surplus model</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2295,9 +2718,10 @@ def init(
     season_length: int,
     n_cores: int = 4,
     burn_in: int = 100,
+    seed: int = None
 ) -&gt; BaseSurplus:
     &#34;&#34;&#34;Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.
-
+    
     Args:
         output_dir (str): Output directory for trace files
         n_traces (int): Total number of season traces to simulate
@@ -2308,10 +2732,11 @@ def init(
         season_length (int): Peak season length.
         n_cores (int, optional): Number of cores to use.
         burn_in (int, optional): Parameter passed to MarkovChainGenerationModel.simulate_seasons.
-
-    Returns:
+        seed (int, optional): Random seed passed to C backend. If not passed, output file paths are hashed to obtained it; this is because different seeds are needed for each file, otherwise traces are identical across files.
+    
+    No Longer Returned:
         UnivariateEmpiricalMapReduce: Sequential surplus model
-
+    
     &#34;&#34;&#34;
 
     # create dir if it doesn&#39;t exist
@@ -2338,13 +2763,15 @@ def init(
     # create argument list for multithreaded execution
     arglist = []
     seasons_per_trace = int(trace_length / season_length)
-    for k, file_size in enumerate(file_sizes):
-        output_path = Path(output_dir) / str(k)
+    for idx, file_size in enumerate(file_sizes):
+        output_path = Path(output_dir) / str(idx)
+        file_seed = seed + idx if seed is not None else abs(adler32(str(output_path).encode(&#34;utf-8&#34;))) % (1024*1024)
         call_kwargs = {
             &#34;size&#34;: file_size,
             &#34;season_length&#34;: season_length,
             &#34;seasons_per_trace&#34;: seasons_per_trace,
             &#34;burn_in&#34;: burn_in,
+            &#34;seed&#34;: file_seed
         }
         arglist.append((gen, call_kwargs, output_path))
 
@@ -2361,6 +2788,7 @@ def init(
         demand=np.array(demand),
         renewables=np.array(renewables),
         season_length=season_length,
+        n_cores = n_cores
     )</code></pre>
 </details>
 </dd>
@@ -2404,7 +2832,7 @@ def init(
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.create_mapred_arglist"><code class="name flex">
-<span>def <span class="ident">create_mapred_arglist</span></span>(<span>self, mapper: t.Union[str, t.Callable], str_map_kwargs: t.Dict) ‑> List[Dict]</span>
+<span>def <span class="ident">create_mapred_arglist</span></span>(<span>self, mapper: t.Union[str, t.Callable], str_map_kwargs: t.Dict) ‑> List[Dict[~KT, ~VT]]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create named arguments list to instantiate each worker in map reduce execution</p>
@@ -2509,6 +2937,16 @@ def init(
     &#34;&#34;&#34;
 
     def reducer(mapped):
+        # compute global season number when merging results from different files (each with their own season numbering)
+        trace_length = len(self.demand)
+        seasons_per_trace = trace_length / self.season_length
+        if seasons_per_trace != int(seasons_per_trace):
+            raise ValueError(f&#34;trace length ({trace_length}) is not a multiple of season length ({season_length})&#34;)
+        seasons_per_trace = int(seasons_per_trace)
+        past_seasons = 0
+        for df, n_traces in mapped:
+            df[&#34;season&#34;] += past_seasons
+            past_seasons += n_traces * seasons_per_trace
         return pd.concat([df for df, n in mapped])
 
     return self.map_reduce(
@@ -2544,20 +2982,18 @@ def init(
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.map_reduce"><code class="name flex">
-<span>def <span class="ident">map_reduce</span></span>(<span>self, mapper: t.Union[str, t.Callable], reducer: t.Optional[t.Callable], str_map_kwargs: t.Dict = {}, n_cores: int = 4) ‑> Any</span>
+<span>def <span class="ident">map_reduce</span></span>(<span>self, mapper: t.Union[str, t.Callable], reducer: t.Optional[t.Callable], str_map_kwargs: t.Dict = {}) ‑> Any</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>mapper</code></strong> :&ensp;<code>t.Union[str, t.Callable]</code></dt>
-<dd>If a string, the method of that name is called on each worker instance. If a function, it must take as only argument a worker instance.</dd>
+<dd>If a string, the method of that name is called on each worker instance (of class UnivariateEmpiricalTraces). If a function, it must take as only argument a worker instance.</dd>
 <dt><strong><code>reducer</code></strong> :&ensp;<code>t.Optional[t.Callable]</code></dt>
 <dd>This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.</dd>
 <dt><strong><code>str_map_kwargs</code></strong> :&ensp;<code>t.Dict</code>, optional</dt>
 <dd>Named arguments passed to the mapper function when passed as a string.</dd>
-<dt><strong><code>n_cores</code></strong> :&ensp;<code>int</code>, optional</dt>
-<dd>Number of cores to use.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2572,16 +3008,14 @@ def init(
     self,
     mapper: t.Union[str, t.Callable],
     reducer: t.Optional[t.Callable],
-    str_map_kwargs: t.Dict = {},
-    n_cores: int = 4,
+    str_map_kwargs: t.Dict = {}
 ) -&gt; t.Any:
     &#34;&#34;&#34;Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
     Args:
-        mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance. If a function, it must take as only argument a worker instance.
+        mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance (of class UnivariateEmpiricalTraces). If a function, it must take as only argument a worker instance.
         reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
         str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
-        n_cores (int, optional): Number of cores to use.
 
     Returns:
         t.Any: Map-reduce output
@@ -2590,9 +3024,7 @@ def init(
 
     arglist = self.create_mapred_arglist(mapper, str_map_kwargs)
 
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
-    #   mapped = list(tqdm(executor.map(self.execute_map, arglist), total=len(arglist)))
-    with Pool(n_cores) as executor:
+    with Pool(self.n_cores) as executor:
         mapped = list(
             tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
         )
@@ -2614,8 +3046,62 @@ def init(
 </summary>
 <pre><code class="python">def simulate(self):
     raise NotImplementedError(
-        &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the shortfalls or the full sequence of surplus values.&#34;
+        &#34;This class does not implement a simulate() method. Use get_surplus_df() to get the trace of shortfalls or the full trace of surplus values; alternatively see methods simulate_eu() and simulate_lold().&#34;
     )</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate_eu"><code class="name flex">
+<span>def <span class="ident">simulate_eu</span></span>(<span>self) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Simulates per-peak-season energy userved</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>array with one entry per peak season</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate_eu(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Simulates per-peak-season energy userved
+    
+    Returns:
+        np.ndarray: array with one entry per peak season
+    &#34;&#34;&#34;
+    def reducer(mapped):
+        eu_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
+        return eu_samples
+
+    return self.map_reduce(mapper=&#34;simulate_eu&#34;, reducer=reducer)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate_lold"><code class="name flex">
+<span>def <span class="ident">simulate_lold</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Simulates per-peak-season loss of load duration</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>array with one entry per peak season</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate_lold(self):
+    &#34;&#34;&#34;Simulates per-peak-season loss of load duration
+    
+    Returns:
+        np.ndarray: array with one entry per peak season
+    &#34;&#34;&#34;
+    def reducer(mapped):
+        lold_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
+        return lold_samples
+
+    return self.map_reduce(mapper=&#34;simulate_lold&#34;, reducer=reducer)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2625,7 +3111,18 @@ def init(
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations.</p>
+<div class="desc"><p>Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>gen_filepath</code></strong> :&ensp;<code>str</code></dt>
+<dd>folder with conventional generation data</dd>
+<dt><strong><code>demand</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>demand data</dd>
+<dt><strong><code>renewables</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>renewables data</dd>
+<dt><strong><code>season_length</code></strong> :&ensp;<code>int</code></dt>
+<dd>number of timesteps per peak season</dd>
+</dl>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
@@ -2634,7 +3131,15 @@ def init(
 </summary>
 <pre><code class="python">class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations.&#34;&#34;&#34;
+    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.
+
+    Args:
+        gen_filepath (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+    
+    &#34;&#34;&#34;
 
     gen_filepath: str
     demand: np.ndarray
@@ -2651,7 +3156,7 @@ def init(
 
     @property
     def surplus_trace(self):
-        # this return a 2-dimensional array where each row is a peak season sample, and each column is a timestep
+        # this return a 2-dimensional array where each row is a trace sample, and each column is a within-trace  timestep. A trace may contain multiple concatenated peak seasons
         return MarkovChainGenerationTraces.from_file(self.gen_filepath).traces - (
             self.demand - self.renewables
         )
@@ -2673,8 +3178,39 @@ def init(
         trace = self.surplus_trace
         return np.mean(trace &lt; x)
 
-    def simulate(self) -&gt; float:
+    def simulate(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for surplus values
+        
+        Returns:
+            np.ndarray: simulated surplus values
+        &#34;&#34;&#34;
         return self.surplus_trace
+
+    def simulate_lold(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for energy unserved
+        
+        Returns:
+            np.ndarray: Simulated energy unserved
+        &#34;&#34;&#34;
+        trace = self.surplus_trace
+        n_traces, trace_length = trace.shape
+        if trace_length % self.season_length != 0:
+            raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
+        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+        return np.sum((np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1) #1e-1 to avoid problems with numerical rounding errors
+
+    def simulate_eu(self) -&gt; np.ndarray:
+        &#34;&#34;&#34;Returns a simulated trace for energy unserved
+        
+        Returns:
+            np.ndarray: Simulated energy unserved
+        &#34;&#34;&#34;
+        trace = self.surplus_trace
+        n_traces, trace_length = trace.shape
+        if trace_length % self.season_length != 0:
+            raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
+        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+        return np.sum(np.maximum(0.0, -trace).reshape(target_shape), axis=1)
 
     def lole(self) -&gt; float:
         &#34;&#34;&#34;Evaluates the distribution&#39;s season-wise LOLE. Also returns the number of seasons used to calculate it.
@@ -2796,7 +3332,7 @@ def n_traces(self):
 </summary>
 <pre><code class="python">@property
 def surplus_trace(self):
-    # this return a 2-dimensional array where each row is a peak season sample, and each column is a timestep
+    # this return a 2-dimensional array where each row is a trace sample, and each column is a within-trace  timestep. A trace may contain multiple concatenated peak seasons
     return MarkovChainGenerationTraces.from_file(self.gen_filepath).traces - (
         self.demand - self.renewables
     )</code></pre>
@@ -2954,16 +3490,82 @@ def surplus_trace(self):
 </details>
 </dd>
 <dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate"><code class="name flex">
-<span>def <span class="ident">simulate</span></span>(<span>self) ‑> float</span>
+<span>def <span class="ident">simulate</span></span>(<span>self) ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns a simulated trace for surplus values</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>simulated surplus values</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def simulate(self) -&gt; float:
+<pre><code class="python">def simulate(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a simulated trace for surplus values
+    
+    Returns:
+        np.ndarray: simulated surplus values
+    &#34;&#34;&#34;
     return self.surplus_trace</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate_eu"><code class="name flex">
+<span>def <span class="ident">simulate_eu</span></span>(<span>self) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a simulated trace for energy unserved</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>Simulated energy unserved</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate_eu(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a simulated trace for energy unserved
+    
+    Returns:
+        np.ndarray: Simulated energy unserved
+    &#34;&#34;&#34;
+    trace = self.surplus_trace
+    n_traces, trace_length = trace.shape
+    if trace_length % self.season_length != 0:
+        raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
+    target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+    return np.sum(np.maximum(0.0, -trace).reshape(target_shape), axis=1)</code></pre>
+</details>
+</dd>
+<dt id="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate_lold"><code class="name flex">
+<span>def <span class="ident">simulate_lold</span></span>(<span>self) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a simulated trace for energy unserved</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>Simulated energy unserved</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def simulate_lold(self) -&gt; np.ndarray:
+    &#34;&#34;&#34;Returns a simulated trace for energy unserved
+    
+    Returns:
+        np.ndarray: Simulated energy unserved
+    &#34;&#34;&#34;
+    trace = self.surplus_trace
+    n_traces, trace_length = trace.shape
+    if trace_length % self.season_length != 0:
+        raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
+    target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+    return np.sum((np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1) #1e-1 to avoid problems with numerical rounding errors</code></pre>
 </details>
 </dd>
 </dl>
@@ -2996,9 +3598,11 @@ def surplus_trace(self):
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.init" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.init">init</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.lole" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.lole">lole</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.map_reduce" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.map_reduce">map_reduce</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.n_cores" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.n_cores">n_cores</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.renewables" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.renewables">renewables</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.season_length" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.season_length">season_length</a></code></li>
-<li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate">simulate</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate_eu" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate_eu">simulate_eu</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate_lold" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalMapReduce.simulate_lold">simulate_lold</a></code></li>
 </ul>
 </li>
 <li>
@@ -3009,6 +3613,8 @@ def surplus_trace(self):
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.get_surplus_df" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.get_surplus_df">get_surplus_df</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.n_traces" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.n_traces">n_traces</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.policy" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.policy">policy</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.simulate_eu" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.simulate_eu">simulate_eu</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.simulate_lold" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.simulate_lold">simulate_lold</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.surplus_trace" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.surplus_trace">surplus_trace</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.univariate_traces" href="#riskmodels.powersys.ts.surplus.BivariateEmpiricalTraces.univariate_traces">univariate_traces</a></code></li>
 </ul>
@@ -3035,9 +3641,12 @@ def surplus_trace(self):
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.init" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.init">init</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.lole" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.lole">lole</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.map_reduce" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.map_reduce">map_reduce</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.n_cores" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.n_cores">n_cores</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.renewables" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.renewables">renewables</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.season_length" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.season_length">season_length</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate">simulate</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate_eu" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate_eu">simulate_eu</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate_lold" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalMapReduce.simulate_lold">simulate_lold</a></code></li>
 </ul>
 </li>
 <li>
@@ -3054,6 +3663,8 @@ def surplus_trace(self):
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.renewables" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.renewables">renewables</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.season_length" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.season_length">season_length</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate">simulate</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate_eu" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate_eu">simulate_eu</a></code></li>
+<li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate_lold" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.simulate_lold">simulate_lold</a></code></li>
 <li><code><a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.surplus_trace" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces.surplus_trace">surplus_trace</a></code></li>
 </ul>
 </li>

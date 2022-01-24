@@ -1,5 +1,5 @@
 """
-This module provides a model for available conventional generation for risk evaluation in energy procurement. Generators are assumed to be independent, and each one them is modeled as a binary variable whose states correspond to broken down and operational states. No serial correlation is assumed between states, which means this is a time-collapsed generation model.
+This module provides a model for available conventional generation for risk evaluation in energy adequacy. Generators are assumed to be independent, and each one is modeled as a binary variable whose states correspond to broken down and fully operational states. No serial correlation is assumed between states, which means this is a time-collapsed generation model.
 """
 from __future__ import annotations
 import warnings

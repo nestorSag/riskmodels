@@ -54,7 +54,15 @@ class MarkovChainGenerationTraces(BaseModel):
 
 class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
-    """Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations."""
+    """Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.
+
+    Args:
+        gen_filepath (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+    
+    """
 
     gen_filepath: str
     demand: np.ndarray
@@ -196,7 +204,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
 class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
-    """Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces in order to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
+    """Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
 
     Args:
         univariate_traces (t.List[UnivariateEmpiricalTraces]): Univariate traces
@@ -348,12 +356,22 @@ class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
 class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
-    """Univariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateEmpiricalTraces."""
+    """Univariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateEmpiricalTraces.
+    
+    Args:
+        gen_dir (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+        n_cores (int, optional): number of cores to use for map-reduce operations
+    
+    """
 
     gen_dir: str
     demand: np.ndarray
     renewables: np.ndarray
     season_length: int
+    n_cores: t.Optional[int] = 2
 
     _worker_class = UnivariateEmpiricalTraces
 
@@ -455,6 +473,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
+            n_cores = n_cores
         )
 
     def create_mapred_arglist(
@@ -509,16 +528,14 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
         self,
         mapper: t.Union[str, t.Callable],
         reducer: t.Optional[t.Callable],
-        str_map_kwargs: t.Dict = {},
-        n_cores: int = 4,
+        str_map_kwargs: t.Dict = {}
     ) -> t.Any:
         """Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
         Args:
-            mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance. If a function, it must take as only argument a worker instance.
+            mapper (t.Union[str, t.Callable]): If a string, the method of that name is called on each worker instance (of class UnivariateEmpiricalTraces). If a function, it must take as only argument a worker instance.
             reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, no reducer is applied.
             str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper function when passed as a string.
-            n_cores (int, optional): Number of cores to use.
 
         Returns:
             t.Any: Map-reduce output
@@ -527,9 +544,7 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
         arglist = self.create_mapred_arglist(mapper, str_map_kwargs)
 
-        # with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
-        #   mapped = list(tqdm(executor.map(self.execute_map, arglist), total=len(arglist)))
-        with Pool(n_cores) as executor:
+        with Pool(self.n_cores) as executor:
             mapped = list(
                 tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
             )
@@ -643,12 +658,15 @@ class UnivariateEmpiricalMapReduce(BaseSurplus, BaseModel):
 
 class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
 
-    """Bivariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type BivariateEmpiricalTraces."""
+    """Bivariate model for power surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type BivariateEmpiricalTraces.
 
-    # gen_dir: str
-    # demand: np.ndarray
-    # renewables: np.ndarray
-    # season_length: int
+    Args:
+        gen_dir (str): folder with conventional generation data
+        demand (np.ndarray): demand data
+        renewables (np.ndarray): renewables data
+        season_length (int): number of timesteps per peak season
+        n_cores (int, optional): number of cores to use for map-reduce operations
+    """
 
     _worker_class = BivariateEmpiricalTraces
     _area_indices = [0, 1]
@@ -673,9 +691,9 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
 
         Args:
-            output_dir (str): List of output directories for trace files, with an entry per system.
-            n_traces (int): Total number of season traces to simulate
-            n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably optimal.
+            output_dir (str): output directory for trace files
+            n_traces (int): Total number of traces to simulate; a trace is a sequence of at least one peak season
+            n_files (int): Number of files to create. Making this a multiple of the available number of cores and ensuring that each file is on the order of 500 MB (~ 125 million floats) is probably good enough.
             gens (MarkovChainGenerationModel): List of sequential conventional generation instances, one per system.
             demand (np.ndarray): Demand data
             renewables (np.ndarray): Renewables data
@@ -710,6 +728,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
+            n_cores=n_cores
         )
 
     def create_mapred_arglist(
@@ -769,18 +788,16 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         reducer: t.Optional[t.Callable],
         str_map_kwargs: t.Dict = {},
         policy: str = "veto",
-        itc_cap: float = 1000.0,
-        n_cores: int = 4,
+        itc_cap: float = 1000.0
     ) -> t.Any:
         """Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
         Args:
-            mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance (of class `BivariateEmpiricalMapReduce`). If a function, it must take as only argument a worker instance.
+            mapper (t.Union[str, t.Callable]): If a string, the method with that name is called on each worker instance (of class `BivariateEmpiricalTraces`). If a function, it must take as only argument a worker instance.
             reducer (t.Optional[t.Callable]): This function must take as input a list where each entry is a tuple with the mapper output and the number of traces processed by the mapper, in that order. If None, the mapper output is returned.
             str_map_kwargs (t.Dict, optional): Named arguments passed to the mapper method when passed as a string.
             policy (str, optional): shortfall-sharing interconnection policy
             itc_cap (float, optional): Description
-            n_cores (int, optional): Number of cores to use.
 
         Returns:
             t.Any: Description
@@ -793,7 +810,7 @@ class BivariateEmpiricalMapReduce(UnivariateEmpiricalMapReduce):
         # policy is passed as an argument at worker instantiation time to avoid code duplication. See comments on the create_mapred_arglist method.
         arglist = self.create_mapred_arglist(mapper, str_map_kwargs, policy)
 
-        with Pool(n_cores) as executor:
+        with Pool(self.n_cores) as executor:
             mapped = list(
                 tqdm(executor.imap(self.execute_map, arglist), total=len(arglist))
             )

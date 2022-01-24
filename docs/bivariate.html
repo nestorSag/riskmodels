@@ -40,9 +40,7 @@ import time
 import typing as t
 import traceback
 import warnings
-from argparse import Namespace
 from abc import ABC, abstractmethod
-from multiprocessing import Pool
 from collections.abc import Iterable
 import copy
 
@@ -58,7 +56,6 @@ import numpy as np
 import emcee
 
 from scipy.optimize import LinearConstraint, minimize, root_scalar, approx_fprime
-from scipy.signal import fftconvolve
 from scipy.special import lambertw
 from scipy.stats import (
     genpareto as gpdist,
@@ -76,9 +73,6 @@ from functools import reduce
 import riskmodels.univariate as univar
 
 from riskmodels.utils.tmvn import TruncatedMVN as tmvn
-
-import emcee
-
 
 class BaseDistribution(BaseModel, ABC):
 
@@ -205,7 +199,9 @@ class Mixture(BaseDistribution):
                 [self.distributions[k] for k in indices], n_samples[indices]
             )
         ]
-        return np.concatenate(samples, axis=0)
+        samples = np.concatenate(samples, axis=0)
+        np.random.shuffle(samples)
+        return samples
 
     def cdf(self, x: np.ndarray, **kwargs) -&gt; float:
         vals = [
@@ -251,7 +247,7 @@ class Independent(BaseDistribution):
     y: univar.BaseDistribution
 
     def __repr__(self):
-        return f&#34;Independent bivariate distribution with marginals:\nx:{x.__repr__()}\ny:{y.__repr__()}&#34;
+        return f&#34;Independent bivariate distribution with marginals:\nx:{self.x.__repr__()}\ny:{self.y.__repr__()}&#34;
 
     def pdf(self, x: np.ndarray):
         x1, x2 = x
@@ -698,7 +694,7 @@ class Logistic(ExceedanceDistribution):
     
     $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left(- \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha \\right), \\, 0 \\leq \\alpha\\leq 1, \\, \\mathbf{X} \\in \\mathbb{R}^2$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
     &#34;&#34;&#34;
@@ -856,7 +852,7 @@ class Logistic(ExceedanceDistribution):
 
 class Gaussian(ExceedanceDistribution):
 
-    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
+    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with a Gaussian dependence model. Because Gaussian copulas are asymptotically independent (this is, dependence  weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at \\(-\\infty\\). This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.
     &#34;&#34;&#34;
@@ -991,11 +987,11 @@ class Gaussian(ExceedanceDistribution):
 
 class AsymmetricLogistic(ExceedanceDistribution):
 
-    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet margin is given by 
+    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet scale is given by 
     
     $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left( - \\frac{1 - \\beta}{\\mathbf{x}_1} - \\frac{1 - \\gamma}{\\mathbf{x}_2} - \\left(  \\left( \\frac{\\beta}{\\mathbf{x}_1} \\right)^{1/\\alpha} + \\left( \\frac{\\gamma}{\\mathbf{x}_2} \\right)^{1/\\alpha}\\right)^\\alpha \\right), \\, 0 \\leq \\alpha, \\beta, \\gamma \\leq 1, \\, \\mathbf{X} &gt; 0$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with an asymmetric logistic dependence model, to which this model converges as the quantile threshold grows.
     &#34;&#34;&#34;
@@ -1288,7 +1284,7 @@ class AsymmetricLogistic(ExceedanceDistribution):
         return np.exp(z)
 
 
-class LogisticMGP(Logistic):
+class LogisticGP(Logistic):
 
     &#34;&#34;&#34;This model is an implementation of a bivariate generalised Pareto distribution with logistic dependence. In Gumbel scale this is given by 
     
@@ -1298,7 +1294,6 @@ class LogisticMGP(Logistic):
 
     $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha, \\, 0 \\leq \\alpha\\leq 1, \\$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
     &#34;&#34;&#34;
 
     @validator(&#34;quantile_threshold&#34;)
@@ -1412,7 +1407,7 @@ class Empirical(BaseDistribution):
     &#34;logistic&#34;: Logistic, 
     &#34;gaussian&#34;: Gaussian, 
     &#34;asymmetric logistic&#34;: AsymmetricLogistic,
-    &#34;logistic gp&#34;: LogisticMGP
+    &#34;logistic gp&#34;: LogisticGP
     }
 
     def __repr__(self):
@@ -1653,8 +1648,8 @@ class Empirical(BaseDistribution):
 
         pk = []
         for p_ in p:
-            a = (n * s / np.sum(s)) / (1 - p_)
-            b = (n * t / np.sum(t)) / p_
+            a = (s / np.mean(s)) / (1 - p_)
+            b = (t / np.mean(t)) / p_
             pk.append(1.0 / np.mean(np.minimum(a, b)))
             
         return np.array(pk)
@@ -1748,11 +1743,11 @@ class Empirical(BaseDistribution):
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet margin is given by </p>
+<div class="desc"><p>This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet scale is given by </p>
 <p><span><span class="MathJax_Preview"> \mathbb{P}(\textbf{X} \leq \mathbf{x}) = \exp \left( - \frac{1 - \beta}{\mathbf{x}_1} - \frac{1 - \gamma}{\mathbf{x}_2} - \left(
 \left( \frac{\beta}{\mathbf{x}_1} \right)^{1/\alpha} + \left( \frac{\gamma}{\mathbf{x}_2} \right)^{1/\alpha}\right)^\alpha \right), \, 0 \leq \alpha, \beta, \gamma \leq 1, \, \mathbf{X} &gt; 0</span><script type="math/tex; mode=display"> \mathbb{P}(\textbf{X} \leq \mathbf{x}) = \exp \left( - \frac{1 - \beta}{\mathbf{x}_1} - \frac{1 - \gamma}{\mathbf{x}_2} - \left(
 \left( \frac{\beta}{\mathbf{x}_1} \right)^{1/\alpha} + \left( \frac{\gamma}{\mathbf{x}_2} \right)^{1/\alpha}\right)^\alpha \right), \, 0 \leq \alpha, \beta, \gamma \leq 1, \, \mathbf{X} > 0</script></span></p>
-<p>Exceedances in each component are defined as observations above a fixed quantile threshold <span><span class="MathJax_Preview"> \textbf{q}</span><script type="math/tex"> \textbf{q}</script></span> for a high probability level <span><span class="MathJax_Preview">p \sim 1</span><script type="math/tex">p \sim 1</script></span>, and so bivariate exceedances <span><span class="MathJax_Preview">\textbf{Z}</span><script type="math/tex">\textbf{Z}</script></span> are defined in an inverted-L-shaped region of space, <span><span class="MathJax_Preview"> \textbf{Z} \nleq \mathbf{q} </span><script type="math/tex"> \textbf{Z} \nleq \mathbf{q} </script></span>: that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.</p>
+<p>Exceedances in each component are defined as observations above a fixed quantile threshold <span><span class="MathJax_Preview"> \textbf{q}</span><script type="math/tex"> \textbf{q}</script></span> for a high probability level <span><span class="MathJax_Preview">p \approx 1</span><script type="math/tex">p \approx 1</script></span>, and so bivariate exceedances <span><span class="MathJax_Preview">\textbf{Z}</span><script type="math/tex">\textbf{Z}</script></span> are defined in an inverted-L-shaped region of space, <span><span class="MathJax_Preview"> \textbf{Z} \nleq \mathbf{q} </span><script type="math/tex"> \textbf{Z} \nleq \mathbf{q} </script></span>: that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.</p>
 <p>If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with an asymmetric logistic dependence model, to which this model converges as the quantile threshold grows.</p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
@@ -1762,11 +1757,11 @@ class Empirical(BaseDistribution):
 </summary>
 <pre><code class="python">class AsymmetricLogistic(ExceedanceDistribution):
 
-    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet margin is given by 
+    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a copula induced by an asymmetric logistic model of extremal dependence; this model in unit Frechet scale is given by 
     
     $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left( - \\frac{1 - \\beta}{\\mathbf{x}_1} - \\frac{1 - \\gamma}{\\mathbf{x}_2} - \\left(  \\left( \\frac{\\beta}{\\mathbf{x}_1} \\right)^{1/\\alpha} + \\left( \\frac{\\gamma}{\\mathbf{x}_2} \\right)^{1/\\alpha}\\right)^\\alpha \\right), \\, 0 \\leq \\alpha, \\beta, \\gamma \\leq 1, \\, \\mathbf{X} &gt; 0$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with an asymmetric logistic dependence model, to which this model converges as the quantile threshold grows.
     &#34;&#34;&#34;
@@ -2730,7 +2725,7 @@ def simulate(self, size: int):
     &#34;logistic&#34;: Logistic, 
     &#34;gaussian&#34;: Gaussian, 
     &#34;asymmetric logistic&#34;: AsymmetricLogistic,
-    &#34;logistic gp&#34;: LogisticMGP
+    &#34;logistic gp&#34;: LogisticGP
     }
 
     def __repr__(self):
@@ -2971,8 +2966,8 @@ def simulate(self, size: int):
 
         pk = []
         for p_ in p:
-            a = (n * s / np.sum(s)) / (1 - p_)
-            b = (n * t / np.sum(t)) / p_
+            a = (s / np.mean(s)) / (1 - p_)
+            b = (t / np.mean(t)) / p_
             pk.append(1.0 / np.mean(np.minimum(a, b)))
             
         return np.array(pk)
@@ -3192,8 +3187,8 @@ def pickands(self, p: np.ndarray, data: np.ndarray, quantile_threshold: float = 
 
     pk = []
     for p_ in p:
-        a = (n * s / np.sum(s)) / (1 - p_)
-        b = (n * t / np.sum(t)) / p_
+        a = (s / np.mean(s)) / (1 - p_)
+        b = (t / np.mean(t)) / p_
         pk.append(1.0 / np.mean(np.minimum(a, b)))
         
     return np.array(pk)</code></pre>
@@ -4791,7 +4786,7 @@ def ppf(cls, p: np.ndarray):
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold <span><span class="MathJax_Preview"> \textbf{q}</span><script type="math/tex"> \textbf{q}</script></span> for a high probability level <span><span class="MathJax_Preview">p \sim 1</span><script type="math/tex">p \sim 1</script></span>, and so bivariate exceedances <span><span class="MathJax_Preview">\textbf{Z}</span><script type="math/tex">\textbf{Z}</script></span> are defined in an inverted-L-shaped region of space, <span><span class="MathJax_Preview"> \textbf{Z} \nleq \mathbf{q} </span><script type="math/tex"> \textbf{Z} \nleq \mathbf{q} </script></span>: that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in <span><span class="MathJax_Preview"> [\textbf{0}, \textbf{1}]</span><script type="math/tex"> [\textbf{0}, \textbf{1}]</script></span>; the functional form is the same as a Gaussian copula, but the normalisation constant is different.</p>
+<div class="desc"><p>This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold <span><span class="MathJax_Preview"> \textbf{q}</span><script type="math/tex"> \textbf{q}</script></span> for a high probability level <span><span class="MathJax_Preview">p \approx 1</span><script type="math/tex">p \approx 1</script></span>, and so bivariate exceedances <span><span class="MathJax_Preview">\textbf{Z}</span><script type="math/tex">\textbf{Z}</script></span> are defined in an inverted-L-shaped region of space, <span><span class="MathJax_Preview"> \textbf{Z} \nleq \mathbf{q} </span><script type="math/tex"> \textbf{Z} \nleq \mathbf{q} </script></span>: that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in <span><span class="MathJax_Preview"> [\textbf{0}, \textbf{1}]</span><script type="math/tex"> [\textbf{0}, \textbf{1}]</script></span>; the functional form is the same as a Gaussian copula, but the normalisation constant is different.</p>
 <p>If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with a Gaussian dependence model. Because Gaussian copulas are asymptotically independent (this is, dependence
 weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at <span><span class="MathJax_Preview">-\infty</span><script type="math/tex">-\infty</script></span>. This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.</p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
@@ -4802,7 +4797,7 @@ weakens at progressively more extreme levels regardless of the correlation param
 </summary>
 <pre><code class="python">class Gaussian(ExceedanceDistribution):
 
-    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
+    &#34;&#34;&#34;This model assumes association between exceedances at different components follow a Gaussian copula. Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently this copula model is only defined in the corresponding inverted-L-shaped region in \\( [\\textbf{0}, \\textbf{1}]\\); the functional form is the same as a Gaussian copula, but the normalisation constant is different.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution (see Rootzen and Tajvidi, 2006) with a Gaussian dependence model. Because Gaussian copulas are asymptotically independent (this is, dependence  weakens at progressively more extreme levels regardless of the correlation parameter, and disappears in the limit), said limiting model is degenerate, with probability mass at \\(-\\infty\\). This pre-limit model on the other hand is non-degenerate and can be used to model asymptotically independent data.
     &#34;&#34;&#34;
@@ -5181,7 +5176,7 @@ def rho(self):
     y: univar.BaseDistribution
 
     def __repr__(self):
-        return f&#34;Independent bivariate distribution with marginals:\nx:{x.__repr__()}\ny:{y.__repr__()}&#34;
+        return f&#34;Independent bivariate distribution with marginals:\nx:{self.x.__repr__()}\ny:{self.y.__repr__()}&#34;
 
     def pdf(self, x: np.ndarray):
         x1, x2 = x
@@ -5243,7 +5238,7 @@ def rho(self):
 \exp \left( - \frac{\mathbf{x}_1}{\alpha} \right)+ \left(
 - \frac{\mathbf{x}_2}{\alpha}
 \right) \right)^\alpha \right), \, 0 \leq \alpha\leq 1, \, \mathbf{X} \in \mathbb{R}^2</script></span></p>
-<p>Exceedances in each component are defined as observations above a fixed quantile threshold <span><span class="MathJax_Preview"> \textbf{q}</span><script type="math/tex"> \textbf{q}</script></span> for a high probability level <span><span class="MathJax_Preview">p \sim 1</span><script type="math/tex">p \sim 1</script></span>, and so bivariate exceedances <span><span class="MathJax_Preview">\textbf{Z}</span><script type="math/tex">\textbf{Z}</script></span> are defined in an inverted-L-shaped region of space, <span><span class="MathJax_Preview"> \textbf{Z} \nleq \mathbf{q} </span><script type="math/tex"> \textbf{Z} \nleq \mathbf{q} </script></span>: that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.</p>
+<p>Exceedances in each component are defined as observations above a fixed quantile threshold <span><span class="MathJax_Preview"> \textbf{q}</span><script type="math/tex"> \textbf{q}</script></span> for a high probability level <span><span class="MathJax_Preview">p \approx 1</span><script type="math/tex">p \approx 1</script></span>, and so bivariate exceedances <span><span class="MathJax_Preview">\textbf{Z}</span><script type="math/tex">\textbf{Z}</script></span> are defined in an inverted-L-shaped region of space, <span><span class="MathJax_Preview"> \textbf{Z} \nleq \mathbf{q} </span><script type="math/tex"> \textbf{Z} \nleq \mathbf{q} </script></span>: that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.</p>
 <p>If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.</p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
@@ -5257,7 +5252,7 @@ def rho(self):
     
     $$ \\mathbb{P}(\\textbf{X} \\leq \\mathbf{x}) = \\exp \\left(- \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha \\right), \\, 0 \\leq \\alpha\\leq 1, \\, \\mathbf{X} \\in \\mathbb{R}^2$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
+    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\approx 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region; the functional form of the dependence is the same as a Gumbel-Hougaard copula, but the normalisation constant is different because of this constraint.
 
     If the underlying marginal distributions follow a generalised Pareto above the quantile thresholds, this model can be seen as a pre-limit version of a bivariate generalised Pareto distribution with a logistic dependence model (see Rootzen and Tajvidi, 2006), to which this model converges as the quantile thresholds grow.
     &#34;&#34;&#34;
@@ -5422,7 +5417,7 @@ def rho(self):
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="riskmodels.bivariate.LogisticMGP" href="#riskmodels.bivariate.LogisticMGP">LogisticMGP</a></li>
+<li><a title="riskmodels.bivariate.LogisticGP" href="#riskmodels.bivariate.LogisticGP">LogisticGP</a></li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -5666,8 +5661,8 @@ def alpha(self):
 </li>
 </ul>
 </dd>
-<dt id="riskmodels.bivariate.LogisticMGP"><code class="flex name class">
-<span>class <span class="ident">LogisticMGP</span></span>
+<dt id="riskmodels.bivariate.LogisticGP"><code class="flex name class">
+<span>class <span class="ident">LogisticGP</span></span>
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
@@ -5681,14 +5676,13 @@ def alpha(self):
 \exp \left( - \frac{\mathbf{x}_1}{\alpha} \right)+ \left(
 - \frac{\mathbf{x}_2}{\alpha}
 \right) \right)^\alpha, \, 0 \leq \alpha\leq 1, \</script></span></p>
-<p>Exceedances in each component are defined as observations above a fixed quantile threshold <span><span class="MathJax_Preview"> \textbf{q}</span><script type="math/tex"> \textbf{q}</script></span> for a high probability level <span><span class="MathJax_Preview">p \sim 1</span><script type="math/tex">p \sim 1</script></span>, and so bivariate exceedances <span><span class="MathJax_Preview">\textbf{Z}</span><script type="math/tex">\textbf{Z}</script></span> are defined in an inverted-L-shaped region of space, <span><span class="MathJax_Preview"> \textbf{Z} \nleq \mathbf{q} </span><script type="math/tex"> \textbf{Z} \nleq \mathbf{q} </script></span>: that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.</p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class LogisticMGP(Logistic):
+<pre><code class="python">class LogisticGP(Logistic):
 
     &#34;&#34;&#34;This model is an implementation of a bivariate generalised Pareto distribution with logistic dependence. In Gumbel scale this is given by 
     
@@ -5698,7 +5692,6 @@ def alpha(self):
 
     $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha, \\, 0 \\leq \\alpha\\leq 1, \\$$
 
-    Exceedances in each component are defined as observations above a fixed quantile threshold \\( \\textbf{q}\\) for a high probability level \\(p \\sim 1\\), and so bivariate exceedances \\(\\textbf{Z}\\) are defined in an inverted-L-shaped region of space, \\( \\textbf{Z} \\nleq \\mathbf{q} \\): that in which there is an exceedance in at least one component. Consequently the model implemented here is only defined in the corresponding inverted-L-shaped region.
     &#34;&#34;&#34;
 
     @validator(&#34;quantile_threshold&#34;)
@@ -5811,14 +5804,14 @@ def alpha(self):
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="riskmodels.bivariate.LogisticMGP.params"><code class="name">var <span class="ident">params</span> : Optional[numpy.ndarray]</code></dt>
+<dt id="riskmodels.bivariate.LogisticGP.params"><code class="name">var <span class="ident">params</span> : Optional[numpy.ndarray]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 </dl>
 <h3>Static methods</h3>
 <dl>
-<dt id="riskmodels.bivariate.LogisticMGP.logpdf"><code class="name flex">
+<dt id="riskmodels.bivariate.LogisticGP.logpdf"><code class="name flex">
 <span>def <span class="ident">logpdf</span></span>(<span>params: np.ndarray, threshold: float, data: t.Union[np.ndarray, t.Iterable])</span>
 </code></dt>
 <dd>
@@ -5869,7 +5862,7 @@ def logpdf(
     return log_density</code></pre>
 </details>
 </dd>
-<dt id="riskmodels.bivariate.LogisticMGP.simulate_model"><code class="name flex">
+<dt id="riskmodels.bivariate.LogisticGP.simulate_model"><code class="name flex">
 <span>def <span class="ident">simulate_model</span></span>(<span>size: int, params: np.ndarray, quantile_threshold: float) ‑> numpy.ndarray</span>
 </code></dt>
 <dd>
@@ -5942,7 +5935,7 @@ def simulate_model(cls, size: int, params: np.ndarray, quantile_threshold: float
     return cls.bundle(x,y)</code></pre>
 </details>
 </dd>
-<dt id="riskmodels.bivariate.LogisticMGP.unconditioned_cdf"><code class="name flex">
+<dt id="riskmodels.bivariate.LogisticGP.unconditioned_cdf"><code class="name flex">
 <span>def <span class="ident">unconditioned_cdf</span></span>(<span>params: np.ndarray, data: t.Union[np.ndarray, t.Iterable])</span>
 </code></dt>
 <dd>
@@ -5962,7 +5955,7 @@ def unconditioned_cdf(cls, params: np.ndarray, data: t.Union[np.ndarray, t.Itera
     return -1/np.log(G0)*(np.log(Ga)-np.log(Gb))</code></pre>
 </details>
 </dd>
-<dt id="riskmodels.bivariate.LogisticMGP.val_qt"><code class="name flex">
+<dt id="riskmodels.bivariate.LogisticGP.val_qt"><code class="name flex">
 <span>def <span class="ident">val_qt</span></span>(<span>quantile_threshold)</span>
 </code></dt>
 <dd>
@@ -6033,7 +6026,9 @@ def val_qt(cls, quantile_threshold):
                 [self.distributions[k] for k in indices], n_samples[indices]
             )
         ]
-        return np.concatenate(samples, axis=0)
+        samples = np.concatenate(samples, axis=0)
+        np.random.shuffle(samples)
+        return samples
 
     def cdf(self, x: np.ndarray, **kwargs) -&gt; float:
         vals = [
@@ -6210,13 +6205,13 @@ def val_qt(cls, quantile_threshold):
 </ul>
 </li>
 <li>
-<h4><code><a title="riskmodels.bivariate.LogisticMGP" href="#riskmodels.bivariate.LogisticMGP">LogisticMGP</a></code></h4>
+<h4><code><a title="riskmodels.bivariate.LogisticGP" href="#riskmodels.bivariate.LogisticGP">LogisticGP</a></code></h4>
 <ul class="">
-<li><code><a title="riskmodels.bivariate.LogisticMGP.logpdf" href="#riskmodels.bivariate.LogisticMGP.logpdf">logpdf</a></code></li>
-<li><code><a title="riskmodels.bivariate.LogisticMGP.params" href="#riskmodels.bivariate.LogisticMGP.params">params</a></code></li>
-<li><code><a title="riskmodels.bivariate.LogisticMGP.simulate_model" href="#riskmodels.bivariate.LogisticMGP.simulate_model">simulate_model</a></code></li>
-<li><code><a title="riskmodels.bivariate.LogisticMGP.unconditioned_cdf" href="#riskmodels.bivariate.LogisticMGP.unconditioned_cdf">unconditioned_cdf</a></code></li>
-<li><code><a title="riskmodels.bivariate.LogisticMGP.val_qt" href="#riskmodels.bivariate.LogisticMGP.val_qt">val_qt</a></code></li>
+<li><code><a title="riskmodels.bivariate.LogisticGP.logpdf" href="#riskmodels.bivariate.LogisticGP.logpdf">logpdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.LogisticGP.params" href="#riskmodels.bivariate.LogisticGP.params">params</a></code></li>
+<li><code><a title="riskmodels.bivariate.LogisticGP.simulate_model" href="#riskmodels.bivariate.LogisticGP.simulate_model">simulate_model</a></code></li>
+<li><code><a title="riskmodels.bivariate.LogisticGP.unconditioned_cdf" href="#riskmodels.bivariate.LogisticGP.unconditioned_cdf">unconditioned_cdf</a></code></li>
+<li><code><a title="riskmodels.bivariate.LogisticGP.val_qt" href="#riskmodels.bivariate.LogisticGP.val_qt">val_qt</a></code></li>
 </ul>
 </li>
 <li>

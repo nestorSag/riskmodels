@@ -19,7 +19,10 @@ class MarkovChainGenerationModel(IndependentFleetModel):
     chain_states: np.ndarray
 
     """Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
-  """
+
+    transition_matrices (np.ndarray): 3-dimensional array with transition matrices for generating units
+    chain_states (np.array): 2-dimensional array with vector of generation states for each generating unit
+    """
 
     def __str__(self):
         max_cap = np.sum([s[0] for s in self.chain_states])

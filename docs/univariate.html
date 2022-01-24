@@ -361,7 +361,9 @@ class Mixture(BaseDistribution):
                 [self.distributions[k] for k in indices], n_samples[indices]
             )
         ]
-        return np.concatenate(samples, axis=0)
+        samples = np.concatenate(samples, axis=0)
+        np.random.shuffle(samples)
+        return samples
 
     def cdf(
         self, x: t.Union[float, np.ndarray], **kwargs
@@ -7797,7 +7799,9 @@ the quantile function of the posterior predictive distribution is evaluated. The
                 [self.distributions[k] for k in indices], n_samples[indices]
             )
         ]
-        return np.concatenate(samples, axis=0)
+        samples = np.concatenate(samples, axis=0)
+        np.random.shuffle(samples)
+        return samples
 
     def cdf(
         self, x: t.Union[float, np.ndarray], **kwargs
@@ -8221,7 +8225,9 @@ def check_weigths(cls, weights):
             [self.distributions[k] for k in indices], n_samples[indices]
         )
     ]
-    return np.concatenate(samples, axis=0)</code></pre>
+    samples = np.concatenate(samples, axis=0)
+    np.random.shuffle(samples)
+    return samples</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.univariate.Mixture.std"><code class="name flex">
