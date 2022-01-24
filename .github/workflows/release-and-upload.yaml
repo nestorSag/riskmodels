@@ -30,7 +30,7 @@ jobs:
         release_name: Release ${{ github.ref }}
         # body: |
         #   ${{steps.build_changelog.outputs.changelog}}
-        draft: false
+        draft: true
         prerelease: false
     - name: Set tag as package version through an environment variable
       run: echo "RISKMODELS_VERSION=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_ENV
