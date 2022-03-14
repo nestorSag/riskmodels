@@ -12,14 +12,14 @@ import pandas as pd
 
 class IndependentFleetModel(Binned):
 
-    """Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed."""
+    """Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time with a certain probability. No serial correlation between states is assumed, i.e. this is a non-sequential or time-collapsed model. See class methods `from_generator_df` and `from_generator_csv_file` to instantiate this class."""
 
     @classmethod
     def from_generator_df(cls, df: pd.DataFrame) -> IndependentFleetModel:
         """Takes a dataframe object and builds the generation model from it.
 
         Args:
-            df (pd.DataFrame): dataframe with colums 'availability' and 'capacity', where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
+            df (pd.DataFrame): dataframe with colums 'availability' and 'capacity', where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
 
         Returns:
             IndependentFleetModel: fitted model
@@ -64,7 +64,7 @@ class IndependentFleetModel(Binned):
         """Takes a csv file and builds the generation model
 
         Args:
-            file_path (str): Path to csv file. It must have colums 'availability' and 'capacity', where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+            file_path (str): Path to csv file. It must have colums 'availability' and 'capacity', where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
             **kwargs: additional arguments passed to pandas.read_csv
 
         Returns:

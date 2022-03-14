@@ -59,7 +59,7 @@ from tqdm import tqdm
 
 class MarkovChainGenerationTraces(BaseModel):
 
-    &#34;&#34;&#34;Wrapper class for persisted available conventional generation traces&#34;&#34;&#34;
+    &#34;&#34;&#34;Wrapper class for persisted files of available conventional generation traces. This class is not meant to be instantiated directly by the end user.&#34;&#34;&#34;
 
     traces: np.ndarray
 
@@ -75,16 +75,16 @@ class MarkovChainGenerationTraces(BaseModel):
         &#34;&#34;&#34;
         return cls(traces=np.load(trace_filepath, allow_pickle=True))
 
-    def __add__(self, other):
+    def __add__(self, other: float):
         return type(self)(traces=self.samples + other)
 
-    def __mul__(self, other):
+    def __mul__(self, other: float):
         return type(self)(traces=self.samples * other)
 
 
 class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.
+    &#34;&#34;&#34;Wrapper class for the workers of univariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user.
 
     Args:
         gen_filepath (str): folder with conventional generation data
@@ -234,7 +234,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
 class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
+    &#34;&#34;&#34;Wrapper class for the workers of bivariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user. This class implements both veto and share policies.
 
     Args:
         univariate_traces (t.List[UnivariateEmpiricalTraces]): Univariate traces
@@ -1817,7 +1817,7 @@ def filedirs(self):
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.</p>
+<div class="desc"><p>Wrapper class for the workers of bivariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user. This class implements both veto and share policies.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>univariate_traces</code></strong> :&ensp;<code>t.List[<a title="riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces" href="#riskmodels.powersys.ts.surplus.UnivariateEmpiricalTraces">UnivariateEmpiricalTraces</a>]</code></dt>
@@ -1833,7 +1833,7 @@ def filedirs(self):
 </summary>
 <pre><code class="python">class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
+    &#34;&#34;&#34;Wrapper class for the workers of bivariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user. This class implements both veto and share policies.
 
     Args:
         univariate_traces (t.List[UnivariateEmpiricalTraces]): Univariate traces
@@ -2188,7 +2188,7 @@ def surplus_trace(self):
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Wrapper class for persisted available conventional generation traces</p>
+<div class="desc"><p>Wrapper class for persisted files of available conventional generation traces. This class is not meant to be instantiated directly by the end user.</p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
@@ -2197,7 +2197,7 @@ def surplus_trace(self):
 </summary>
 <pre><code class="python">class MarkovChainGenerationTraces(BaseModel):
 
-    &#34;&#34;&#34;Wrapper class for persisted available conventional generation traces&#34;&#34;&#34;
+    &#34;&#34;&#34;Wrapper class for persisted files of available conventional generation traces. This class is not meant to be instantiated directly by the end user.&#34;&#34;&#34;
 
     traces: np.ndarray
 
@@ -2213,10 +2213,10 @@ def surplus_trace(self):
         &#34;&#34;&#34;
         return cls(traces=np.load(trace_filepath, allow_pickle=True))
 
-    def __add__(self, other):
+    def __add__(self, other: float):
         return type(self)(traces=self.samples + other)
 
-    def __mul__(self, other):
+    def __mul__(self, other: float):
         return type(self)(traces=self.samples * other)</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -3111,7 +3111,7 @@ def init(
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.</p>
+<div class="desc"><p>Wrapper class for the workers of univariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>gen_filepath</code></strong> :&ensp;<code>str</code></dt>
@@ -3131,7 +3131,7 @@ def init(
 </summary>
 <pre><code class="python">class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
-    &#34;&#34;&#34;Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.
+    &#34;&#34;&#34;Wrapper class for the workers of univariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user.
 
     Args:
         gen_filepath (str): folder with conventional generation data

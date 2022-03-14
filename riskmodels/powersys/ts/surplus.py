@@ -29,7 +29,7 @@ from tqdm import tqdm
 
 class MarkovChainGenerationTraces(BaseModel):
 
-    """Wrapper class for persisted available conventional generation traces"""
+    """Wrapper class for persisted files of available conventional generation traces. This class is not meant to be instantiated directly by the end user."""
 
     traces: np.ndarray
 
@@ -45,16 +45,16 @@ class MarkovChainGenerationTraces(BaseModel):
         """
         return cls(traces=np.load(trace_filepath, allow_pickle=True))
 
-    def __add__(self, other):
+    def __add__(self, other: float):
         return type(self)(traces=self.samples + other)
 
-    def __mul__(self, other):
+    def __mul__(self, other: float):
         return type(self)(traces=self.samples * other)
 
 
 class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
-    """Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations.
+    """Wrapper class for the workers of univariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user.
 
     Args:
         gen_filepath (str): folder with conventional generation data
@@ -204,7 +204,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
 class BivariateEmpiricalTraces(BaseBivariateMonteCarlo):
 
-    """Wrapper class for the workers of map-reduce computations; they use a file-based sequence of conventional generation traces to perform computations. This class takes advantage of riskmodels.powersys.iid.surplus.BaseBivariateMonteCarlo to avoid repeating code, and implements both veto and share policies.
+    """Wrapper class for the workers of bivariate map-reduce computations; it uses a file containing sequences of conventional generation traces to perform custom computations. Instances of this class are not meant to be instantiated directly by the end user. This class implements both veto and share policies.
 
     Args:
         univariate_traces (t.List[UnivariateEmpiricalTraces]): Univariate traces

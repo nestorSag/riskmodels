@@ -10,9 +10,20 @@ define verify_install
 	fi
 endef
 
-docs: ## Updates documentation
+html-docs: ## Updates html documentation
 	@$(call verify_install, pdoc3);\
-	rm -rf docs/* && pdoc --html -c latex_math=True -o docs riskmodels && mv docs/riskmodels/* docs/ && rm -rf docs/riskmodels;\
+	rm -rf docs/* && pdoc3 --html -c latex_math=True -o docs riskmodels && mv docs/riskmodels/* docs/ && rm -rf docs/riskmodels;\
+
+pdf-docs: ## Generates pdf documentation
+	@$(call verify_install, pdoc3);\
+  echo "for this to work, pandoc needs to be installed."
+	@pdoc3 --pdf -c latex_math=True riskmodels > docs.md
+	@pandoc --metadata=title:"riskmodels package" \
+	--from=markdown+abbreviations+tex_math_single_backslash \
+	--pdf-engine=xelatex --variable=mainfont:"DejaVu Sans" \
+	--toc \
+	--toc-depth=4 \
+	--output=docs.pdf  docs.md
 
 tests: ## Tests package
 	@$(call verify_install, pytest);

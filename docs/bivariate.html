@@ -1292,7 +1292,7 @@ class LogisticGP(Logistic):
 
     where
 
-    $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha, \\, 0 \\leq \\alpha\\leq 1, \\$$
+    $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right) + \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^{\\alpha}, \\, 0 \\leq \\alpha \\leq 1, $$
 
     &#34;&#34;&#34;
 
@@ -5670,12 +5670,12 @@ def alpha(self):
 <p><span><span class="MathJax_Preview"> \mathbb{P}(\textbf{X} \leq \mathbf{x}) = \frac{\Psi(\mathbf{x}) - \Psi(\min \{\mathbf{x},\mathbf{0}\})}{-\Psi(\mathbf{0})}, \mathbf{X} \nleq \mathbf{0}</span><script type="math/tex; mode=display"> \mathbb{P}(\textbf{X} \leq \mathbf{x}) = \frac{\Psi(\mathbf{x}) - \Psi(\min \{\mathbf{x},\mathbf{0}\})}{-\Psi(\mathbf{0})}, \mathbf{X} \nleq \mathbf{0}</script></span></p>
 <p>where</p>
 <p><span><span class="MathJax_Preview"> \Psi(\mathbf{x}) = - \left(
-\exp \left( - \frac{\mathbf{x}_1}{\alpha} \right)+ \left(
+\exp \left( - \frac{\mathbf{x}_1}{\alpha} \right) + \left(
 - \frac{\mathbf{x}_2}{\alpha}
-\right) \right)^\alpha, \, 0 \leq \alpha\leq 1, \</span><script type="math/tex; mode=display"> \Psi(\mathbf{x}) = - \left(
-\exp \left( - \frac{\mathbf{x}_1}{\alpha} \right)+ \left(
+\right) \right)^{\alpha}, \, 0 \leq \alpha \leq 1, </span><script type="math/tex; mode=display"> \Psi(\mathbf{x}) = - \left(
+\exp \left( - \frac{\mathbf{x}_1}{\alpha} \right) + \left(
 - \frac{\mathbf{x}_2}{\alpha}
-\right) \right)^\alpha, \, 0 \leq \alpha\leq 1, \</script></span></p>
+\right) \right)^{\alpha}, \, 0 \leq \alpha \leq 1, </script></span></p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
@@ -5690,7 +5690,7 @@ def alpha(self):
 
     where
 
-    $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha, \\, 0 \\leq \\alpha\\leq 1, \\$$
+    $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right) + \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^{\\alpha}, \\, 0 \\leq \\alpha \\leq 1, $$
 
     &#34;&#34;&#34;
 

@@ -14,15 +14,12 @@ from riskmodels.powersys.iid.convgen import IndependentFleetModel
 
 
 class MarkovChainGenerationModel(IndependentFleetModel):
+    """Available conventional generation model in which generators are modelled as Markov chains and are assumed to be independent of each other. The methods `from_generator_df` and `from_generator_file` can be used to instantiate this class when 2-state Markov chains are used (on-off availability for each generating unit without de-rated states), see the cited methods for details. 
+    To simulate Markov chain models with a different set of statess (e.g. de-rated states) the class method `simulate_chains` can be used by passing custom `transition_matrices` and `chain_states` arguments along with other required parameters. See the cited function for details.
+    """
 
     transition_matrices: np.ndarray
     chain_states: np.ndarray
-
-    """Available conventional generation model in which generators are assumed to follow a 2-state Markov chain and are statistically independent of each other, and each one can be either 100% or 0% available at any given time.
-
-    transition_matrices (np.ndarray): 3-dimensional array with transition matrices for generating units
-    chain_states (np.array): 2-dimensional array with vector of generation states for each generating unit
-    """
 
     def __str__(self):
         max_cap = np.sum([s[0] for s in self.chain_states])
@@ -115,7 +112,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         """Takes a dataframe object and builds the generation model from it.
 
         Args:
-            df (pd.DataFrame): dataframe with colums 'availability' and 'capacity', where the former is a probability and the latter the maximum generation capacity; in additon, an 'mttr' column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
+            df (pd.DataFrame): dataframe with colums 'availability' and 'capacity', where the former is the probability that the generating unit is available (i.e. stationary availability probability) and the latter is the unit's nameplate capacity; in additon, an 'mttr' column with estimated mean times to repair per unit should be present. Each row represents an individual generator.
 
         Returns:
             MarkovChainGenerationModel: fitted model
@@ -155,8 +152,8 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         Args:
             size (int): Number of traces to simulate
             trace_length (int): length of individual traces
-            transition_matrices (np.ndarray): three-dimensional array containing transition probability matrices for all chains
-            chain_states (np.ndarray): two-dimensional array with vectors of chain states for all chains
+            transition_matrices (np.ndarray): three-dimensional array containing transition probability matrices for all chains where the first dimension corresponds to generating units and the last two dimensions correspond to transition matrices.
+            chain_states (np.ndarray): two-dimensional array with vectors of chain states for all chains where the first dimension corresponds to generating units and the second one to the state set. Note that every generating unit must have the same number of states.
             initial_state (np.ndarray, optional): one-dimensional array with the initial state indices for all chains. The indices must correspond to a row in the transition matrices. If None, initial states are sampled from the stationary distributions of each chain.
             simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
             output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
@@ -221,7 +218,7 @@ class MarkovChainGenerationModel(IndependentFleetModel):
         if np.any(
             np.array([s.shape != (n_states, n_states) for s in transition_matrices])
         ):
-            raise ValueError("Matrices must be squared and of the same dimensions")
+            raise ValueError("Matrices must be square and of the same dimensions")
 
         # call C program
         if trace_length <= 1:

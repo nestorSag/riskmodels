@@ -1261,7 +1261,7 @@ class LogisticGP(Logistic):
 
     where
 
-    $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right)+ \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^\\alpha, \\, 0 \\leq \\alpha\\leq 1, \\$$
+    $$ \\Psi(\\mathbf{x}) = - \\left(  \\exp \\left( - \\frac{\\mathbf{x}_1}{\\alpha} \\right) + \\left(  - \\frac{\\mathbf{x}_2}{\\alpha}  \\right) \\right)^{\\alpha}, \\, 0 \\leq \\alpha \\leq 1, $$
 
     """
 

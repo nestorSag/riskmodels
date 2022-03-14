@@ -42,14 +42,14 @@ import pandas as pd
 
 class IndependentFleetModel(Binned):
 
-    &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.&#34;&#34;&#34;
+    &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time with a certain probability. No serial correlation between states is assumed, i.e. this is a non-sequential or time-collapsed model. See class methods `from_generator_df` and `from_generator_csv_file` to instantiate this class.&#34;&#34;&#34;
 
     @classmethod
     def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
         &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
         Args:
-            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
+            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
 
         Returns:
             IndependentFleetModel: fitted model
@@ -94,7 +94,7 @@ class IndependentFleetModel(Binned):
         &#34;&#34;&#34;Takes a csv file and builds the generation model
 
         Args:
-            file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+            file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
             **kwargs: additional arguments passed to pandas.read_csv
 
         Returns:
@@ -118,7 +118,7 @@ class IndependentFleetModel(Binned):
 <span>(</span><span>**data: Any)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.</p>
+<div class="desc"><p>Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time with a certain probability. No serial correlation between states is assumed, i.e. this is a non-sequential or time-collapsed model. See class methods <code>from_generator_df</code> and <code>from_generator_csv_file</code> to instantiate this class.</p>
 <p>Create a new model by parsing and validating input data from keyword arguments.</p>
 <p>Raises ValidationError if the input data cannot be parsed to form a valid model.</p></div>
 <details class="source">
@@ -127,14 +127,14 @@ class IndependentFleetModel(Binned):
 </summary>
 <pre><code class="python">class IndependentFleetModel(Binned):
 
-    &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time. NO serial correlation between states is assumed.&#34;&#34;&#34;
+    &#34;&#34;&#34;Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time with a certain probability. No serial correlation between states is assumed, i.e. this is a non-sequential or time-collapsed model. See class methods `from_generator_df` and `from_generator_csv_file` to instantiate this class.&#34;&#34;&#34;
 
     @classmethod
     def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
         &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
         Args:
-            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
+            df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
 
         Returns:
             IndependentFleetModel: fitted model
@@ -179,7 +179,7 @@ class IndependentFleetModel(Binned):
         &#34;&#34;&#34;Takes a csv file and builds the generation model
 
         Args:
-            file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+            file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
             **kwargs: additional arguments passed to pandas.read_csv
 
         Returns:
@@ -225,7 +225,7 @@ class IndependentFleetModel(Binned):
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>file_path</code></strong> :&ensp;<code>str</code></dt>
-<dd>Path to csv file. It must have colums 'availability' and 'capacity', where the former is a probability and the latter the maximum capacity; each row represents an individual generator</dd>
+<dd>Path to csv file. It must have colums 'availability' and 'capacity', where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>additional arguments passed to pandas.read_csv</dd>
 </dl>
@@ -243,7 +243,7 @@ def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFlee
     &#34;&#34;&#34;Takes a csv file and builds the generation model
 
     Args:
-        file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum capacity; each row represents an individual generator
+        file_path (str): Path to csv file. It must have colums &#39;availability&#39; and &#39;capacity&#39;, where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
         **kwargs: additional arguments passed to pandas.read_csv
 
     Returns:
@@ -261,7 +261,7 @@ def from_generator_csv_file(cls, file_path: str, **kwargs) -&gt; IndependentFlee
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>df</code></strong> :&ensp;<code>pd.DataFrame</code></dt>
-<dd>dataframe with colums 'availability' and 'capacity', where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator</dd>
+<dd>dataframe with colums 'availability' and 'capacity', where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -277,7 +277,7 @@ def from_generator_df(cls, df: pd.DataFrame) -&gt; IndependentFleetModel:
     &#34;&#34;&#34;Takes a dataframe object and builds the generation model from it.
 
     Args:
-        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is a probability and the latter the maximum generation capacity; each row represents an individual generator
+        df (pd.DataFrame): dataframe with colums &#39;availability&#39; and &#39;capacity&#39;, where the former is the probability of the generating unit being available and the latter the nameplate capacity; each row represents an individual generator
 
     Returns:
         IndependentFleetModel: fitted model

@@ -315,7 +315,7 @@ class BivariateEmpirical(BaseSurplus):
 
             cdf += point_cdf
 
-        return cdf / self.season_length
+        return cdf / n
 
     def system_lolp(self, itc_cap: int = 1000):
         """Computes the system-wide post-interconnection loss of load probability. This is, the probability that at least one area will experience a shortfall.
@@ -356,7 +356,7 @@ class BivariateEmpirical(BaseSurplus):
             )
             lolp += point_lolp
 
-        return lolp / self.season_length
+        return lolp / n
 
     def lole(self, itc_cap: int = 1000, policy: str = "veto", area: int = 0):
         """Computes the post-interconnection loss of load expectation.
@@ -367,7 +367,7 @@ class BivariateEmpirical(BaseSurplus):
             area (int, optional): Area for which to evaluate LOLE; if area=-1, system-wide lole is returned
         """
         if area == -1:
-            return len(self.net_demand_data) * self.system_lolp(itc_cap)
+            return self.season_length * self.system_lolp(itc_cap)
 
         x = np.array([np.Inf, np.Inf])
         x[area] = -1
@@ -400,13 +400,13 @@ class BivariateEmpirical(BaseSurplus):
         """
 
         if area == -1:
-            return self.eeu(itc_cap, policy, 0) + self.eeu(itc_cap, policy, 1)
+            return (self.eeu(itc_cap, policy, 0) + self.eeu(itc_cap, policy, 1))
 
         if area == 1:
             self.swap_axes()
 
         n = len(self.net_demand_data)
-        eeu = 0
+        epus = 0
 
         for k in range(n):
             # print(i)
@@ -443,12 +443,12 @@ class BivariateEmpirical(BaseSurplus):
             else:
                 raise ValueError(f"Policy name ({policy}) not recognised.")
 
-            eeu += point_EPU
+            epus += point_EPU/n
 
         if area == 1:
             self.swap_axes()
 
-        return eeu
+        return epus * self.season_length
 
     def get_pointwise_risk(
         self, x: np.ndarray, itc_cap: int = 1000, policy: str = "veto"
