@@ -40,3 +40,5 @@ jobs:
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
+    # - name: Test installation from PyPI
+    #   run: pip install riskmodels==$RISKMODELS_VERSION

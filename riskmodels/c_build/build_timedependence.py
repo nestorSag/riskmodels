@@ -1,5 +1,8 @@
 from cffi import FFI
 import os
+from pathlib import Path
+
+project_dir = Path(__file__).resolve().parents[2]
 
 ffibuilder = FFI()
 
@@ -46,18 +49,10 @@ ffibuilder.cdef(
 # with open('riskmodels/_c/libtimedependence.h','r') as f:
 # 	ffibuilder.cdef(f.read())
 
-header = (
-    '#include "'
-    + os.path.dirname(os.path.abspath(__file__))
-    + '/../c/libtimedependence.h"'
-)
-
+header = f'#include "{project_dir / "riskmodels" / "c" / "libtimedependence.h"}"'
 
 ffibuilder.set_source(
     "c_sequential_models_api",  # name of the output C extension
-    # """
-    # #include "../../riskmodels/_c/libtimedependence.h"
-    # """,
     header,
     sources=["riskmodels/c/libtimedependence.c", "riskmodels/c/mtwist-1.5/mtwist.c"],
     libraries=["m"],

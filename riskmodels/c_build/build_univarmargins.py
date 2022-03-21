@@ -1,6 +1,10 @@
 from cffi import FFI
 import os
 
+from pathlib import Path
+
+project_dir = Path(__file__).resolve().parents[2]
+
 ffibuilder = FFI()
 
 ffibuilder.cdef(
@@ -84,11 +88,9 @@ void bayesian_semiparametric_cvar_trace_py_interface(
 	"""
 )
 
-header = (
-    '#include "'
-    + os.path.dirname(os.path.abspath(__file__))
-    + '/../c/libunivarmargins.h"'
-)
+
+header = f'#include "{project_dir / "riskmodels" / "c" / "libunivarmargins.h"}"'
+
 
 ffibuilder.set_source(
     "c_univariate_surplus_api",  # name of the output C extension

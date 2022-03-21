@@ -1,0 +1,2 @@
+include riskmodels/c/*.h
+include riskmodels/c/mtwist-1.5/*.h
