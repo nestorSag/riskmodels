@@ -19,7 +19,9 @@ with open("README.md", "r") as fh:
 
      author_email="nestor.sag@gmail.com",
 
-     packages = find_namespace_packages(include=['riskmodels.*']),
+     packages = find_namespace_packages(include=['riskmodels', 'riskmodels.*']),
+
+     python_requires='>=3.7',
 
      description="Extreme value models for applications in energy procurement",
 
