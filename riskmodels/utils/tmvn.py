@@ -1,4 +1,3 @@
-
 """
 This module contains an implementation of a truncated multivariate normal distribution that is used for simulation by the `Gaussian` class in the `riskmodels.bivariate` module.
 """
@@ -118,9 +117,9 @@ class TruncatedMVN:
             rv = np.concatenate((rv, Z[:, idx]), axis=1)  # accumulate accepted
             accept = rv.shape[1]  # keep track of # of accepted
             iteration += 1
-            if iteration == 10 ** 3:
+            if iteration == 10**3:
                 print("Warning: Acceptance prob. smaller than 0.001.")
-            elif iteration > 10 ** 4:
+            elif iteration > 10**4:
                 accept = n
                 rv = np.concatenate((rv, Z), axis=1)
                 print("Warning: Sample is only approximately distributed.")
@@ -301,9 +300,9 @@ class TruncatedMVN:
             raise RuntimeError(
                 "Lower bound (lb) and upper bound (ub) must be of the same length!"
             )
-        c = (lb ** 2) / 2
+        c = (lb**2) / 2
         n = len(lb)
-        f = np.expm1(c - ub ** 2 / 2)
+        f = np.expm1(c - ub**2 / 2)
         x = c - np.log(1 + np.random.rand(n) * f)  # sample using Rayleigh
         # keep list of rejected
         I = np.where(np.random.rand(n) ** 2 * x > c)[0]
@@ -324,7 +323,7 @@ class TruncatedMVN:
         c = self.L @ x
         lt = self.lb - mu - c
         ut = self.ub - mu - c
-        p = np.sum(lnNormalProb(lt, ut) + 0.5 * mu ** 2 - x * mu)
+        p = np.sum(lnNormalProb(lt, ut) + 0.5 * mu**2 - x * mu)
         return p
 
     def get_gradient_function(self):
@@ -346,8 +345,8 @@ class TruncatedMVN:
 
             # compute gradients avoiding catastrophic cancellation
             w = lnNormalProb(lt, ut)
-            pl = np.exp(-0.5 * lt ** 2 - w) / np.sqrt(2 * math.pi)
-            pu = np.exp(-0.5 * ut ** 2 - w) / np.sqrt(2 * math.pi)
+            pl = np.exp(-0.5 * lt**2 - w) / np.sqrt(2 * math.pi)
+            pu = np.exp(-0.5 * ut**2 - w) / np.sqrt(2 * math.pi)
             P = pl - pu
 
             # output the gradient
@@ -359,7 +358,7 @@ class TruncatedMVN:
             lt[np.isinf(lt)] = 0
             ut[np.isinf(ut)] = 0
 
-            dP = -(P ** 2) + lt * pl - ut * pu
+            dP = -(P**2) + lt * pl - ut * pu
             DL = np.tile(dP.reshape(d, 1), (1, d)) * L
             mx = DL - np.eye(d)
             xx = L.T @ DL
@@ -416,7 +415,7 @@ class TruncatedMVN:
             w = lnNormalProb(
                 tl, tu
             )  # aids in computing expected value of trunc. normal
-            z[j] = (np.exp(-0.5 * tl ** 2 - w) - np.exp(-0.5 * tu ** 2 - w)) / np.sqrt(
+            z[j] = (np.exp(-0.5 * tl**2 - w) - np.exp(-0.5 * tu**2 - w)) / np.sqrt(
                 2 * math.pi
             )
         return L, perm
@@ -449,6 +448,6 @@ def lnNormalProb(a, b):
 def lnPhi(x):
     # computes logarithm of  tail of Z~N(0,1) mitigating numerical roundoff errors
     out = (
-        -0.5 * x ** 2 - np.log(2) + np.log(special.erfcx(x / np.sqrt(2)) + EPS)
+        -0.5 * x**2 - np.log(2) + np.log(special.erfcx(x / np.sqrt(2)) + EPS)
     )  # divide by zeros error -> add eps
     return out

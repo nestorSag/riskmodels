@@ -34,6 +34,10 @@ format: ## Formats modules code using Black
 	@$(call verify_install, black);\
 	black riskmodels/*
 
+# lint: ## Formats modules code using Black
+# 	@$(call verify_install, flake8);\
+# 	flake8 --ignore=E501 riskmodels
+
 build: ## Bundles objects for release to PyPI
 	@$(call verify_install, build);\
 	python -m build --sdist --outdir dist/

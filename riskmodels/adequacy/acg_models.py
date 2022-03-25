@@ -13,6 +13,7 @@ import pandas as pd
 
 from c_sequential_models_api import ffi, lib as C_API
 
+
 class NonSequential(Binned):
 
     """Available conventional generation model in which generators are assumed statistically independent of each other, and each one can be either 100% or 0% available at any given time with a certain probability. No serial correlation between states is assumed, i.e. this is a non-sequential or time-collapsed model. See class methods `from_generator_df` and `from_generator_csv_file` to instantiate this class."""
@@ -77,20 +78,15 @@ class NonSequential(Binned):
         return cls.from_generator_df(df)
 
 
-
-
-
-
-
 class Sequential(NonSequential):
 
-    """Available conventional generation model in which generators are modelled as Markov chains and are assumed to be independent of each other. The methods `from_generator_df` and `from_generator_file` can be used to instantiate this class when 2-state Markov chains are used (on-off availability for each generating unit without de-rated states), see the cited methods for details. 
+    """Available conventional generation model in which generators are modelled as Markov chains and are assumed to be independent of each other. The methods `from_generator_df` and `from_generator_file` can be used to instantiate this class when 2-state Markov chains are used (on-off availability for each generating unit without de-rated states), see the cited methods for details.
     To simulate Markov chain models with a different set of statess (e.g. de-rated states), the class can be instantiated through its constructor by passing named parameters for the transition matrices and chain states. See the argument specification below.
-    
+
     Args:
         transition_matrices (np.ndarray): three-dimensional array where axis 0 represents generation units, and axis 1 and 2 represent transition matrix dimensions
         chain_states (np.ndarray): two-dimensional array where axis 0 represents generation units and axis 1 represents the array of the unit's states
-    
+
     """
 
     transition_matrices: np.ndarray
@@ -220,10 +216,10 @@ class Sequential(NonSequential):
         initial_state: np.ndarray = None,
         simulate_escape_time: bool = True,
         output_array: np.ndarray = None,
-        seed: int = None
+        seed: int = None,
     ) -> np.Optional[np.ndarray]:
         """Simulate multiple traces in which each one represents the aggregate of multiple Markov chains. This method samples a single large sequential trace and then split it into multiple subtraces; trace endpoints are therefore dependent.
-        
+
         Args:
             size (int): Number of traces to simulate
             trace_length (int): length of individual traces
@@ -233,15 +229,15 @@ class Sequential(NonSequential):
             simulate_escape_time (bool, optional): If True, simulate chains through time-of-escape simulations. If false, simulate each timestep individually.
             output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
             seed (int, optional): Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.
-        
+
         No Longer Returned:
             np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
-        
-        
+
+
         No Longer Raises:
             ValueError: Description
-        
-        
+
+
         """
         n_chains = len(chain_states)
         n_states = len(chain_states[0])
@@ -268,8 +264,8 @@ class Sequential(NonSequential):
         #   seed = np.random.randint(low=0,high=2**31-1)
         # else:
         #   np.random.seed(seed) #both numpy and C seeds are the same if provided; this is needed for the initial state which is computed in Python
-        seed = np.random.randint(low=0, high=2**20-1) if seed is None else seed
-        #print(f"C seed: {seed}")
+        seed = np.random.randint(low=0, high=2**20 - 1) if seed is None else seed
+        # print(f"C seed: {seed}")
         # set initial state array
         if initial_state is None:
             initial_state = cls.sample_stationary_dists(
@@ -323,11 +319,11 @@ class Sequential(NonSequential):
 
     def simulate(self, size: int, seed: int = None) -> np.ndarray:
         """Simulate a single trace of sequential observations
-        
+
         Args:
             size (int): Number of samples, or equivalently, trace length.
             seed (int, optional): Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.
-        
+
         Returns:
             np.ndarray
         """
@@ -338,7 +334,7 @@ class Sequential(NonSequential):
             chain_states=self.chain_states,
             initial_state=None,
             simulate_escape_time=True,
-            seed=seed
+            seed=seed,
         ).reshape(-1)
 
     def simulate_seasons(
@@ -347,17 +343,17 @@ class Sequential(NonSequential):
         season_length: int,
         seasons_per_trace: int = 1,
         burn_in: int = 100,
-        seed: int = None
+        seed: int = None,
     ) -> np.ndarray:
         """Simulate multiple traces of available conventional generation; each trace can have one or more peak seasons in it, depending on whether streaks of multiple years need to be sampled.
-        
+
         Args:
             size (int): number of traces to sample
             season_length (int): peak season length
             seasons_per_trace (int, optional): Number of seasons per trace. The default is 1.
             burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
             seed (int, optional): Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.
-        
+
         No Longer Returned:
             np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
         """
@@ -371,7 +367,7 @@ class Sequential(NonSequential):
             chain_states=self.chain_states,
             initial_state=None,
             simulate_escape_time=True,
-            seed=seed
+            seed=seed,
         )
 
         # drop burn in periods and reshape

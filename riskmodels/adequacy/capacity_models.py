@@ -27,7 +27,10 @@ import riskmodels.univariate as univar
 from riskmodels.bivariate import Independent, BaseDistribution
 from riskmodels.adequacy import acg_models
 
-from riskmodels.utils.adequacy_interfaces import BaseBivariateMonteCarlo, BaseCapacityModel
+from riskmodels.utils.adequacy_interfaces import (
+    BaseBivariateMonteCarlo,
+    BaseCapacityModel,
+)
 from riskmodels.utils.map_reduce import UnivariateTraces, BivariateTraces
 
 from tqdm import tqdm
@@ -36,8 +39,6 @@ from c_sequential_models_api import ffi, lib as C_CALL
 from c_bivariate_surplus_api import ffi, lib as C_API
 
 pd.options.mode.chained_assignment = None  # default='warn'
-
-
 
 
 class BivariateNSMonteCarlo(BaseBivariateMonteCarlo):
@@ -71,7 +72,7 @@ class BivariateNSMonteCarlo(BaseBivariateMonteCarlo):
 
 class BivariateNSEmpirical(BaseCapacityModel):
 
-    """Non-sequential model that computes statistics for the capacity surpluses in a 2-area power system, given the distributions of available conventional generation and data for demand and renewable generation in the two areas; the empirical distributions of net demand is used."""
+    """Non-sequential model that uses a hindcast net demand model to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies"""
 
     def __repr__(self):
         return f"Bivariate empirical surplus model with {len(self.demand_data)} observations"
@@ -270,7 +271,7 @@ class BivariateNSEmpirical(BaseCapacityModel):
         """
 
         if area == -1:
-            return (self.eeu(itc_cap, policy, 0) + self.eeu(itc_cap, policy, 1))
+            return self.eeu(itc_cap, policy, 0) + self.eeu(itc_cap, policy, 1)
 
         if area == 1:
             self.swap_axes()
@@ -313,7 +314,7 @@ class BivariateNSEmpirical(BaseCapacityModel):
             else:
                 raise ValueError(f"Policy name ({policy}) not recognised.")
 
-            epus += point_EPU/n
+            epus += point_EPU / n
 
         if area == 1:
             self.swap_axes()
@@ -558,26 +559,17 @@ class BivariateNSEmpirical(BaseCapacityModel):
         ]  # first column has variable conditioned on (constant value)
 
 
-
-
-
-
-
-
-
-
-
 class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
 
     """Univariate model for capacity surplus using a sequential available conventional generation model, implementing Monte Carlo evaluations through map-reduce patterns. Worker instances are of type UnivariateTraces.
-    
+
     Args:
         gen_dir (str): folder with conventional generation data
         demand (np.ndarray): demand data
         renewables (np.ndarray): renewables data
         season_length (int): number of timesteps per peak season
         n_cores (int, optional): number of cores to use for map-reduce operations
-    
+
     """
 
     gen_dir: str
@@ -616,10 +608,10 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         season_length: int,
         n_cores: int = 4,
         burn_in: int = 100,
-        seed: int = None
+        seed: int = None,
     ) -> BaseCapacityModel:
         """Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.
-        
+
         Args:
             output_dir (str): Output directory for trace files
             n_traces (int): Total number of season traces to simulate
@@ -631,10 +623,10 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
             n_cores (int, optional): Number of cores to use.
             burn_in (int, optional): Parameter passed to acg_models.Sequential.simulate_seasons.
             seed (int, optional): Random seed passed to C backend. If not passed, output file paths are hashed to obtained it; this is because different seeds are needed for each file, otherwise traces are identical across files.
-        
+
         No Longer Returned:
             UnivariateSequential: Sequential surplus model
-        
+
         """
 
         # create dir if it doesn't exist
@@ -663,13 +655,17 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         seasons_per_trace = int(trace_length / season_length)
         for idx, file_size in enumerate(file_sizes):
             output_path = Path(output_dir) / str(idx)
-            file_seed = seed + idx if seed is not None else abs(adler32(str(output_path).encode("utf-8"))) % (1024*1024)
+            file_seed = (
+                seed + idx
+                if seed is not None
+                else abs(adler32(str(output_path).encode("utf-8"))) % (1024 * 1024)
+            )
             call_kwargs = {
                 "size": file_size,
                 "season_length": season_length,
                 "seasons_per_trace": seasons_per_trace,
                 "burn_in": burn_in,
-                "seed": file_seed
+                "seed": file_seed,
             }
             arglist.append((gen, call_kwargs, output_path))
 
@@ -686,7 +682,7 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
-            n_cores = n_cores
+            n_cores=n_cores,
         )
 
     def create_mapred_arglist(
@@ -741,7 +737,7 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         self,
         mapper: t.Union[str, t.Callable],
         reducer: t.Optional[t.Callable],
-        str_map_kwargs: t.Dict = {}
+        str_map_kwargs: t.Dict = {},
     ) -> t.Any:
         """Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
@@ -813,10 +809,11 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
 
     def simulate_eu(self) -> np.ndarray:
         """Simulates per-peak-season energy userved
-        
+
         Returns:
             np.ndarray: array with one entry per peak season
         """
+
         def reducer(mapped):
             eu_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
             return eu_samples
@@ -825,10 +822,11 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
 
     def simulate_lold(self):
         """Simulates per-peak-season loss of load duration
-        
+
         Returns:
             np.ndarray: array with one entry per peak season
         """
+
         def reducer(mapped):
             lold_samples = np.concatenate([samples for samples, _ in mapped], axis=0)
             return lold_samples
@@ -851,7 +849,9 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
             trace_length = len(self.demand)
             seasons_per_trace = trace_length / self.season_length
             if seasons_per_trace != int(seasons_per_trace):
-                raise ValueError(f"trace length ({trace_length}) is not a multiple of season length ({season_length})")
+                raise ValueError(
+                    f"trace length ({trace_length}) is not a multiple of season length ({season_length})"
+                )
             seasons_per_trace = int(seasons_per_trace)
             past_seasons = 0
             for df, n_traces in mapped:
@@ -941,7 +941,7 @@ class BivariateSequential(UnivariateSequential):
             demand=np.array(demand),
             renewables=np.array(renewables),
             season_length=season_length,
-            n_cores=n_cores
+            n_cores=n_cores,
         )
 
     def create_mapred_arglist(
@@ -976,10 +976,7 @@ class BivariateSequential(UnivariateSequential):
             )
             # we only care for named arguments to initialise univariate surplus models
             univariate_trace_pairs.append(
-                [
-                    UnivariateTraces(**named_args)
-                    for named_args, _, _ in univar_arglist
-                ]
+                [UnivariateTraces(**named_args) for named_args, _, _ in univar_arglist]
             )
 
         # policy is passed here at the worker instantiation level. This is to take advantage of bivariate surplus code from the iid module. Said module implements everything for a veto policy, so it is reused. But said module does not take policy as an argument, and to overcome this in the inheriting subclass, the policy is passed at instantiation time and a reimplementation of the itc_flow method in BivariateTraces looks at the passed value to pick the correct flow equations. This is convoluted but avoids code duplication.
@@ -1001,7 +998,7 @@ class BivariateSequential(UnivariateSequential):
         reducer: t.Optional[t.Callable],
         str_map_kwargs: t.Dict = {},
         policy: str = "veto",
-        itc_cap: float = 1000.0
+        itc_cap: float = 1000.0,
     ) -> t.Any:
         """Performs map-reduce processing operations on each persisted generation trace file, given mapper and reducer functions
 
@@ -1121,7 +1118,7 @@ class BivariateSequential(UnivariateSequential):
 
     def simulate_eu(self, itc_cap: float = 1000.0, policy="veto") -> np.ndarray:
         """Simulates per-peak-season energy unserved for both areas
-        
+
         Args:
             itc_cap (int, optional): interconnection capacity
             policy (str, optional): one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
@@ -1129,6 +1126,7 @@ class BivariateSequential(UnivariateSequential):
         Returns:
             np.ndarray: array with one row per peak season and one column per area
         """
+
         def reducer(mapped):
             eu_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
             return eu_samples
@@ -1142,7 +1140,7 @@ class BivariateSequential(UnivariateSequential):
 
     def simulate_lold(self, itc_cap: float = 1000.0, policy="veto") -> np.ndarray:
         """Simulates per-peak-season loss of load duration for both areas
-        
+
         Args:
             itc_cap (int, optional): interconnection capacity
             policy (str, optional): one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
@@ -1150,6 +1148,7 @@ class BivariateSequential(UnivariateSequential):
         Returns:
             np.ndarray: array with one row per peak season and one column per area
         """
+
         def reducer(mapped):
             lold_samples = np.concatenate([sample for sample, _ in mapped], axis=0)
             return lold_samples

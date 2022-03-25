@@ -1,4 +1,3 @@
-
 """
 This module contains a few base interfaces for surplus capacity models defined in `riskmodels.adequacy.capacity_models`. 
 
@@ -18,10 +17,10 @@ from scipy.optimize import bisect
 
 from pydantic import BaseModel as BasePydanticModel, validator
 
+
 class BaseCapacityModel(ABC):
 
-    """Main interface for capacity models outlining the basic list of methods
-    """
+    """Main interface for capacity models outlining the basic list of methods"""
 
     @abstractmethod
     def cdf(self):

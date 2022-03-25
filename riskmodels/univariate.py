@@ -644,11 +644,11 @@ class GPTail(BaseDistribution):
             grad_scale = np.sum((y - scale) / (scale * (y * shape + scale)))
             grad_shape = np.sum(
                 -((y * (1 + shape)) / (shape * (y * shape + scale)))
-                + np.log(1 + (y * shape) / scale) / shape ** 2
+                + np.log(1 + (y * shape) / scale) / shape**2
             )
         else:
-            grad_scale = np.sum((y - scale) / scale ** 2)
-            grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale ** 2))
+            grad_scale = np.sum((y - scale) / scale**2)
+            grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale**2))
 
         return np.array([grad_scale, grad_shape])
 
@@ -671,15 +671,15 @@ class GPTail(BaseDistribution):
 
         if not np.isclose(shape, 0, atol=cls._error_tol):
             d2scale = np.sum(
-                -(1 / (shape * scale ** 2))
+                -(1 / (shape * scale**2))
                 + (1 + shape) / (shape * (y * shape + scale) ** 2)
             )
 
             # d2shape = (y (3 y ξ + y ξ^2 + 2 σ))/(ξ^2 (y ξ + σ)^2) - (2 Log[1 + (y ξ)/σ])/ξ^3
             d2shape = np.sum(
-                (y * (3 * y * shape + y * shape ** 2 + 2 * scale))
-                / (shape ** 2 * (y * shape + scale) ** 2)
-                - (2 * np.log(1 + (y * shape) / scale)) / shape ** 3
+                (y * (3 * y * shape + y * shape**2 + 2 * scale))
+                / (shape**2 * (y * shape + scale) ** 2)
+                - (2 * np.log(1 + (y * shape) / scale)) / shape**3
             )
 
             # dscale_dshape = (y (-y + σ))/(σ (y ξ + σ)^2)
@@ -687,9 +687,9 @@ class GPTail(BaseDistribution):
                 (y * (-y + scale)) / (scale * (y * shape + scale) ** 2)
             )
         else:
-            d2scale = np.sum((scale - 2 * y) / scale ** 3)
-            dscale_dshape = np.sum(-y * (y - scale) / scale ** 3)
-            d2shape = np.sum(y ** 2 * (3 * scale - 2 * y) / (3 * scale ** 3))
+            d2scale = np.sum((scale - 2 * y) / scale**3)
+            dscale_dshape = np.sum(-y * (y - scale) / scale**3)
+            d2shape = np.sum(y**2 * (3 * scale - 2 * y) / (3 * scale**3))
 
         hessian = np.array([[d2scale, dscale_dshape], [dscale_dshape, d2shape]])
 
@@ -709,7 +709,7 @@ class GPTail(BaseDistribution):
         """
         scale, shape = params
 
-        return 0.5 * (np.log(scale) + shape ** 2)
+        return 0.5 * (np.log(scale) + shape**2)
 
     @classmethod
     def logreg_grad(cls, params: t.List[float]) -> float:
@@ -731,7 +731,7 @@ class GPTail(BaseDistribution):
 
         """
         scale, shape = params
-        return 0.5 * np.array([-1.0 / scale ** 2, 0, 0, 2]).reshape((2, 2))
+        return 0.5 * np.array([-1.0 / scale**2, 0, 0, 2]).reshape((2, 2))
 
     @classmethod
     def loss(
@@ -1147,7 +1147,7 @@ class GPTailMixture(BaseDistribution):
         if return_all:
             return np.sqrt(var)
         else:
-            return np.sqrt(np.dot(self.weights, var + mean ** 2) - self.mean() ** 2)
+            return np.sqrt(np.dot(self.weights, var + mean**2) - self.mean() ** 2)
 
     def cdf(
         self, x: t.Union[float, np.ndarray], return_all: bool = False
@@ -1575,7 +1575,7 @@ class Empirical(BaseDistribution):
         Returns:
             float: n-th moment value
         """
-        return np.sum(self.pdf_values * self.support ** n)
+        return np.sum(self.pdf_values * self.support**n)
 
     def ppf(
         self, q: t.Union[float, np.ndarray], **kwargs
@@ -2051,7 +2051,7 @@ class EmpiricalWithGPTail(Mixture):
                         [
                             scale * m * (m * exs_prob) ** (shape - 1),
                             1 / shape * ((exs_prob * m) ** shape - 1),
-                            -scale / shape ** 2 * ((exs_prob * m) ** shape - 1)
+                            -scale / shape**2 * ((exs_prob * m) ** shape - 1)
                             + scale
                             / shape
                             * (exs_prob * m) ** shape
@@ -2069,7 +2069,7 @@ class EmpiricalWithGPTail(Mixture):
                     return_levels + 1.96 * return_stdevs,
                     alpha=0.2,
                     color=self._figure_color_palette[1],
-                    linestyle="dashed"
+                    linestyle="dashed",
                 )
             else:
                 warnings.warn(
@@ -2415,7 +2415,7 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
             q975_return_levels,
             alpha=0.2,
             color=self._figure_color_palette[1],
-            linestyle="dashed"
+            linestyle="dashed",
         )
         plt.xscale("log")
         plt.title("Exceedance return levels")
