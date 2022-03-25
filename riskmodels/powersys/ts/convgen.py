@@ -14,8 +14,14 @@ from riskmodels.powersys.iid.convgen import IndependentFleetModel
 
 
 class MarkovChainGenerationModel(IndependentFleetModel):
+
     """Available conventional generation model in which generators are modelled as Markov chains and are assumed to be independent of each other. The methods `from_generator_df` and `from_generator_file` can be used to instantiate this class when 2-state Markov chains are used (on-off availability for each generating unit without de-rated states), see the cited methods for details. 
     To simulate Markov chain models with a different set of statess (e.g. de-rated states) the class method `simulate_chains` can be used by passing custom `transition_matrices` and `chain_states` arguments along with other required parameters. See the cited function for details.
+    
+    Args:
+        transition_matrices (np.ndarray): three-dimensional array where axis 0 represents generation units, and axis 1 and 2 represent transition matrix dimensions
+        chain_states (np.ndarray): two-dimensional array where axis 0 represents generation units and axis 1 represents the array of the unit's states
+    
     """
 
     transition_matrices: np.ndarray

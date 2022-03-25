@@ -4,3 +4,4 @@ Univariate models consist of MLE-based and Bayesian generalised Pareto tail mode
 Univariate and bivariate time-collapsed models for power surplus distributions are implemented in the `riskmodels.powersys.iid.surplus` module.
 Sequential models for univariate and bivariate power surplus distributions are implemented along with functionality for large-scale simulation using a map-reduce and multi-core patterns; see the `riskmodels.powersys.ts` module.
 """
+__version__="1.0.0-dev"

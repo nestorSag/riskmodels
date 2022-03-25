@@ -17,7 +17,7 @@ html-docs: ## Updates html documentation
 pdf-docs: ## Generates pdf documentation
 	@$(call verify_install, pdoc3);\
   echo "for this to work, pandoc needs to be installed."
-	@pdoc3 --pdf -c latex_math=True riskmodels > docs.md
+	@pdoc3 --pdf --config='docformat="google"' -c latex_math=True -c show_source_code=False riskmodels > docs.md
 	@pandoc --metadata=title:"riskmodels package" \
 	--from=markdown+abbreviations+tex_math_single_backslash \
 	--pdf-engine=xelatex --variable=mainfont:"DejaVu Sans" \

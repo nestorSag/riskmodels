@@ -79,7 +79,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
 
     @property
     def surplus_trace(self):
-        # this return a 2-dimensional array where each row is a trace sample, and each column is a within-trace  timestep. A trace may contain multiple concatenated peak seasons
+        # this return a 2-dimensional array where each row is a trace sample, and each column is a timestep within the trace. A trace may contain multiple concatenated peak seasons
         return MarkovChainGenerationTraces.from_file(self.gen_filepath).traces - (
             self.demand - self.renewables
         )
@@ -119,7 +119,7 @@ class UnivariateEmpiricalTraces(BaseSurplus, BaseModel):
         n_traces, trace_length = trace.shape
         if trace_length % self.season_length != 0:
             raise ValueError("Trace length is not a multiple of season length.")
-        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x peak season length)
         return np.sum((np.maximum(0.0, -self.surplus_trace) > 1e-1).reshape(target_shape), axis=1) #1e-1 to avoid problems with numerical rounding errors
 
     def simulate_eu(self) -> np.ndarray:

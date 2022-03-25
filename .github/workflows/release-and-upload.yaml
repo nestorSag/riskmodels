@@ -32,8 +32,8 @@ jobs:
         #   ${{steps.build_changelog.outputs.changelog}}
         draft: true
         prerelease: false
-    - name: Set tag as package version through an environment variable
-      run: echo "RISKMODELS_VERSION=$(echo $GITHUB_REF | cut -d / -f 3)" >> $GITHUB_ENV
+    - name: Set tag as package version
+      run: echo "__version__=\"$(echo $GITHUB_REF | cut -d / -f 3)\"" > riskmodels/__init__.py
     - name: Build package
       run: make build
     - name: Publish distribution to PyPI

@@ -1,9 +1,16 @@
 import os
+from pathlib import Path
+import re
 import setuptools
 from distutils.core import Extension
 from setuptools import setup, find_namespace_packages, Extension
 
-VERSION = os.environ.get("RISKMODELS_VERSION", "1.0.0").replace("v","")
+PROJECT_NAME = "riskmodels"
+
+def get_project_property(prop, project):
+    init_file = Path(PROJECT_NAME) / '__init__.py'
+    value = re.search(f'(^|\n){prop}="([^\n]+)"', open(init_file).read())
+    return value.group(2)
 
 with open("README.md", "r") as fh:
 
@@ -11,9 +18,9 @@ with open("README.md", "r") as fh:
 
     setup(
 
-     name='riskmodels',  
+     name=PROJECT_NAME,  
 
-     version=VERSION,
+     version=get_project_property('__version__', PROJECT_NAME),
 
      author="Nestor Sanchez",
 
