@@ -3,4 +3,4 @@ This package implements one and two-dimensional extreme value models. Synthatic 
 Univariate models consist of MLE-based and Bayesian generalised Pareto tail models and the resulting semiparametric models with a lower empirical component and a higher parametric tail model. Bivariate models implement Gaussian and Gumbel-Hougaard copulas for exceedances; see the `riskmodels.bivariate` module.
 Efficient implementations of sequential and non-sequential capacity surplus models for power system adequacy assessment are implemented in the `riskmodels.adequacy.capacity_models` module
 """
-__version__ = "1.0.0-dev"
+__version__="1.0.0-dev"

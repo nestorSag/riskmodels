@@ -9,7 +9,7 @@ PROJECT_NAME = "riskmodels"
 
 def get_project_property(prop, project):
     init_file = Path(PROJECT_NAME) / '__init__.py'
-    value = re.search(f'(^|\n){prop}="([^\n]+)"', open(init_file).read())
+    value = re.search(f'(^|\n){prop} *= *"v?([^\n]+)"', open(init_file).read())
     return value.group(2)
 
 with open("README.md", "r") as fh:
