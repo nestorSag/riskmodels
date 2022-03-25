@@ -47,10 +47,10 @@ from scipy.optimize import bisect
 
 from pydantic import BaseModel as BasePydanticModel, validator
 
+
 class BaseCapacityModel(ABC):
 
-    &#34;&#34;&#34;Main interface for capacity models
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Main interface for capacity models outlining the basic list of methods&#34;&#34;&#34;
 
     @abstractmethod
     def cdf(self):
@@ -606,15 +606,14 @@ def get_pre_itc_sample(self) -&gt; np.ndarray:
 <span>class <span class="ident">BaseCapacityModel</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Main interface for capacity models</p></div>
+<div class="desc"><p>Main interface for capacity models outlining the basic list of methods</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class BaseCapacityModel(ABC):
 
-    &#34;&#34;&#34;Main interface for capacity models
-    &#34;&#34;&#34;
+    &#34;&#34;&#34;Main interface for capacity models outlining the basic list of methods&#34;&#34;&#34;
 
     @abstractmethod
     def cdf(self):

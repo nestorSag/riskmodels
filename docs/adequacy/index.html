@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>riskmodels.utils API documentation</title>
-<meta name="description" content="This module contains utilities on which other modules depend. This includes multivariate truncated normal distributions for simulation, the definition …" />
+<title>riskmodels.adequacy API documentation</title>
+<meta name="description" content="This module contains functionality for power system adequacy modelling, including sequential and non-sequential models for available conventional …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -20,33 +20,29 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>riskmodels.utils</code></h1>
+<h1 class="title">Module <code>riskmodels.adequacy</code></h1>
 </header>
 <section id="section-intro">
-<p>This module contains utilities on which other modules depend. This includes multivariate truncated normal distributions for simulation, the definition of certain base interfaces and the worker classes for map-reduce operations from sequential capacity surplus models.</p>
+<p>This module contains functionality for power system adequacy modelling, including sequential and non-sequential models for available conventional generation (ACG) and capacity surpluses. It also include single-area and two-area models.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-This module contains utilities on which other modules depend. This includes multivariate truncated normal distributions for simulation, the definition of certain base interfaces and the worker classes for map-reduce operations from sequential capacity surplus models.
+This module contains functionality for power system adequacy modelling, including sequential and non-sequential models for available conventional generation (ACG) and capacity surpluses. It also include single-area and two-area models.
 &#34;&#34;&#34;</code></pre>
 </details>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
-<dt><code class="name"><a title="riskmodels.utils.adequacy_interfaces" href="adequacy_interfaces.html">riskmodels.utils.adequacy_interfaces</a></code></dt>
+<dt><code class="name"><a title="riskmodels.adequacy.acg_models" href="acg_models.html">riskmodels.adequacy.acg_models</a></code></dt>
 <dd>
-<div class="desc"><p>This module contains a few base interfaces for surplus capacity models defined in <code><a title="riskmodels.adequacy.capacity_models" href="../adequacy/capacity_models.html">riskmodels.adequacy.capacity_models</a></code>.</p></div>
+<div class="desc"><p>This module implements models for available conventional generation (ACG). The implementation of the non-sequential models assumes generating units …</p></div>
 </dd>
-<dt><code class="name"><a title="riskmodels.utils.map_reduce" href="map_reduce.html">riskmodels.utils.map_reduce</a></code></dt>
+<dt><code class="name"><a title="riskmodels.adequacy.capacity_models" href="capacity_models.html">riskmodels.adequacy.capacity_models</a></code></dt>
 <dd>
-<div class="desc"><p>This module contains utilities for the execution of multi-core map-reduce operations when using sequential capacity models from …</p></div>
-</dd>
-<dt><code class="name"><a title="riskmodels.utils.tmvn" href="tmvn.html">riskmodels.utils.tmvn</a></code></dt>
-<dd>
-<div class="desc"><p>This module contains an implementation of a truncated multivariate normal distribution that is used for simulation by the <code>Gaussian</code> class in the …</p></div>
+<div class="desc"><p>This module implements power system capacity models for adequacy assessment calculations. There are sequential and non-sequential (also called …</p></div>
 </dd>
 </dl>
 </section>
@@ -70,9 +66,8 @@ This module contains utilities on which other modules depend. This includes mult
 </li>
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
-<li><code><a title="riskmodels.utils.adequacy_interfaces" href="adequacy_interfaces.html">riskmodels.utils.adequacy_interfaces</a></code></li>
-<li><code><a title="riskmodels.utils.map_reduce" href="map_reduce.html">riskmodels.utils.map_reduce</a></code></li>
-<li><code><a title="riskmodels.utils.tmvn" href="tmvn.html">riskmodels.utils.tmvn</a></code></li>
+<li><code><a title="riskmodels.adequacy.acg_models" href="acg_models.html">riskmodels.adequacy.acg_models</a></code></li>
+<li><code><a title="riskmodels.adequacy.capacity_models" href="capacity_models.html">riskmodels.adequacy.capacity_models</a></code></li>
 </ul>
 </li>
 </ul>

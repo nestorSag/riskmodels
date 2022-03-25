@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>riskmodels.utils.map_reduce API documentation</title>
-<meta name="description" content="This module contains utilities for the execution of multi-core map-reduce operations when using sequencial capacity models from …" />
+<meta name="description" content="This module contains utilities for the execution of multi-core map-reduce operations when using sequential capacity models from …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -23,13 +23,13 @@
 <h1 class="title">Module <code>riskmodels.utils.map_reduce</code></h1>
 </header>
 <section id="section-intro">
-<p>This module contains utilities for the execution of multi-core map-reduce operations when using sequencial capacity models from <code><a title="riskmodels.adequacy.capacity_models" href="../adequacy/capacity_models.html">riskmodels.adequacy.capacity_models</a></code>. Classes defined here are the workers of map-reduce computations and act as wrappers for numpy arrays that have been persisted as files and are read in parallel at execution time. These classes are not meant to be instantiated directly, but can be accessed through custom mappers and reducers passed to sequential capacity model instances.</p>
+<p>This module contains utilities for the execution of multi-core map-reduce operations when using sequential capacity models from <code><a title="riskmodels.adequacy.capacity_models" href="../adequacy/capacity_models.html">riskmodels.adequacy.capacity_models</a></code>. Classes defined here are the workers of map-reduce computations and act as wrappers for <code>numpy</code> arrays that have been persisted as files and are read in parallel at execution time. These classes are not meant to be instantiated directly, but can be accessed through custom mappers and reducers passed to sequential capacity model instances.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-This module contains utilities for the execution of multi-core map-reduce operations when using sequencial capacity models from `riskmodels.adequacy.capacity_models`. Classes defined here are the workers of map-reduce computations and act as wrappers for numpy arrays that have been persisted as files and are read in parallel at execution time. These classes are not meant to be instantiated directly, but can be accessed through custom mappers and reducers passed to sequential capacity model instances.
+This module contains utilities for the execution of multi-core map-reduce operations when using sequential capacity models from `riskmodels.adequacy.capacity_models`. Classes defined here are the workers of map-reduce computations and act as wrappers for `numpy` arrays that have been persisted as files and are read in parallel at execution time. These classes are not meant to be instantiated directly, but can be accessed through custom mappers and reducers passed to sequential capacity model instances.
 
 &#34;&#34;&#34;
 from __future__ import annotations
@@ -47,8 +47,10 @@ from scipy.optimize import bisect
 
 from pydantic import BaseModel as BasePydanticModel
 
-from riskmodels.utils.adequacy_interfaces import BaseCapacityModel, BaseBivariateMonteCarlo
-
+from riskmodels.utils.adequacy_interfaces import (
+    BaseCapacityModel,
+    BaseBivariateMonteCarlo,
+)
 
 
 class PersistedTraces(BasePydanticModel):
@@ -85,7 +87,7 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
         demand (np.ndarray): demand data
         renewables (np.ndarray): renewables data
         season_length (int): number of timesteps per peak season
-    
+
     &#34;&#34;&#34;
 
     gen_filepath: str
@@ -127,7 +129,7 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
 
     def simulate(self) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for surplus values
-        
+
         Returns:
             np.ndarray: simulated surplus values
         &#34;&#34;&#34;
@@ -135,7 +137,7 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
 
     def simulate_lold(self) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for energy unserved
-        
+
         Returns:
             np.ndarray: Simulated energy unserved
         &#34;&#34;&#34;
@@ -143,12 +145,17 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
         n_traces, trace_length = trace.shape
         if trace_length % self.season_length != 0:
             raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
-        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x peak season length)
-        return np.sum((np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1) #1e-1 to avoid problems with numerical rounding errors
+        target_shape = (
+            n_traces * (trace_length // self.season_length),
+            self.season_length,
+        )  # reshape as (# peak seasons x peak season length)
+        return np.sum(
+            (np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1
+        )  # 1e-1 to avoid problems with numerical rounding errors
 
     def simulate_eu(self) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for energy unserved
-        
+
         Returns:
             np.ndarray: Simulated energy unserved
         &#34;&#34;&#34;
@@ -156,7 +163,10 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
         n_traces, trace_length = trace.shape
         if trace_length % self.season_length != 0:
             raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
-        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+        target_shape = (
+            n_traces * (trace_length // self.season_length),
+            self.season_length,
+        )  # reshape as (# peak seasons x within-peak-season timestamp)
         return np.sum(np.maximum(0.0, -trace).reshape(target_shape), axis=1)
 
     def lole(self) -&gt; float:
@@ -323,31 +333,45 @@ class BivariateTraces(BaseBivariateMonteCarlo):
 
     def simulate_lold(self, itc_cap: int = 1000) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for loss of load duration
-        
+
         Returns:
             np.ndarray: Simulated loss of load duration
         &#34;&#34;&#34;
-        lold_vectors = (np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1).T #avoid numerical rounding errors with offset 1e-1
+        lold_vectors = (
+            np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1
+        ).T  # avoid numerical rounding errors with offset 1e-1
         n = len(lold_vectors[0])
         if n % self.season_length != 0:
-            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+            raise ValueError(
+                &#34;Simulated series length is not a multiple of season length.&#34;
+            )
         return np.stack(
-            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in lold_vectors],
-            axis=1)
+            [
+                v.reshape((n // self.season_length, self.season_length)).sum(axis=1)
+                for v in lold_vectors
+            ],
+            axis=1,
+        )
 
     def simulate_eu(self, itc_cap: int = 1000) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for energy unserved
-        
+
         Returns:
             np.ndarray: Simulated energy unserved
         &#34;&#34;&#34;
         eu_vectors = np.maximum(0.0, -self.simulate(itc_cap)).T
         n = len(eu_vectors[0])
         if n % self.season_length != 0:
-            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+            raise ValueError(
+                &#34;Simulated series length is not a multiple of season length.&#34;
+            )
         return np.stack(
-            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in eu_vectors],
-            axis=1)
+            [
+                v.reshape((n // self.season_length, self.season_length)).sum(axis=1)
+                for v in eu_vectors
+            ],
+            axis=1,
+        )
 
     def get_surplus_df(
         self, shortfalls_only: bool = True, itc_cap: int = 1000
@@ -503,31 +527,45 @@ class BivariateTraces(BaseBivariateMonteCarlo):
 
     def simulate_lold(self, itc_cap: int = 1000) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for loss of load duration
-        
+
         Returns:
             np.ndarray: Simulated loss of load duration
         &#34;&#34;&#34;
-        lold_vectors = (np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1).T #avoid numerical rounding errors with offset 1e-1
+        lold_vectors = (
+            np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1
+        ).T  # avoid numerical rounding errors with offset 1e-1
         n = len(lold_vectors[0])
         if n % self.season_length != 0:
-            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+            raise ValueError(
+                &#34;Simulated series length is not a multiple of season length.&#34;
+            )
         return np.stack(
-            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in lold_vectors],
-            axis=1)
+            [
+                v.reshape((n // self.season_length, self.season_length)).sum(axis=1)
+                for v in lold_vectors
+            ],
+            axis=1,
+        )
 
     def simulate_eu(self, itc_cap: int = 1000) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for energy unserved
-        
+
         Returns:
             np.ndarray: Simulated energy unserved
         &#34;&#34;&#34;
         eu_vectors = np.maximum(0.0, -self.simulate(itc_cap)).T
         n = len(eu_vectors[0])
         if n % self.season_length != 0:
-            raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+            raise ValueError(
+                &#34;Simulated series length is not a multiple of season length.&#34;
+            )
         return np.stack(
-            [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in eu_vectors],
-            axis=1)
+            [
+                v.reshape((n // self.season_length, self.season_length)).sum(axis=1)
+                for v in eu_vectors
+            ],
+            axis=1,
+        )
 
     def get_surplus_df(
         self, shortfalls_only: bool = True, itc_cap: int = 1000
@@ -702,17 +740,23 @@ def surplus_trace(self):
 </summary>
 <pre><code class="python">def simulate_eu(self, itc_cap: int = 1000) -&gt; np.ndarray:
     &#34;&#34;&#34;Returns a simulated trace for energy unserved
-    
+
     Returns:
         np.ndarray: Simulated energy unserved
     &#34;&#34;&#34;
     eu_vectors = np.maximum(0.0, -self.simulate(itc_cap)).T
     n = len(eu_vectors[0])
     if n % self.season_length != 0:
-        raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+        raise ValueError(
+            &#34;Simulated series length is not a multiple of season length.&#34;
+        )
     return np.stack(
-        [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in eu_vectors],
-        axis=1)</code></pre>
+        [
+            v.reshape((n // self.season_length, self.season_length)).sum(axis=1)
+            for v in eu_vectors
+        ],
+        axis=1,
+    )</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.utils.map_reduce.BivariateTraces.simulate_lold"><code class="name flex">
@@ -731,17 +775,25 @@ def surplus_trace(self):
 </summary>
 <pre><code class="python">def simulate_lold(self, itc_cap: int = 1000) -&gt; np.ndarray:
     &#34;&#34;&#34;Returns a simulated trace for loss of load duration
-    
+
     Returns:
         np.ndarray: Simulated loss of load duration
     &#34;&#34;&#34;
-    lold_vectors = (np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1).T #avoid numerical rounding errors with offset 1e-1
+    lold_vectors = (
+        np.maximum(0.0, -self.simulate(itc_cap)) &gt; 1e-1
+    ).T  # avoid numerical rounding errors with offset 1e-1
     n = len(lold_vectors[0])
     if n % self.season_length != 0:
-        raise ValueError(&#34;Simulated series length is not a multiple of season length.&#34;)
+        raise ValueError(
+            &#34;Simulated series length is not a multiple of season length.&#34;
+        )
     return np.stack(
-        [v.reshape((n//self.season_length, self.season_length)).sum(axis=1) for v in lold_vectors],
-        axis=1)</code></pre>
+        [
+            v.reshape((n // self.season_length, self.season_length)).sum(axis=1)
+            for v in lold_vectors
+        ],
+        axis=1,
+    )</code></pre>
 </details>
 </dd>
 </dl>
@@ -870,7 +922,7 @@ def from_file(cls, trace_filepath: str):
         demand (np.ndarray): demand data
         renewables (np.ndarray): renewables data
         season_length (int): number of timesteps per peak season
-    
+
     &#34;&#34;&#34;
 
     gen_filepath: str
@@ -912,7 +964,7 @@ def from_file(cls, trace_filepath: str):
 
     def simulate(self) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for surplus values
-        
+
         Returns:
             np.ndarray: simulated surplus values
         &#34;&#34;&#34;
@@ -920,7 +972,7 @@ def from_file(cls, trace_filepath: str):
 
     def simulate_lold(self) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for energy unserved
-        
+
         Returns:
             np.ndarray: Simulated energy unserved
         &#34;&#34;&#34;
@@ -928,12 +980,17 @@ def from_file(cls, trace_filepath: str):
         n_traces, trace_length = trace.shape
         if trace_length % self.season_length != 0:
             raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
-        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x peak season length)
-        return np.sum((np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1) #1e-1 to avoid problems with numerical rounding errors
+        target_shape = (
+            n_traces * (trace_length // self.season_length),
+            self.season_length,
+        )  # reshape as (# peak seasons x peak season length)
+        return np.sum(
+            (np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1
+        )  # 1e-1 to avoid problems with numerical rounding errors
 
     def simulate_eu(self) -&gt; np.ndarray:
         &#34;&#34;&#34;Returns a simulated trace for energy unserved
-        
+
         Returns:
             np.ndarray: Simulated energy unserved
         &#34;&#34;&#34;
@@ -941,7 +998,10 @@ def from_file(cls, trace_filepath: str):
         n_traces, trace_length = trace.shape
         if trace_length % self.season_length != 0:
             raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
-        target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+        target_shape = (
+            n_traces * (trace_length // self.season_length),
+            self.season_length,
+        )  # reshape as (# peak seasons x within-peak-season timestamp)
         return np.sum(np.maximum(0.0, -trace).reshape(target_shape), axis=1)
 
     def lole(self) -&gt; float:
@@ -1237,7 +1297,7 @@ def surplus_trace(self):
 </summary>
 <pre><code class="python">def simulate(self) -&gt; np.ndarray:
     &#34;&#34;&#34;Returns a simulated trace for surplus values
-    
+
     Returns:
         np.ndarray: simulated surplus values
     &#34;&#34;&#34;
@@ -1260,7 +1320,7 @@ def surplus_trace(self):
 </summary>
 <pre><code class="python">def simulate_eu(self) -&gt; np.ndarray:
     &#34;&#34;&#34;Returns a simulated trace for energy unserved
-    
+
     Returns:
         np.ndarray: Simulated energy unserved
     &#34;&#34;&#34;
@@ -1268,7 +1328,10 @@ def surplus_trace(self):
     n_traces, trace_length = trace.shape
     if trace_length % self.season_length != 0:
         raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
-    target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x within-peak-season timestamp)
+    target_shape = (
+        n_traces * (trace_length // self.season_length),
+        self.season_length,
+    )  # reshape as (# peak seasons x within-peak-season timestamp)
     return np.sum(np.maximum(0.0, -trace).reshape(target_shape), axis=1)</code></pre>
 </details>
 </dd>
@@ -1288,7 +1351,7 @@ def surplus_trace(self):
 </summary>
 <pre><code class="python">def simulate_lold(self) -&gt; np.ndarray:
     &#34;&#34;&#34;Returns a simulated trace for energy unserved
-    
+
     Returns:
         np.ndarray: Simulated energy unserved
     &#34;&#34;&#34;
@@ -1296,8 +1359,13 @@ def surplus_trace(self):
     n_traces, trace_length = trace.shape
     if trace_length % self.season_length != 0:
         raise ValueError(&#34;Trace length is not a multiple of season length.&#34;)
-    target_shape = (n_traces*(trace_length//self.season_length), self.season_length) #reshape as (# peak seasons x peak season length)
-    return np.sum((np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1) #1e-1 to avoid problems with numerical rounding errors</code></pre>
+    target_shape = (
+        n_traces * (trace_length // self.season_length),
+        self.season_length,
+    )  # reshape as (# peak seasons x peak season length)
+    return np.sum(
+        (np.maximum(0.0, -self.surplus_trace) &gt; 1e-1).reshape(target_shape), axis=1
+    )  # 1e-1 to avoid problems with numerical rounding errors</code></pre>
 </details>
 </dd>
 </dl>

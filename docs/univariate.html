@@ -674,11 +674,11 @@ class GPTail(BaseDistribution):
             grad_scale = np.sum((y - scale) / (scale * (y * shape + scale)))
             grad_shape = np.sum(
                 -((y * (1 + shape)) / (shape * (y * shape + scale)))
-                + np.log(1 + (y * shape) / scale) / shape ** 2
+                + np.log(1 + (y * shape) / scale) / shape**2
             )
         else:
-            grad_scale = np.sum((y - scale) / scale ** 2)
-            grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale ** 2))
+            grad_scale = np.sum((y - scale) / scale**2)
+            grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale**2))
 
         return np.array([grad_scale, grad_shape])
 
@@ -701,15 +701,15 @@ class GPTail(BaseDistribution):
 
         if not np.isclose(shape, 0, atol=cls._error_tol):
             d2scale = np.sum(
-                -(1 / (shape * scale ** 2))
+                -(1 / (shape * scale**2))
                 + (1 + shape) / (shape * (y * shape + scale) ** 2)
             )
 
             # d2shape = (y (3 y ξ + y ξ^2 + 2 σ))/(ξ^2 (y ξ + σ)^2) - (2 Log[1 + (y ξ)/σ])/ξ^3
             d2shape = np.sum(
-                (y * (3 * y * shape + y * shape ** 2 + 2 * scale))
-                / (shape ** 2 * (y * shape + scale) ** 2)
-                - (2 * np.log(1 + (y * shape) / scale)) / shape ** 3
+                (y * (3 * y * shape + y * shape**2 + 2 * scale))
+                / (shape**2 * (y * shape + scale) ** 2)
+                - (2 * np.log(1 + (y * shape) / scale)) / shape**3
             )
 
             # dscale_dshape = (y (-y + σ))/(σ (y ξ + σ)^2)
@@ -717,9 +717,9 @@ class GPTail(BaseDistribution):
                 (y * (-y + scale)) / (scale * (y * shape + scale) ** 2)
             )
         else:
-            d2scale = np.sum((scale - 2 * y) / scale ** 3)
-            dscale_dshape = np.sum(-y * (y - scale) / scale ** 3)
-            d2shape = np.sum(y ** 2 * (3 * scale - 2 * y) / (3 * scale ** 3))
+            d2scale = np.sum((scale - 2 * y) / scale**3)
+            dscale_dshape = np.sum(-y * (y - scale) / scale**3)
+            d2shape = np.sum(y**2 * (3 * scale - 2 * y) / (3 * scale**3))
 
         hessian = np.array([[d2scale, dscale_dshape], [dscale_dshape, d2shape]])
 
@@ -739,7 +739,7 @@ class GPTail(BaseDistribution):
         &#34;&#34;&#34;
         scale, shape = params
 
-        return 0.5 * (np.log(scale) + shape ** 2)
+        return 0.5 * (np.log(scale) + shape**2)
 
     @classmethod
     def logreg_grad(cls, params: t.List[float]) -&gt; float:
@@ -761,7 +761,7 @@ class GPTail(BaseDistribution):
 
         &#34;&#34;&#34;
         scale, shape = params
-        return 0.5 * np.array([-1.0 / scale ** 2, 0, 0, 2]).reshape((2, 2))
+        return 0.5 * np.array([-1.0 / scale**2, 0, 0, 2]).reshape((2, 2))
 
     @classmethod
     def loss(
@@ -1177,7 +1177,7 @@ class GPTailMixture(BaseDistribution):
         if return_all:
             return np.sqrt(var)
         else:
-            return np.sqrt(np.dot(self.weights, var + mean ** 2) - self.mean() ** 2)
+            return np.sqrt(np.dot(self.weights, var + mean**2) - self.mean() ** 2)
 
     def cdf(
         self, x: t.Union[float, np.ndarray], return_all: bool = False
@@ -1605,7 +1605,7 @@ class Empirical(BaseDistribution):
         Returns:
             float: n-th moment value
         &#34;&#34;&#34;
-        return np.sum(self.pdf_values * self.support ** n)
+        return np.sum(self.pdf_values * self.support**n)
 
     def ppf(
         self, q: t.Union[float, np.ndarray], **kwargs
@@ -2081,7 +2081,7 @@ class EmpiricalWithGPTail(Mixture):
                         [
                             scale * m * (m * exs_prob) ** (shape - 1),
                             1 / shape * ((exs_prob * m) ** shape - 1),
-                            -scale / shape ** 2 * ((exs_prob * m) ** shape - 1)
+                            -scale / shape**2 * ((exs_prob * m) ** shape - 1)
                             + scale
                             / shape
                             * (exs_prob * m) ** shape
@@ -2099,7 +2099,7 @@ class EmpiricalWithGPTail(Mixture):
                     return_levels + 1.96 * return_stdevs,
                     alpha=0.2,
                     color=self._figure_color_palette[1],
-                    linestyle=&#34;dashed&#34;
+                    linestyle=&#34;dashed&#34;,
                 )
             else:
                 warnings.warn(
@@ -2445,7 +2445,7 @@ class EmpiricalWithBayesianGPTail(EmpiricalWithGPTail):
             q975_return_levels,
             alpha=0.2,
             color=self._figure_color_palette[1],
-            linestyle=&#34;dashed&#34;
+            linestyle=&#34;dashed&#34;,
         )
         plt.xscale(&#34;log&#34;)
         plt.title(&#34;Exceedance return levels&#34;)
@@ -4146,7 +4146,7 @@ def integer_support(cls, support):
         Returns:
             float: n-th moment value
         &#34;&#34;&#34;
-        return np.sum(self.pdf_values * self.support ** n)
+        return np.sum(self.pdf_values * self.support**n)
 
     def ppf(
         self, q: t.Union[float, np.ndarray], **kwargs
@@ -4600,7 +4600,7 @@ def pdf_lookup(self):
     Returns:
         float: n-th moment value
     &#34;&#34;&#34;
-    return np.sum(self.pdf_values * self.support ** n)</code></pre>
+    return np.sum(self.pdf_values * self.support**n)</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.univariate.Empirical.plot_mean_residual_life"><code class="name flex">
@@ -4885,7 +4885,7 @@ def pdf_lookup(self):
             q975_return_levels,
             alpha=0.2,
             color=self._figure_color_palette[1],
-            linestyle=&#34;dashed&#34;
+            linestyle=&#34;dashed&#34;,
         )
         plt.xscale(&#34;log&#34;)
         plt.title(&#34;Exceedance return levels&#34;)
@@ -5027,7 +5027,7 @@ def from_data(
         q975_return_levels,
         alpha=0.2,
         color=self._figure_color_palette[1],
-        linestyle=&#34;dashed&#34;
+        linestyle=&#34;dashed&#34;,
     )
     plt.xscale(&#34;log&#34;)
     plt.title(&#34;Exceedance return levels&#34;)
@@ -5274,7 +5274,7 @@ def from_data(
                         [
                             scale * m * (m * exs_prob) ** (shape - 1),
                             1 / shape * ((exs_prob * m) ** shape - 1),
-                            -scale / shape ** 2 * ((exs_prob * m) ** shape - 1)
+                            -scale / shape**2 * ((exs_prob * m) ** shape - 1)
                             + scale
                             / shape
                             * (exs_prob * m) ** shape
@@ -5292,7 +5292,7 @@ def from_data(
                     return_levels + 1.96 * return_stdevs,
                     alpha=0.2,
                     color=self._figure_color_palette[1],
-                    linestyle=&#34;dashed&#34;
+                    linestyle=&#34;dashed&#34;,
                 )
             else:
                 warnings.warn(
@@ -5537,7 +5537,7 @@ def tail(self) -&gt; GPTail:
                     [
                         scale * m * (m * exs_prob) ** (shape - 1),
                         1 / shape * ((exs_prob * m) ** shape - 1),
-                        -scale / shape ** 2 * ((exs_prob * m) ** shape - 1)
+                        -scale / shape**2 * ((exs_prob * m) ** shape - 1)
                         + scale
                         / shape
                         * (exs_prob * m) ** shape
@@ -5555,7 +5555,7 @@ def tail(self) -&gt; GPTail:
                 return_levels + 1.96 * return_stdevs,
                 alpha=0.2,
                 color=self._figure_color_palette[1],
-                linestyle=&#34;dashed&#34;
+                linestyle=&#34;dashed&#34;,
             )
         else:
             warnings.warn(
@@ -5798,11 +5798,11 @@ def tail(self) -&gt; GPTail:
             grad_scale = np.sum((y - scale) / (scale * (y * shape + scale)))
             grad_shape = np.sum(
                 -((y * (1 + shape)) / (shape * (y * shape + scale)))
-                + np.log(1 + (y * shape) / scale) / shape ** 2
+                + np.log(1 + (y * shape) / scale) / shape**2
             )
         else:
-            grad_scale = np.sum((y - scale) / scale ** 2)
-            grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale ** 2))
+            grad_scale = np.sum((y - scale) / scale**2)
+            grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale**2))
 
         return np.array([grad_scale, grad_shape])
 
@@ -5825,15 +5825,15 @@ def tail(self) -&gt; GPTail:
 
         if not np.isclose(shape, 0, atol=cls._error_tol):
             d2scale = np.sum(
-                -(1 / (shape * scale ** 2))
+                -(1 / (shape * scale**2))
                 + (1 + shape) / (shape * (y * shape + scale) ** 2)
             )
 
             # d2shape = (y (3 y ξ + y ξ^2 + 2 σ))/(ξ^2 (y ξ + σ)^2) - (2 Log[1 + (y ξ)/σ])/ξ^3
             d2shape = np.sum(
-                (y * (3 * y * shape + y * shape ** 2 + 2 * scale))
-                / (shape ** 2 * (y * shape + scale) ** 2)
-                - (2 * np.log(1 + (y * shape) / scale)) / shape ** 3
+                (y * (3 * y * shape + y * shape**2 + 2 * scale))
+                / (shape**2 * (y * shape + scale) ** 2)
+                - (2 * np.log(1 + (y * shape) / scale)) / shape**3
             )
 
             # dscale_dshape = (y (-y + σ))/(σ (y ξ + σ)^2)
@@ -5841,9 +5841,9 @@ def tail(self) -&gt; GPTail:
                 (y * (-y + scale)) / (scale * (y * shape + scale) ** 2)
             )
         else:
-            d2scale = np.sum((scale - 2 * y) / scale ** 3)
-            dscale_dshape = np.sum(-y * (y - scale) / scale ** 3)
-            d2shape = np.sum(y ** 2 * (3 * scale - 2 * y) / (3 * scale ** 3))
+            d2scale = np.sum((scale - 2 * y) / scale**3)
+            dscale_dshape = np.sum(-y * (y - scale) / scale**3)
+            d2shape = np.sum(y**2 * (3 * scale - 2 * y) / (3 * scale**3))
 
         hessian = np.array([[d2scale, dscale_dshape], [dscale_dshape, d2shape]])
 
@@ -5863,7 +5863,7 @@ def tail(self) -&gt; GPTail:
         &#34;&#34;&#34;
         scale, shape = params
 
-        return 0.5 * (np.log(scale) + shape ** 2)
+        return 0.5 * (np.log(scale) + shape**2)
 
     @classmethod
     def logreg_grad(cls, params: t.List[float]) -&gt; float:
@@ -5885,7 +5885,7 @@ def tail(self) -&gt; GPTail:
 
         &#34;&#34;&#34;
         scale, shape = params
-        return 0.5 * np.array([-1.0 / scale ** 2, 0, 0, 2]).reshape((2, 2))
+        return 0.5 * np.array([-1.0 / scale**2, 0, 0, 2]).reshape((2, 2))
 
     @classmethod
     def loss(
@@ -6422,11 +6422,11 @@ def loglik_grad(
         grad_scale = np.sum((y - scale) / (scale * (y * shape + scale)))
         grad_shape = np.sum(
             -((y * (1 + shape)) / (shape * (y * shape + scale)))
-            + np.log(1 + (y * shape) / scale) / shape ** 2
+            + np.log(1 + (y * shape) / scale) / shape**2
         )
     else:
-        grad_scale = np.sum((y - scale) / scale ** 2)
-        grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale ** 2))
+        grad_scale = np.sum((y - scale) / scale**2)
+        grad_shape = np.sum(y * (y - 2 * scale) / (2 * scale**2))
 
     return np.array([grad_scale, grad_shape])</code></pre>
 </details>
@@ -6473,15 +6473,15 @@ def loglik_hessian(
 
     if not np.isclose(shape, 0, atol=cls._error_tol):
         d2scale = np.sum(
-            -(1 / (shape * scale ** 2))
+            -(1 / (shape * scale**2))
             + (1 + shape) / (shape * (y * shape + scale) ** 2)
         )
 
         # d2shape = (y (3 y ξ + y ξ^2 + 2 σ))/(ξ^2 (y ξ + σ)^2) - (2 Log[1 + (y ξ)/σ])/ξ^3
         d2shape = np.sum(
-            (y * (3 * y * shape + y * shape ** 2 + 2 * scale))
-            / (shape ** 2 * (y * shape + scale) ** 2)
-            - (2 * np.log(1 + (y * shape) / scale)) / shape ** 3
+            (y * (3 * y * shape + y * shape**2 + 2 * scale))
+            / (shape**2 * (y * shape + scale) ** 2)
+            - (2 * np.log(1 + (y * shape) / scale)) / shape**3
         )
 
         # dscale_dshape = (y (-y + σ))/(σ (y ξ + σ)^2)
@@ -6489,9 +6489,9 @@ def loglik_hessian(
             (y * (-y + scale)) / (scale * (y * shape + scale) ** 2)
         )
     else:
-        d2scale = np.sum((scale - 2 * y) / scale ** 3)
-        dscale_dshape = np.sum(-y * (y - scale) / scale ** 3)
-        d2shape = np.sum(y ** 2 * (3 * scale - 2 * y) / (3 * scale ** 3))
+        d2scale = np.sum((scale - 2 * y) / scale**3)
+        dscale_dshape = np.sum(-y * (y - scale) / scale**3)
+        d2shape = np.sum(y**2 * (3 * scale - 2 * y) / (3 * scale**3))
 
     hessian = np.array([[d2scale, dscale_dshape], [dscale_dshape, d2shape]])
 
@@ -6532,7 +6532,7 @@ def logreg(cls, params: t.List[float]) -&gt; float:
     &#34;&#34;&#34;
     scale, shape = params
 
-    return 0.5 * (np.log(scale) + shape ** 2)</code></pre>
+    return 0.5 * (np.log(scale) + shape**2)</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.univariate.GPTail.logreg_grad"><code class="name flex">
@@ -6584,7 +6584,7 @@ def logreg_hessian(cls, params: t.List[float]) -&gt; float:
 
     &#34;&#34;&#34;
     scale, shape = params
-    return 0.5 * np.array([-1.0 / scale ** 2, 0, 0, 2]).reshape((2, 2))</code></pre>
+    return 0.5 * np.array([-1.0 / scale**2, 0, 0, 2]).reshape((2, 2))</code></pre>
 </details>
 </dd>
 <dt id="riskmodels.univariate.GPTail.loss"><code class="name flex">
@@ -7098,7 +7098,7 @@ Bayesian generalised Pareto tail models, which can be seen as an uniformly weigh
         if return_all:
             return np.sqrt(var)
         else:
-            return np.sqrt(np.dot(self.weights, var + mean ** 2) - self.mean() ** 2)
+            return np.sqrt(np.dot(self.weights, var + mean**2) - self.mean() ** 2)
 
     def cdf(
         self, x: t.Union[float, np.ndarray], return_all: bool = False
@@ -7646,7 +7646,7 @@ the quantile function of the posterior predictive distribution is evaluated. The
     if return_all:
         return np.sqrt(var)
     else:
-        return np.sqrt(np.dot(self.weights, var + mean ** 2) - self.mean() ** 2)</code></pre>
+        return np.sqrt(np.dot(self.weights, var + mean**2) - self.mean() ** 2)</code></pre>
 </details>
 </dd>
 </dl>
