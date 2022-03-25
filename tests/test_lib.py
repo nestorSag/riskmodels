@@ -1,6 +1,8 @@
 """
 This script is meant to be run on GitHub actions workflows
 """
+from pathlib import Path
+import shutil
 import numpy as np
 import pandas as pd
 import scipy as sp
@@ -8,7 +10,7 @@ import scipy as sp
 import riskmodels.univariate as univar
 import riskmodels.bivariate as bivar
 
-from riskmodels.powersys.ts import convgen
+from riskmodels.adequacy import acg_models, capacity_models
 
 
 from scipy.stats import (
@@ -18,8 +20,9 @@ from scipy.stats import (
     rayleigh
 )
 
-
+season_length = 3360
 tol = 1e-6
+np.random.seed(1)
 
 def test_empirical():
   """Basic correctness tests for empirical distribution objects.
@@ -65,7 +68,6 @@ def test_empirical():
   assert dist2.min == 8
   assert dist2.max == max(data)
 
-season_length = 3360
 
 def test_univariate():
   """Integration tests for the most common paths in the univariate module's use.
@@ -76,7 +78,6 @@ def test_univariate():
   def are_valid_scalars(*args):
     return not np.any(np.isnan(np.array(args)))
 
-  np.random.seed(1)
   sample_size = 5000
   q_th = 0.95
   scale_factor = 1000000
@@ -184,7 +185,48 @@ def test_bivariate():
     isotropic_dist = np.sqrt(dist.T.dot(np.linalg.inv(cov).dot(dist)))
     assert isotropic_dist < dist_bound
 
+
+def test_sequential_models():
+  season_length = 3360
   ## test for exceptions in C code for sequential generation
   gen_df = pd.DataFrame([{"availability": 0.95, "capacity": 250, "mttr": 50} for k in range(250)])
-  gen = convgen.MarkovChainGenerationModel.from_generator_df(gen_df)
+  gen = acg_models.Sequential.from_generator_df(gen_df)
   s = gen.simulate_seasons(size=1000, season_length=season_length, seasons_per_trace=4)
+
+  ## integration test, not unit tests
+  out_folder = Path("tests") / "sequential_test_data"
+  out_folder.mkdir(exist_ok=True, parents=True)
+  #
+  n_seasons = 5
+  season_length = 1000
+  demand = np.random.normal(loc = gen.mean(), scale = gen.std(), size=(n_seasons * season_length,))
+  wind = np.random.normal(loc = 0.0, scale = gen.std(), size=(n_seasons * season_length,))
+  #
+  eu=capacity_models.UnivariateSequential.init(
+    output_dir = str(out_folder),
+    n_traces = 1000,
+    n_files = 1,
+    gen = gen,
+    demand = demand,
+    renewables = wind,
+    season_length = season_length).simulate_eu()
+  assert np.all(np.logical_not(np.isnan(eu)))
+  #
+  # test two-area sequential model
+  # create new generator
+  gen2 = acg_models.Sequential.from_generator_df(gen_df)
+  itc_cap = 1000
+  policy="veto"
+  demands = np.random.normal(loc = gen.mean(), scale = gen.std(), size=(n_seasons * season_length,2))
+  winds = np.random.normal(loc = 0.0, scale = gen.std(), size=(n_seasons * season_length,2))
+  #
+  eu=capacity_models.BivariateSequential.init(
+    output_dir = str(out_folder),
+    n_traces = 1000,
+    n_files = 1,
+    gens = [gen, gen2],
+    demand = demands,
+    renewables = winds,
+    season_length = season_length).simulate_eu(itc_cap=itc_cap, policy=policy)
+  assert np.all(np.logical_not(np.isnan(eu)))
+  shutil.rmtree(out_folder)

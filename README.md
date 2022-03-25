@@ -256,17 +256,17 @@ bivar_ev_model.plot_diagnostics();plt.show()
 For the sake of this example, synthetic conventional generator fleets are going to be created for both areas in order to compute risk indices for a hypothetical interconnected system.
 
 ```py
-from riskmodels.powersys.iid.convgen import IndependentFleetModel
+from riskmodels.adequacy import acg_models
 # get number of timesteps in peak season
 n = len(gb_nd)
 
 # assume a base fleet of 200 generators with 240 max. capacity and 4% breakdown rate
 uk_gen_df = pd.DataFrame([{"capacity": 240, "availability": 0.96} for k in range(200)])
-uk_gen = IndependentFleetModel.from_generator_df(uk_gen_df)
+uk_gen = acg_models.NonSequential.from_generator_df(uk_gen_df)
 
 # assume a base fleet of 55 generators with 61 max. capacity and 4% breakdown rate
 dk_gen_df = pd.DataFrame([{"capacity": 61, "availability": 0.96} for k in range(55)])
-dk_gen = IndependentFleetModel.from_generator_df(dk_gen_df)
+dk_gen = acg_models.NonSequential.from_generator_df(dk_gen_df)
 
 # define LOLE functon
 def lole(gen, net_demand, n=n):
@@ -284,9 +284,9 @@ LOLE can be computed exactly for univariate surplus distributions as above, but 
 ```py
 bivariate_gen = bivar.Independent(x=uk_gen, y=dk_gen)
 
-from riskmodels.powersys.iid.surplus import BivariateMonteCarlo
+from riskmodels.adequacy.capacity_models import BivariateNSMonteCarlo
 
-bivariate_surplus = BivariateMonteCarlo(
+bivariate_surplus = BivariateNSMonteCarlo(
   gen_distribution = bivariate_gen,
   net_demand = bivar_ev_model,
   season_length = n,

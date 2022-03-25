@@ -29,6 +29,9 @@
 </summary>
 <pre><code class="python">from cffi import FFI
 import os
+from pathlib import Path
+
+project_dir = Path(__file__).resolve().parents[2]
 
 ffibuilder = FFI()
 
@@ -75,18 +78,10 @@ ffibuilder.cdef(
 # with open(&#39;riskmodels/_c/libtimedependence.h&#39;,&#39;r&#39;) as f:
 #       ffibuilder.cdef(f.read())
 
-header = (
-    &#39;#include &#34;&#39;
-    + os.path.dirname(os.path.abspath(__file__))
-    + &#39;/../c/libtimedependence.h&#34;&#39;
-)
-
+header = f&#39;#include &#34;{project_dir / &#34;riskmodels&#34; / &#34;c&#34; / &#34;libtimedependence.h&#34;}&#34;&#39;
 
 ffibuilder.set_source(
     &#34;c_sequential_models_api&#34;,  # name of the output C extension
-    # &#34;&#34;&#34;
-    # #include &#34;../../riskmodels/_c/libtimedependence.h&#34;
-    # &#34;&#34;&#34;,
     header,
     sources=[&#34;riskmodels/c/libtimedependence.c&#34;, &#34;riskmodels/c/mtwist-1.5/mtwist.c&#34;],
     libraries=[&#34;m&#34;],

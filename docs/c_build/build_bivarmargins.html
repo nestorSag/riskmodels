@@ -30,6 +30,10 @@
 <pre><code class="python">from cffi import FFI
 import os
 
+from pathlib import Path
+
+project_dir = Path(__file__).resolve().parents[2]
+
 ffibuilder = FFI()
 
 ffibuilder.cdef(
@@ -143,12 +147,7 @@ ffibuilder.cdef(
 # with open(&#39;riskmodels/_c/libbivarmargins.h&#39;,&#39;r&#39;) as f:
 #       ffibuilder.cdef(f.read())
 
-
-header = (
-    &#39;#include &#34;&#39;
-    + os.path.dirname(os.path.abspath(__file__))
-    + &#39;/../c/libbivarmargins.h&#34;&#39;
-)
+header = f&#39;#include &#34;{project_dir / &#34;riskmodels&#34; / &#34;c&#34; / &#34;libbivarmargins.h&#34;}&#34;&#39;
 
 ffibuilder.set_source(
     &#34;c_bivariate_surplus_api&#34;,  # name of the output C extension

@@ -1,3 +1,8 @@
+
+"""
+This module contains an implementation of a truncated multivariate normal distribution that is used for simulation by the `Gaussian` class in the `riskmodels.bivariate` module.
+"""
+
 import numpy as np
 import math
 from scipy import special

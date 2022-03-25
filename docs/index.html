@@ -23,25 +23,28 @@
 <h1 class="title">Package <code>riskmodels</code></h1>
 </header>
 <section id="section-intro">
-<p>This package implements one and two-dimensional extreme value models. Synthatic sugar is provided for univariate models, making it possible to compute conditional distributions of the form <code>X | X &gt; x</code> using the <code>&gt;</code> and <code>&gt;=</code> operators; distributions with integer support can be convolved with other continuous and integer distributions, which is useful for applications in energy procurement; see the <code><a title="riskmodels.univariate.Empirical" href="univariate.html#riskmodels.univariate.Empirical">Empirical</a></code> class and <code><a title="riskmodels.powersys.iid.convgen" href="powersys/iid/convgen.html">riskmodels.powersys.iid.convgen</a></code> module.
+<p>This package implements one and two-dimensional extreme value models. Synthatic sugar is provided for univariate models, making it possible to compute conditional distributions of the form <code>X | X &gt; x</code> using the <code>&gt;</code> and <code>&gt;=</code> operators; distributions with integer support can be convolved with other continuous and integer distributions, which is useful for applications in energy procurement; see the <code><a title="riskmodels.univariate.Empirical" href="univariate.html#riskmodels.univariate.Empirical">Empirical</a></code> class and <code><a title="riskmodels.adequacy.acg_models" href="adequacy/acg_models.html">riskmodels.adequacy.acg_models</a></code> module.
 Univariate models consist of MLE-based and Bayesian generalised Pareto tail models and the resulting semiparametric models with a lower empirical component and a higher parametric tail model. Bivariate models implement Gaussian and Gumbel-Hougaard copulas for exceedances; see the <code><a title="riskmodels.bivariate" href="bivariate.html">riskmodels.bivariate</a></code> module.
-Univariate and bivariate time-collapsed models for power surplus distributions are implemented in the <code><a title="riskmodels.powersys.iid.surplus" href="powersys/iid/surplus.html">riskmodels.powersys.iid.surplus</a></code> module.
-Sequential models for univariate and bivariate power surplus distributions are implemented along with functionality for large-scale simulation using a map-reduce and multi-core patterns; see the <code><a title="riskmodels.powersys.ts" href="powersys/ts/index.html">riskmodels.powersys.ts</a></code> module.</p>
+Efficient implementations of sequential and non-sequential capacity surplus models for power system adequacy assessment are implemented in the <code><a title="riskmodels.adequacy.capacity_models" href="adequacy/capacity_models.html">riskmodels.adequacy.capacity_models</a></code> module</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-This package implements one and two-dimensional extreme value models. Synthatic sugar is provided for univariate models, making it possible to compute conditional distributions of the form `X | X &gt; x` using the `&gt;` and `&gt;=` operators; distributions with integer support can be convolved with other continuous and integer distributions, which is useful for applications in energy procurement; see the `riskmodels.univariate.Empirical` class and `riskmodels.powersys.iid.convgen` module. 
+This package implements one and two-dimensional extreme value models. Synthatic sugar is provided for univariate models, making it possible to compute conditional distributions of the form `X | X &gt; x` using the `&gt;` and `&gt;=` operators; distributions with integer support can be convolved with other continuous and integer distributions, which is useful for applications in energy procurement; see the `riskmodels.univariate.Empirical` class and `riskmodels.adequacy.acg_models` module. 
 Univariate models consist of MLE-based and Bayesian generalised Pareto tail models and the resulting semiparametric models with a lower empirical component and a higher parametric tail model. Bivariate models implement Gaussian and Gumbel-Hougaard copulas for exceedances; see the `riskmodels.bivariate` module.
-Univariate and bivariate time-collapsed models for power surplus distributions are implemented in the `riskmodels.powersys.iid.surplus` module.
-Sequential models for univariate and bivariate power surplus distributions are implemented along with functionality for large-scale simulation using a map-reduce and multi-core patterns; see the `riskmodels.powersys.ts` module.
-&#34;&#34;&#34;</code></pre>
+Efficient implementations of sequential and non-sequential capacity surplus models for power system adequacy assessment are implemented in the `riskmodels.adequacy.capacity_models` module
+&#34;&#34;&#34;
+__version__=&#34;1.0.0-dev&#34;</code></pre>
 </details>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
+<dt><code class="name"><a title="riskmodels.adequacy" href="adequacy/index.html">riskmodels.adequacy</a></code></dt>
+<dd>
+<div class="desc"><p>This module contains functionality for power system adequacy modelling, including sequential and non-sequential models for available conventional …</p></div>
+</dd>
 <dt><code class="name"><a title="riskmodels.bivariate" href="bivariate.html">riskmodels.bivariate</a></code></dt>
 <dd>
 <div class="desc"><p>This module contains bivariate risk models to analyse exceedance dependence between components. Available exceedance models are inspired in bivariate …</p></div>
@@ -49,10 +52,6 @@ Sequential models for univariate and bivariate power surplus distributions are i
 <dt><code class="name"><a title="riskmodels.c_build" href="c_build/index.html">riskmodels.c_build</a></code></dt>
 <dd>
 <div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="riskmodels.powersys" href="powersys/index.html">riskmodels.powersys</a></code></dt>
-<dd>
-<div class="desc"><p>This module contains functionality for power system reliability modeling, including specific models for available conventional generation in both …</p></div>
 </dd>
 <dt><code class="name"><a title="riskmodels.univariate" href="univariate.html">riskmodels.univariate</a></code></dt>
 <dd>
@@ -79,9 +78,9 @@ Sequential models for univariate and bivariate power surplus distributions are i
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
+<li><code><a title="riskmodels.adequacy" href="adequacy/index.html">riskmodels.adequacy</a></code></li>
 <li><code><a title="riskmodels.bivariate" href="bivariate.html">riskmodels.bivariate</a></code></li>
 <li><code><a title="riskmodels.c_build" href="c_build/index.html">riskmodels.c_build</a></code></li>
-<li><code><a title="riskmodels.powersys" href="powersys/index.html">riskmodels.powersys</a></code></li>
 <li><code><a title="riskmodels.univariate" href="univariate.html">riskmodels.univariate</a></code></li>
 <li><code><a title="riskmodels.utils" href="utils/index.html">riskmodels.utils</a></code></li>
 </ul>
