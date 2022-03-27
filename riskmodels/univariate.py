@@ -128,12 +128,14 @@ class BaseDistribution(BaseModel):
         pass
 
     def histogram(self, size: int = 1000) -> None:
-        """Plots a histogram of a simulated sample
+        """Returns a histogram of a simulated sample
 
         Args:
             size (int, optional): sample size
 
         """
+        # start with a rectangular Figure
+        fig = plt.figure(figsize=(6,6))
 
         # show histogram from 1k samples
         samples = self.simulate(size=size)
@@ -141,16 +143,16 @@ class BaseDistribution(BaseModel):
             samples, bins=25, edgecolor="white", color=self._figure_color_palette[0]
         )
         plt.title(f"Histogram from {np.round(size/1000,1)}K simulated samples")
-        plt.show()
+        return fig
 
     def plot(self, size: int = 1000) -> None:
-        """Plots a histogram of a simulated sample
+        """Returns a histogram of a simulated sample
 
         Args:
             size (int, optional): sample size
 
         """
-        self.histogram(size)
+        return self.histogram(size)
 
     def cvar(self, p: float, **kwargs) -> float:
         """Calculates conditional value at risk for a probability level p, defined as the mean conditioned to an exceedance above the p-quantile.
