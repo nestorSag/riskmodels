@@ -82,9 +82,9 @@ void set_float_element(FloatMatrix* m, int i, int j, float x);
 
 int simulate_geometric_dist(float p);
 
-float min(float num1, float num2) ;
+float float_min(float num1, float num2);
 
-float max(float num1, float num2);
+float float_max(float num1, float num2);
 
 /**
  * @brief simulate a time series of availability states for a single generator, simulating escape time: the time it takes for the generator to switch to a different state. 

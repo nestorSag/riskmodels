@@ -29,11 +29,11 @@ double cumulative_expectation(DiscreteDistribution* F, int x){
 
 // documentation is in .h files 
 
-double max(double num1, double num2){
+double double_max(double num1, double num2){
     return (num1 > num2 ) ? num1 : num2;
 }
 
-double min(double num1, double num2){
+double double_min(double num1, double num2){
     return (num1 > num2 ) ? num2 : num1;
 }
 
@@ -295,7 +295,7 @@ void bayesian_semiparametric_power_margin_cdf_trace(PosteriorGPTrace* gpt, IntVe
   current.u = gpt->u;
   current.p = gpt->p;
 
-  for(y=max((double) F->min,-x);y<gpt->u;++y){
+  for(y=double_max((double) F->min,-x);y<gpt->u;++y){
 
     constant_factor = empirical_net_demand_pdf(net_demand,y)*gen_cdf(F,(int) (y+x));
   }
@@ -323,7 +323,7 @@ void bayesian_semiparametric_power_margin_cdf_trace(PosteriorGPTrace* gpt, IntVe
   double cdf_val = 0;
 
   double pdf_val;
-  for(y=max((double) F->min,-x);y<F->max-x+1;++y){
+  for(y=double_max((double) F->min,-x);y<F->max-x+1;++y){
 
     pdf_val = bayesian_semiparametric_net_demand_pdf(gpt,net_demand,y);
     cdf_val += gen_cdf(F,(int) (y+x))*pdf_val;

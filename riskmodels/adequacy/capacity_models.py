@@ -72,7 +72,7 @@ class BivariateNSMonteCarlo(BaseBivariateMonteCarlo):
 
 class BivariateNSEmpirical(BaseCapacityModel):
 
-    """Non-sequential model that uses a hindcast net demand model to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies"""
+    """Bivariate Non-sequential capacity model that uses a hindcast net demand distribution to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies"""
 
     def __repr__(self):
         return f"Bivariate empirical surplus model with {len(self.demand_data)} observations"
@@ -1102,6 +1102,17 @@ class BivariateSequential(UnivariateSequential):
     def get_surplus_df(
         self, shortfalls_only: bool = True, itc_cap: float = 1000.0, policy="veto"
     ) -> pd.DataFrame:
+        """Returns a data frame with time occurrence information of observed surplus values and shortfalls.
+
+        Args:
+            shortfalls_only (bool, optional): If True, only shortfall rows are returned
+            itc_cap (int, optional): interconnection capacity
+            policy (str, optional): one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+        Returns:
+            pd.DataFrame: A data frame with the surplus values, a 'season_time' column with the within-season time of occurrence (0,1,...,season_length-1), a 'file_id' column that indicates which file was used to compute the value, and a 'season' column to indicate which season the value was observed in.
+
+        """
         def reducer(mapped):
             return pd.concat([df for df, n in mapped])
 

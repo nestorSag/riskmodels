@@ -116,12 +116,12 @@ int get_next_state_idx(
 /**
  * Find minimum between two numbers.
  */
-float min(float num1, float num2) 
+float float_min(float num1, float num2) 
 {
     return (num1 > num2 ) ? num2 : num1;
 }
 
-float max(float num1, float num2) 
+float float_max(float num1, float num2) 
 {
     return (num1 > num2 ) ? num1 : num2;
 }
@@ -149,7 +149,7 @@ void simulate_mc_generator_streaks(float* output, MarkovChain* chain, int n_tran
     current_state = chain->states[current_state_idx];
     //printf("current timestep: %d\n",current_timestep);
     //printf("current state id: %d\n",current_state_idx);
-    streak = min(simulate_geometric_dist(1.0-prob_loop), n_transitions - current_timestep);
+    streak = float_min(simulate_geometric_dist(1.0-prob_loop), n_transitions - current_timestep);
     //printf("streak: %d\n",streak);
     next_state_idx = get_next_state_idx(prob_row,current_state_idx,chain->n_states);
     //printf("next state id: %d\n",next_state_idx);
@@ -272,7 +272,7 @@ float get_share_flow(
   float unbounded_flow = alpha*m2 - (1-alpha)*m1;
 
   if (m1+m2 < 0 && m1 < c && m2 < c){
-    return min(max( unbounded_flow,-c),c);
+    return float_min(float_max( unbounded_flow,-c),c);
   }else{
     return get_veto_flow(m1,m2,c);
   }

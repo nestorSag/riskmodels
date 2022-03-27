@@ -81,9 +81,9 @@ typedef struct SimulationParameters{
   int n;
 } SimulationParameters;
 
-int imax(int a, int b);
+int int_max(int a, int b);
 
-int imin(int a, int b);
+int int_min(int a, int b);
 
 int get_element(IntMatrix* m, int i, int j);
 

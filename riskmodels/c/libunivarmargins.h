@@ -103,9 +103,9 @@ double gen_pdf(DiscreteDistribution* F, int x);
  */
 double cumulative_expectation(DiscreteDistribution* F, int x);
 
-double max(double num1, double num2);
+double double_max(double num1, double num2);
 
-double min(double num1, double num2);
+double double_min(double num1, double num2);
 /**
  * @brief Returns empirical CDF estimate from an available generation probability model, a net demand sample, and a value x to evaluate at
  *

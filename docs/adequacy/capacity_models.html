@@ -105,7 +105,7 @@ class BivariateNSMonteCarlo(BaseBivariateMonteCarlo):
 
 class BivariateNSEmpirical(BaseCapacityModel):
 
-    &#34;&#34;&#34;Non-sequential model that uses a hindcast net demand model to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies&#34;&#34;&#34;
+    &#34;&#34;&#34;Bivariate Non-sequential capacity model that uses a hindcast net demand distribution to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies&#34;&#34;&#34;
 
     def __repr__(self):
         return f&#34;Bivariate empirical surplus model with {len(self.demand_data)} observations&#34;
@@ -1135,6 +1135,17 @@ class BivariateSequential(UnivariateSequential):
     def get_surplus_df(
         self, shortfalls_only: bool = True, itc_cap: float = 1000.0, policy=&#34;veto&#34;
     ) -&gt; pd.DataFrame:
+        &#34;&#34;&#34;Returns a data frame with time occurrence information of observed surplus values and shortfalls.
+
+        Args:
+            shortfalls_only (bool, optional): If True, only shortfall rows are returned
+            itc_cap (int, optional): interconnection capacity
+            policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+        Returns:
+            pd.DataFrame: A data frame with the surplus values, a &#39;season_time&#39; column with the within-season time of occurrence (0,1,...,season_length-1), a &#39;file_id&#39; column that indicates which file was used to compute the value, and a &#39;season&#39; column to indicate which season the value was observed in.
+
+        &#34;&#34;&#34;
         def reducer(mapped):
             return pd.concat([df for df, n in mapped])
 
@@ -1208,7 +1219,7 @@ class BivariateSequential(UnivariateSequential):
 <span>(</span><span>demand_data: np.ndarray, renewables_data: np.ndarray, gen_distribution: Independent, season_length: int = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Non-sequential model that uses a hindcast net demand model to compute exact LOLE and EEU risk indices; it implements both <code>veto</code> and <code>share</code> policies</p>
+<div class="desc"><p>Bivariate Non-sequential capacity model that uses a hindcast net demand distribution to compute exact LOLE and EEU risk indices; it implements both <code>veto</code> and <code>share</code> policies</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>demand_data</code></strong> :&ensp;<code>np.ndarray</code></dt>
@@ -1226,7 +1237,7 @@ class BivariateSequential(UnivariateSequential):
 </summary>
 <pre><code class="python">class BivariateNSEmpirical(BaseCapacityModel):
 
-    &#34;&#34;&#34;Non-sequential model that uses a hindcast net demand model to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies&#34;&#34;&#34;
+    &#34;&#34;&#34;Bivariate Non-sequential capacity model that uses a hindcast net demand distribution to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies&#34;&#34;&#34;
 
     def __repr__(self):
         return f&#34;Bivariate empirical surplus model with {len(self.demand_data)} observations&#34;
@@ -2679,6 +2690,17 @@ class BivariateSequential(UnivariateSequential):
     def get_surplus_df(
         self, shortfalls_only: bool = True, itc_cap: float = 1000.0, policy=&#34;veto&#34;
     ) -&gt; pd.DataFrame:
+        &#34;&#34;&#34;Returns a data frame with time occurrence information of observed surplus values and shortfalls.
+
+        Args:
+            shortfalls_only (bool, optional): If True, only shortfall rows are returned
+            itc_cap (int, optional): interconnection capacity
+            policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+        Returns:
+            pd.DataFrame: A data frame with the surplus values, a &#39;season_time&#39; column with the within-season time of occurrence (0,1,...,season_length-1), a &#39;file_id&#39; column that indicates which file was used to compute the value, and a &#39;season&#39; column to indicate which season the value was observed in.
+
+        &#34;&#34;&#34;
         def reducer(mapped):
             return pd.concat([df for df, n in mapped])
 
@@ -3033,6 +3055,55 @@ def filedirs(self):
     )</code></pre>
 </details>
 </dd>
+<dt id="riskmodels.adequacy.capacity_models.BivariateSequential.get_surplus_df"><code class="name flex">
+<span>def <span class="ident">get_surplus_df</span></span>(<span>self, shortfalls_only: bool = True, itc_cap: float = 1000.0, policy='veto') ‑> pandas.core.frame.DataFrame</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a data frame with time occurrence information of observed surplus values and shortfalls.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>shortfalls_only</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If True, only shortfall rows are returned</dd>
+<dt><strong><code>itc_cap</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>interconnection capacity</dd>
+<dt><strong><code>policy</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>pd.DataFrame</code></dt>
+<dd>A data frame with the surplus values, a 'season_time' column with the within-season time of occurrence (0,1,&hellip;,season_length-1), a 'file_id' column that indicates which file was used to compute the value, and a 'season' column to indicate which season the value was observed in.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_surplus_df(
+    self, shortfalls_only: bool = True, itc_cap: float = 1000.0, policy=&#34;veto&#34;
+) -&gt; pd.DataFrame:
+    &#34;&#34;&#34;Returns a data frame with time occurrence information of observed surplus values and shortfalls.
+
+    Args:
+        shortfalls_only (bool, optional): If True, only shortfall rows are returned
+        itc_cap (int, optional): interconnection capacity
+        policy (str, optional): one of &#39;veto&#39; or &#39;share&#39;; in a &#39;veto&#39; policy, areas only export spare available capacity, while in a &#39;share&#39; policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
+
+    Returns:
+        pd.DataFrame: A data frame with the surplus values, a &#39;season_time&#39; column with the within-season time of occurrence (0,1,...,season_length-1), a &#39;file_id&#39; column that indicates which file was used to compute the value, and a &#39;season&#39; column to indicate which season the value was observed in.
+
+    &#34;&#34;&#34;
+    def reducer(mapped):
+        return pd.concat([df for df, n in mapped])
+
+    return self.map_reduce(
+        mapper=&#34;get_surplus_df&#34;,
+        reducer=reducer,
+        str_map_kwargs={&#34;shortfalls_only&#34;: shortfalls_only},
+        itc_cap=itc_cap,
+        policy=policy,
+    )</code></pre>
+</details>
+</dd>
 <dt id="riskmodels.adequacy.capacity_models.BivariateSequential.lole"><code class="name flex">
 <span>def <span class="ident">lole</span></span>(<span>self, itc_cap: float = 1000.0, policy='veto', area: int = 0)</span>
 </code></dt>
@@ -3238,7 +3309,6 @@ def filedirs(self):
 <li><code><b><a title="riskmodels.adequacy.capacity_models.UnivariateSequential" href="#riskmodels.adequacy.capacity_models.UnivariateSequential">UnivariateSequential</a></b></code>:
 <ul class="hlist">
 <li><code><a title="riskmodels.adequacy.capacity_models.UnivariateSequential.execute_map" href="#riskmodels.adequacy.capacity_models.UnivariateSequential.execute_map">execute_map</a></code></li>
-<li><code><a title="riskmodels.adequacy.capacity_models.UnivariateSequential.get_surplus_df" href="#riskmodels.adequacy.capacity_models.UnivariateSequential.get_surplus_df">get_surplus_df</a></code></li>
 </ul>
 </li>
 </ul>
@@ -4151,6 +4221,7 @@ def init(
 <li><code><a title="riskmodels.adequacy.capacity_models.BivariateSequential.eeu" href="#riskmodels.adequacy.capacity_models.BivariateSequential.eeu">eeu</a></code></li>
 <li><code><a title="riskmodels.adequacy.capacity_models.BivariateSequential.filedirs" href="#riskmodels.adequacy.capacity_models.BivariateSequential.filedirs">filedirs</a></code></li>
 <li><code><a title="riskmodels.adequacy.capacity_models.BivariateSequential.gen_dir" href="#riskmodels.adequacy.capacity_models.BivariateSequential.gen_dir">gen_dir</a></code></li>
+<li><code><a title="riskmodels.adequacy.capacity_models.BivariateSequential.get_surplus_df" href="#riskmodels.adequacy.capacity_models.BivariateSequential.get_surplus_df">get_surplus_df</a></code></li>
 <li><code><a title="riskmodels.adequacy.capacity_models.BivariateSequential.init" href="#riskmodels.adequacy.capacity_models.BivariateSequential.init">init</a></code></li>
 <li><code><a title="riskmodels.adequacy.capacity_models.BivariateSequential.lole" href="#riskmodels.adequacy.capacity_models.BivariateSequential.lole">lole</a></code></li>
 <li><code><a title="riskmodels.adequacy.capacity_models.BivariateSequential.map_reduce" href="#riskmodels.adequacy.capacity_models.BivariateSequential.map_reduce">map_reduce</a></code></li>

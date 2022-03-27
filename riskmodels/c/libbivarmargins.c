@@ -7,11 +7,11 @@
 
 // documentation is in .h files 
 
-int imin(int a, int b){
+int int_min(int a, int b){
   return (a > b ) ? b : a;
 }
 
-int imax(int a, int b){
+int int_max(int a, int b){
   return (a > b ) ? a : b;
 }
 
@@ -287,7 +287,7 @@ int axis2_polygon_upper_bound(Polygon* p, int x){
 
 int get_bounded_quantile(DiscreteDistribution* F, int upper_bound, double u){
   int lb = F->min, i=0;
-  int ub = (int) imin(upper_bound,F->max);
+  int ub = (int) int_min(upper_bound,F->max);
 
   double p_lb = gen_cdf(F,lb-1);
   double box_prob = gen_cdf(F,ub);
@@ -304,9 +304,9 @@ int veto_flow(int m1,int m2,int c){
 
   int res;
   if(m1 > 0 && m2 < 0){
-      res = -imin(c,imin(m1,-m2));
+      res = -int_min(c,int_min(m1,-m2));
   }else if(m1 < 0 && m2 > 0){
-      res = imin(c,imin(m2,-m1));
+      res = int_min(c,int_min(m2,-m1));
   }else{
       res = 0;
   }
@@ -445,8 +445,8 @@ int get_joint_polygon_x_bound(
     p1_crossing = plg1->p2->x + plg1->p2->y;
   }
 
-  compared = intersection > 0 ? imin(p1_crossing,p2_crossing) : imax(p1_crossing,p2_crossing);
-  return(imin(F->x->max,compared));
+  compared = intersection > 0 ? int_min(p1_crossing,p2_crossing) : int_max(p1_crossing,p2_crossing);
+  return(int_min(F->x->max,compared));
 
 }
 
@@ -462,9 +462,9 @@ int get_joint_polygon_y_bound_given_x(
   p1_y_bound = axis1_polygon_upper_bound(plg1,x);
   p2_y_bound = axis2_polygon_upper_bound(plg2,x);
 
-  compared = intersection > 0 ? imin(p1_y_bound,p2_y_bound) : imax(p1_y_bound,p2_y_bound);
+  compared = intersection > 0 ? int_min(p1_y_bound,p2_y_bound) : int_max(p1_y_bound,p2_y_bound);
   
-  return(imin(F->y->max,compared));
+  return(int_min(F->y->max,compared));
 
 }
 
