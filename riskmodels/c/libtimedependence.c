@@ -421,7 +421,9 @@ void simulate_mc_power_grid_py_interface(
   pars.seed = random_seed;
   pars.simulate_streaks = simulate_streaks;
 
-  MarkovChain chains[n_generators];
+  //MarkovChain chains[n_generators];
+  MarkovChain *chains = (MarkovChain *)malloc(n_generators * sizeof(MarkovChain));
+
   MarkovChainArray mkv_chains;
 
   for(i=0;i<n_generators;i++){
@@ -440,5 +442,5 @@ void simulate_mc_power_grid_py_interface(
   get_float_matrix_from_py_objs(&m,output,n_simulations,n_transitions+1);
 
   simulate_mc_power_grid(&m, &mkv_chains, &pars);
-
+  free(chains);
 }
