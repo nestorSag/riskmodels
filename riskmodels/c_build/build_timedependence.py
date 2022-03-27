@@ -4,6 +4,15 @@ from pathlib import Path
 
 project_dir = Path(__file__).resolve().parents[2]
 
+header = f'#include "{project_dir / "riskmodels" / "c" / "libtimedependence.h"}"'
+
+libs = ["m"] if os.name != "nt" else None
+
+sources = [
+  f'{Path("riskmodels") /"c"/"libtimedependence.c"}', 
+  f'{Path("riskmodels") /"c"/ "mtwist-1.5" / "mtwist.c"}'
+  ]
+
 ffibuilder = FFI()
 
 ffibuilder.cdef(
@@ -46,16 +55,11 @@ ffibuilder.cdef(
 	"""
 )
 
-# with open('riskmodels/_c/libtimedependence.h','r') as f:
-# 	ffibuilder.cdef(f.read())
-
-header = f'#include "{project_dir / "riskmodels" / "c" / "libtimedependence.h"}"'
-
 ffibuilder.set_source(
     "c_sequential_models_api",  # name of the output C extension
     header,
-    sources=["riskmodels/c/libtimedependence.c", "riskmodels/c/mtwist-1.5/mtwist.c"],
-    libraries=["m"],
+    sources=sources,
+    libraries=libs,
 )  # on Unix, link with the math library
 
 if __name__ == "__main__":

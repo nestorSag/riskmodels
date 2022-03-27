@@ -5,6 +5,13 @@ from pathlib import Path
 
 project_dir = Path(__file__).resolve().parents[2]
 
+libs = ["m"] if os.name != "nt" else None
+
+sources = [
+  f'{Path("riskmodels") /"c"/"libunivarmargins.c"}']
+
+header = f'#include "{project_dir / "riskmodels" / "c" / "libunivarmargins.h"}"'
+
 ffibuilder = FFI()
 
 ffibuilder.cdef(
@@ -88,18 +95,11 @@ void bayesian_semiparametric_cvar_trace_py_interface(
 	"""
 )
 
-
-header = f'#include "{project_dir / "riskmodels" / "c" / "libunivarmargins.h"}"'
-
-
 ffibuilder.set_source(
     "c_univariate_surplus_api",  # name of the output C extension
-    # """
-    # #include "../../riskmodels/_c/libunivarmargins.h"
-    # """,
     header,
-    sources=["riskmodels/c/libunivarmargins.c"],
-    libraries=["m"],
+    sources=sources,
+    libraries=libs,
 )  # on Unix, link with the math library
 
 if __name__ == "__main__":

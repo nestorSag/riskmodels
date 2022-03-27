@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
+
 #include "mtwist-1.5/mtwist.h"
+
 #include "libbivarmargins.h"
 
 // documentation is in .h files 
@@ -478,7 +480,9 @@ void region_simulation(
   Polygon plg1 = {&p11,&p12}, plg2 = {&p21,&p22};
   ObservedData current_obs;
 
-  double x1_cond_cdf_array[F->x->max+1]; //not all entries will be filled, but it works
+  //double x1_cond_cdf_array[F->x->max+1]; //not all entries will be filled, but it works
+  double *x1_cond_cdf_array = (double *)malloc(F->x->max+1 * sizeof(double));
+
   DiscreteDistribution F_cond = {F->x->min, F->x->max, &x1_cond_cdf_array[0], F->x->expectation};
 
   int n_sim = 0, i, j;
@@ -547,6 +551,7 @@ void region_simulation(
       }
     }
   }
+  free(x1_cond_cdf_array);
 }
 
 void conditioned_simulation(
@@ -563,7 +568,9 @@ void conditioned_simulation(
 
   Coord p11 = {0,0}, p12 = {0,0}, p21 = {0,0}, p22 = {0,0};
   Polygon plg1 = {&p11,&p12};//, plg2 = {&p21,&p22};
-  double cond_x2_cdf[F->y->max+1]; //not all entries will be filled, but it works
+  
+  //double cond_x2_cdf[F->y->max+1]; //not all entries will be filled, but it works
+  double *cond_x2_cdf = (double *)malloc(F->y->max+1 * sizeof(double));
 
   DiscreteDistribution F_cond = {F->y->min, F->y->max, &cond_x2_cdf[0], F->y->expectation};
 /*  F_cond->min = F->y->min;
@@ -635,6 +642,7 @@ void conditioned_simulation(
 
     }
   }
+  free(cond_x2_cdf);
 }
 
 void bivariate_empirical_cdf(

@@ -5,6 +5,16 @@ from pathlib import Path
 
 project_dir = Path(__file__).resolve().parents[2]
 
+header = f'#include "{project_dir / "riskmodels" / "c" / "libbivarmargins.h"}"'
+
+libs = ["m"] if os.name != "nt" else None
+
+sources = [
+  f'{Path("riskmodels") /"c"/"libbivarmargins.c"}', 
+  f'{Path("riskmodels") /"c"/ "libunivarmargins.c"}',
+  f'{Path("riskmodels") /"c"/ "mtwist-1.5" / "mtwist.c"}'
+  ]
+
 ffibuilder = FFI()
 
 ffibuilder.cdef(
@@ -115,23 +125,11 @@ ffibuilder.cdef(
 	"""
 )
 
-# with open('riskmodels/_c/libbivarmargins.h','r') as f:
-# 	ffibuilder.cdef(f.read())
-
-header = f'#include "{project_dir / "riskmodels" / "c" / "libbivarmargins.h"}"'
-
 ffibuilder.set_source(
     "c_bivariate_surplus_api",  # name of the output C extension
-    # """
-    # #include "../../riskmodels/_c/libbivarmargins.h"
-    # """,
     header,
-    sources=[
-        "riskmodels/c/libbivarmargins.c",
-        "riskmodels/c/libunivarmargins.c",
-        "riskmodels/c/mtwist-1.5/mtwist.c",
-    ],
-    libraries=["m"],
+    sources=sources,
+    libraries=libs,
 )  # on Unix, link with the math library
 
 if __name__ == "__main__":

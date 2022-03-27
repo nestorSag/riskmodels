@@ -1,7 +1,6 @@
 //#ifndef TIMEDEPENDENCE_H_INCLUDED
 //#define TIMEDEPENDENCE_H_INCLUDED
 
-
 /**
  * @brief Wrapper around a 2-dimensional float array
  *
