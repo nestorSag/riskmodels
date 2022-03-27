@@ -22,8 +22,8 @@
  */
 
 typedef struct BivariateDiscreteDistribution{
-	DiscreteDistribution* x;
-	DiscreteDistribution* y;
+  DiscreteDistribution* x;
+  DiscreteDistribution* y;
 } BivariateDiscreteDistribution;
 
 /**
@@ -32,10 +32,10 @@ typedef struct BivariateDiscreteDistribution{
  */
 
 typedef struct ObservedData{
-	int net_demand1;
-	int net_demand2;
-	int demand1;
-	int demand2;
+  int net_demand1;
+  int net_demand2;
+  int demand1;
+  int demand2;
 } ObservedData;
 
 /**
@@ -43,8 +43,8 @@ typedef struct ObservedData{
  */
 
 typedef struct Coord{
-	int x;
-	int y;
+  int x;
+  int y;
 } Coord;
 
 /**
@@ -54,8 +54,8 @@ typedef struct Coord{
  */
 
 typedef struct Polygon{
-	Coord* p1;
-	Coord* p2;
+  Coord* p1;
+  Coord* p2;
 } Polygon;
 
 /**
@@ -64,9 +64,9 @@ typedef struct Polygon{
  */
 
 typedef struct IntMatrix{
-	int* value;
-	int n_rows;
-	int n_cols;
+  int* value;
+  int n_rows;
+  int n_cols;
 } IntMatrix;
 
 

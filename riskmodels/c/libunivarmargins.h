@@ -12,10 +12,10 @@
  */
 
 typedef struct DiscreteDistribution{
-	int min;
-	int max;
-	double* cdf;
-	double* expectation;
+  int min;
+  int max;
+  double* cdf;
+  double* expectation;
 } DiscreteDistribution;
 
 /**
@@ -51,10 +51,10 @@ typedef struct DoubleVector{
  * @param p model threshold's quantile
  */
 typedef struct GPModel{
-	double xi;
-	double sigma;
-	double u;
-	double p;
+  double xi;
+  double sigma;
+  double u;
+  double p;
 } GPModel;
 
 /**
@@ -68,11 +68,11 @@ typedef struct GPModel{
  */
 
 typedef struct PosteriorGPTrace{
-	double u;
-	double p;
-	double* xi;
-	double* sigma;
-	int size;
+  double u;
+  double p;
+  double* xi;
+  double* sigma;
+  int size;
 } PosteriorGPTrace;
 
 /**

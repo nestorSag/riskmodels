@@ -64,12 +64,10 @@ double empirical_cvar(DiscreteDistribution* F, IntVector* net_demand, int q){
 /*double empirical_eeu(DiscreteDistribution* F, IntVector* net_demand){
   double eeu = 0;
   int i, current;
-
   for(i=0;i<net_demand->size;++i){
     current = (int) net_demand->value[i];
     eeu += current*gen_cdf(F,current-1) - cumulative_expectation(F,current-1);
   }
-
   return eeu/net_demand->size;
 }*/
 
@@ -109,48 +107,33 @@ double tail_model_cdf(GPModel* gp, double x){
 
 
 /*void bayesian_tail_model_cdf_trace(PosteriorGPTrace* gpt, DoubleVector* output, double x){
-
   double estimator=0;
-
   int i;
-
   GPModel current;
-
   for(i=0;i<gpt->size;++i){
     
     current.xi = gpt->xi[i];
     current.u = gpt->u;
     current.p = 1; //irrelevant
     current.sigma = gpt->sigma[i];
-
     output->value[i] = tail_model_cdf(&current, x);
-
   }
-
 }*/
 
 
 /*double bayesian_tail_model_cdf(PosteriorGPTrace* gpt, double x){
-
   double estimator=0;
-
   int i;
-
   GPModel current;
-
   for(i=0;i<gpt->size;++i){
     
     current.xi = gpt->xi[i];
     current.u = gpt->u;
     current.p = 1; //irrelevant
     current.sigma = gpt->sigma[i];
-
     estimator += tail_model_cdf(&current, x);
-
   }
-
   return estimator/gpt->size;
-
 }*/
 
 
@@ -205,7 +188,6 @@ double semiparametric_net_demand_pdf(GPModel* gp, IntVector* net_demand, double 
 
 
 /*void bayesian_semiparametric_net_demand_cdf_trace(PosteriorGPTrace* gpt, IntVector* net_demand, DoubleVector* output, double x){
-
   int i;
   GPModel current;
   current.u = gpt->u;
@@ -215,25 +197,15 @@ double semiparametric_net_demand_pdf(GPModel* gp, IntVector* net_demand, double 
     current.xi = gpt->xi[i];
     output->value[i] = semiparametric_net_demand_cdf(&current, net_demand, x);
   }
-
 }
-
-
 double bayesian_semiparametric_net_demand_cdf(PosteriorGPTrace* gpt, IntVector* net_demand, double x){
-
   if(x <= gpt->u){
     return empirical_net_demand_cdf(net_demand,x);
   }else{
     return gpt->p + (1.0-gpt->p)*bayesian_tail_model_cdf(gpt,x);
   }
 }
-
-
-
-
-
 double bayesian_semiparametric_net_demand_pdf_trace(PosteriorGPTrace* gpt, IntVector* net_demand, DoubleVector* output, double x){
-
   int i;
   GPModel current;
   current.u = gpt->u;
@@ -243,11 +215,9 @@ double bayesian_semiparametric_net_demand_pdf_trace(PosteriorGPTrace* gpt, IntVe
     current.xi = gpt->xi[i];
     output->value[i] = semiparametric_net_demand_pdf(&current, net_demand, x);
   }
-
 }*/
 
 /*double bayesian_semiparametric_net_demand_pdf(PosteriorGPTrace* gpt, IntVector* net_demand, double x){
-
   return bayesian_semiparametric_net_demand_cdf(gpt,net_demand,x) - bayesian_semiparametric_net_demand_cdf(gpt,net_demand,x-1);
 }*/
 
@@ -317,20 +287,14 @@ void bayesian_semiparametric_power_margin_cdf_trace(PosteriorGPTrace* gpt, IntVe
 }
 
 /*double bayesian_semiparametric_power_margin_cdf(PosteriorGPTrace* gpt, IntVector* net_demand, DiscreteDistribution* F, double x) {
-
   int y;
-
   double cdf_val = 0;
-
   double pdf_val;
   for(y=double_max((double) F->min,-x);y<F->max-x+1;++y){
-
     pdf_val = bayesian_semiparametric_net_demand_pdf(gpt,net_demand,y);
     cdf_val += gen_cdf(F,(int) (y+x))*pdf_val;
   }
-
   cdf_val += 1.0 - bayesian_semiparametric_net_demand_cdf(gpt,net_demand,F->max - x);
-
   return cdf_val;
 }*/
 
@@ -375,15 +339,11 @@ double semiparametric_cvar(GPModel* gp, IntVector* net_demand, DiscreteDistribut
 }
 
 /*double semiparametric_eeu(GPModel* gp, IntVector* net_demand, DiscreteDistribution* F){
-
   double eeu = 0, semiparametric_eeu = 0, pdf_val, remainder;
-
   int i, y, current;
-
   if(gp->xi>=1){
     eeu = -1.0; //infinite expectation
   }else{
-
     for(i=0;i<net_demand->size;++i){
       current = (int) net_demand->value[i];
       if(current < gp->u){
@@ -392,37 +352,24 @@ double semiparametric_cvar(GPModel* gp, IntVector* net_demand, DiscreteDistribut
       }
     }
     eeu /= net_demand->size;
-
     //genpar_expectation = (1-gp->p)*(gp->u + gp->sigma/(1-gp->xi));
-
     for(y=(int) ceil(gp->u);y<F->max+1;++y){
-
       pdf_val = semiparametric_net_demand_pdf(gp,net_demand,y);
-
       semiparametric_eeu += pdf_val*(y*gen_cdf(F,y-1) - cumulative_expectation(F,y-1));
     }
-
     remainder = (1 - semiparametric_net_demand_cdf(gp,net_demand,F->max))*(F->max + gp->sigma/(1-gp->xi));
-
     eeu += semiparametric_eeu + remainder - cumulative_expectation(F,F->max)*(1-semiparametric_net_demand_cdf(gp,net_demand,F->max));
-
   }
-
   return eeu;
 }*/
 
 /*double bayesian_semiparametric_eeu(PosteriorGPTrace* gpt, IntVector* net_demand, DiscreteDistribution* F){
-
   double eeu = 0, semiparametric_eeu = 0, remainder =0, pdf_val;
-
   int i, y, current;
-
   int infinite_expectation = 0;
-
   GPModel current_gp;
   current_gp.u = gpt->u;
   current_gp.p = gpt->p;
-
   for(y=0;y<gpt->size;++y){
     if(gpt->xi[y]>=1){
       infinite_expectation = 1;
@@ -431,7 +378,6 @@ double semiparametric_cvar(GPModel* gp, IntVector* net_demand, DiscreteDistribut
   if(infinite_expectation==1){
     eeu = -1.0;
   }else{
-
     for(i=0;i<net_demand->size;++i){
       current = (int) net_demand->value[i];
       if(current < gpt->u){
@@ -440,14 +386,10 @@ double semiparametric_cvar(GPModel* gp, IntVector* net_demand, DiscreteDistribut
       }
     }
     eeu /= net_demand->size;
-
     for(y=(int) ceil(gpt->u);y<F->max+1;++y){
-
       pdf_val = bayesian_semiparametric_net_demand_pdf(gpt,net_demand,y);
-
       semiparametric_eeu += pdf_val*(y*gen_cdf(F,y-1) - cumulative_expectation(F,y-1));
     }
-
     for(i=0;i<gpt->size;++i){
       current_gp.xi = gpt->xi[i];
       current_gp.sigma = gpt->sigma[i]; 
@@ -456,11 +398,8 @@ double semiparametric_cvar(GPModel* gp, IntVector* net_demand, DiscreteDistribut
     }
     //genpar_expectation = (1-gpt->p)*genpar_expectation/gpt->size;
     remainder /= gpt->size;
-
     eeu += semiparametric_eeu + remainder - cumulative_expectation(F,F->max)*(1-bayesian_semiparametric_net_demand_cdf(gpt,net_demand,F->max));
-
   }
-
   return eeu;
 }*/
 
@@ -520,17 +459,13 @@ void bayesian_semiparametric_cvar_trace(PosteriorGPTrace* gpt, IntVector* net_de
 
 
 /*double bayesian_semiparametric_cvar(PosteriorGPTrace* gpt, IntVector* net_demand, DiscreteDistribution* F, int q){
-
   double eeu = 0, semiparametric_eeu = 0, remainder =0, pdf_val;
-
   int upper_bound = q + 1, sum_split =  F->max+q-1, i, y, current;
   
   int infinite_expectation = 0;
-
   GPModel current_gp;
   current_gp.u = gpt->u;
   current_gp.p = gpt->p;
-
   for(y=0;y<gpt->size;++y){
     if(gpt->xi[y]>=1){
       infinite_expectation = 1;
@@ -539,7 +474,6 @@ void bayesian_semiparametric_cvar_trace(PosteriorGPTrace* gpt, IntVector* net_de
   if(infinite_expectation==1){
     eeu = -1.0;
   }else{
-
     for(i=0;i<net_demand->size;++i){
       current = (int) net_demand->value[i];
       if(current < gpt->u){
@@ -548,14 +482,10 @@ void bayesian_semiparametric_cvar_trace(PosteriorGPTrace* gpt, IntVector* net_de
       }
     }
     eeu /= net_demand->size;
-
     for(y=(int) ceil(gpt->u);y<=sum_split;++y){
-
       pdf_val = bayesian_semiparametric_net_demand_pdf(gpt,net_demand,y);
-
       semiparametric_eeu += pdf_val*(y*gen_cdf(F,y-upper_bound) - cumulative_expectation(F,y-upper_bound));
     }
-
     for(i=0;i<gpt->size;++i){
       current_gp.xi = gpt->xi[i];
       current_gp.sigma = gpt->sigma[i]; 
@@ -564,11 +494,8 @@ void bayesian_semiparametric_cvar_trace(PosteriorGPTrace* gpt, IntVector* net_de
     }
     //genpar_expectation = (1-gpt->p)*genpar_expectation/gpt->size;
     remainder /= gpt->size;
-
     eeu += semiparametric_eeu + remainder - cumulative_expectation(F,F->max)*(1-bayesian_semiparametric_net_demand_cdf(gpt,net_demand,sum_split));
-
   }
-
   return eeu;
 }
 */

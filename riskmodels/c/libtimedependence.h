@@ -33,10 +33,10 @@ typedef struct FloatMatrix{
  * @param n_states number of states
  */
 typedef struct MarkovChain{
-	float* states;
-	float* transition_probs;
-	float initial_state;
-	int n_states;
+  float* states;
+  float* transition_probs;
+  float initial_state;
+  int n_states;
 } MarkovChain;
 
 /**
@@ -46,8 +46,8 @@ typedef struct MarkovChain{
  * @param y second component
  */
 typedef struct MarkovChainArray{
-	MarkovChain* chains;
-	int size;
+  MarkovChain* chains;
+  int size;
 } MarkovChainArray;
 
 /**
@@ -57,10 +57,10 @@ typedef struct MarkovChainArray{
  * @param y second component
  */
 typedef struct TimeSimulationParameters{
-	int n_simulations;
-	int n_transitions;
-	int seed;
-	int simulate_streaks;
+  int n_simulations;
+  int n_transitions;
+  int seed;
+  int simulate_streaks;
 
 } TimeSimulationParameters;
 
@@ -82,7 +82,7 @@ void set_float_element(FloatMatrix* m, int i, int j, float x);
 
 int simulate_geometric_dist(float p);
 
-float float_min(float num1, float num2);
+float float_min(float num1, float num2) ;
 
 float float_max(float num1, float num2);
 
@@ -143,11 +143,11 @@ float get_veto_flow(float m1, float m2, float c);
  */
 
 float get_share_flow(
-	float m1,
-	float m2,
-	float d1,
-	float d2,
-	float c);
+  float m1,
+  float m2,
+  float d1,
+  float d2,
+  float c);
 
 /**
  * @brief calculate post-interconnection margins under a veto policy

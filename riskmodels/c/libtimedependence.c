@@ -9,7 +9,6 @@
 /*float get_double_element(DoubleMatrix* m, int i, int j){
   return m->value[i*m->n_cols + j];
 }
-
 void set_double_element(DoubleMatrix* m, int i, int j, float x){
   m->value[i*m->n_cols + j] = x;
 }*/
@@ -216,7 +215,6 @@ void simulate_mc_power_grid(FloatMatrix* output, MarkovChainArray* mkv_chains, T
         if(current_value - last_value > gencap){
           printf("gencap %f, diff %f, j %d\n",gencap,current_value-last_value,j);
         }
-
       }*/
 
       /*for(k = 0; k < output_length; ++k){

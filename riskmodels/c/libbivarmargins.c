@@ -105,7 +105,7 @@ double cond_eeu_share(BivariateDiscreteDistribution* F, ObservedData* obs, int c
 
     //EPU += -r*FX2.pdf(x2)*((x2-v1-v2)*(FX1.cdf(beta)-FX1.cdf(alpha-1)) + FX1.expectation(fro=alpha,to=beta ) )
     
-    beta = (int) min(beta0 + d1_div_d2*x2,v1+v2-x2);
+    beta = (int) double_min(beta0 + d1_div_d2*x2,v1+v2-x2);
     alpha = (int) ceil(alpha0 + d1_div_d2*x2);
     //gen2_pdf = (get_gen_array_val(x2,gen2_cdf_array,min_gen2,max_gen2) - get_gen_array_val(x2-1,gen2_cdf_array,min_gen2,max_gen2));
     gen2_pdf = gen_pdf(F->y,x2);
@@ -317,7 +317,7 @@ double share_flow(int m1,int m2,int d1,int d2,int c){
 
   double flow;
   if(m1+m2 < 0 && m1 < c && m2 < c){
-    //res = min(c,max(-c,((float) d1)/(d1+d2)*m2 - ((float) d2)/(d1+d2)*m1));
+    //res = min(c,double_max(-c,((float) d1)/(d1+d2)*m2 - ((float) d2)/(d1+d2)*m1));
     flow = ((float) d1)/(d1+d2)*m2 - ((float) d2)/(d1+d2)*m1;
     flow = (flow >= c ? c : (flow <= -c ? -c: flow));
   }else{
@@ -397,24 +397,18 @@ double cond_bivariate_power_margin_cdf(BivariateDiscreteDistribution* F, Polygon
 }
 
 /*double bivariate_power_margin_cdf(BivariateDiscreteDistribution* F, IntMatrix* demand, IntMatrix* net_demand, SimulationParameters* pars){
-
   int i;
   double cdf_val = 0;
   ObservedData current_obs;
   Polygon plg1, plg2;
-
   for(i=0;i<demand->n_rows;++i){
-
     current_obs.net_demand1 = get_element(net_demand,i,0);
     current_obs.net_demand1 = get_element(net_demand,i,1);
     current_obs.demand1 = get_element(demand,i,0);
     current_obs.demand2 = get_element(demand,i,1);
-
     get_polygons(&plg1, &plg2, &current_obs, &pars);
-
     cdf_vals += cond_bivariate_power_margin_cdf(F, &plg1, &plg2);
   }
-
   return cdf_vals/demand->n_rows;
 }*/
 
@@ -915,13 +909,10 @@ void conditioned_simulation_py_interface(
   double* ecdf,
   double* X,
   int n){
-
   DoubleVector ecdf_vector;
   DoubleMatrix X_matrix; 
-
   get_int_matrix_from_py_objs(&X_matrix, X, n, 2);
   get_double_vector_from_py_objs(&ecdf_vector,ecdf,n);
-
   bivariate_empirical_cdf(&ecdf_vector,&X_matrix);
 }*/
 
@@ -939,31 +930,22 @@ void conditioned_simulation_py_interface(
   int m2,
   int c,
   int share_policy){
-
   int i;
-
   DiscreteDistribution X;
   DiscreteDistribution Y;
   BivariateDiscreteDistribution F;
-
   get_discrete_dist_from_py_objs(&X, gen1_cdf_array, gen1_cdf_array, min_gen1, max_gen1);
   get_discrete_dist_from_py_objs(&Y, gen2_cdf_array, gen2_cdf_array, min_gen2, max_gen2);
   F.x = &X;
   F.y = &Y;
-
   IntMatrix net_demand_matrix;
   IntMatrix demand_matrix;
-
   get_int_matrix_from_py_objs(&net_demand_matrix, net_demand, n_rows, 2);
   get_int_matrix_from_py_objs(&demand_matrix, demand, n_rows, 2);
-
   SimulationParameters pars;
-
   // valid parameters: x_bound, y_bound, share_policy and c. All other are placeholders
   get_sim_pars_from_py_objs(&pars,m1,m2,gen1_cdf_array,1,1,share_policy,c,m1);
-
   return bivariate_power_margin_cdf(&F, &demand, &net_demand, &pars);
-
 }*/
 
 
@@ -1010,5 +992,3 @@ double cond_bivariate_power_margin_cdf_py_interface(
   return cond_bivariate_power_margin_cdf(&F, &plg1, &plg2);
 
 }
-
-
