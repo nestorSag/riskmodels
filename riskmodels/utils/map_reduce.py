@@ -39,7 +39,11 @@ class PersistedTraces(BasePydanticModel):
         Args:
             trace_filepath (str): Path to file
         """
-        return cls(traces=np.load(trace_filepath, allow_pickle=True))
+        if ".npz" in trace_filepath:
+            traces = np.load(trace_filepath, allow_pickle=True)["traces"]
+        else:
+            traces = np.load(trace_filepath, allow_pickle=True)
+        return cls(traces=traces)
 
     def __add__(self, other: float):
         return type(self)(traces=self.samples + other)

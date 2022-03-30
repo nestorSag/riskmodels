@@ -227,6 +227,7 @@ def test_sequential_models():
     gens = [gen, gen2],
     demand = demands,
     renewables = winds,
-    season_length = season_length).simulate_eu(itc_cap=itc_cap, policy=policy)
+    season_length = season_length,
+    compress_files=True).simulate_eu(itc_cap=itc_cap, policy=policy)
   assert np.all(np.logical_not(np.isnan(eu)))
   shutil.rmtree(out_folder)

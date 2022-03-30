@@ -592,9 +592,12 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         Args:
             args (t.Tuple[acg_models.Sequential, t.Dict, Path]): trace generation parameters
         """
-        gen, call_kwargs, filename = args
+        gen, call_kwargs, filename, compress_files = args
         traces = gen.simulate_seasons(**call_kwargs)
-        np.save(filename, traces)
+        if compress_files:
+            np.savez_compressed(filename, traces=traces)
+        else:
+            np.save(filename, traces)
 
     @classmethod
     def init(
@@ -609,9 +612,10 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         n_cores: int = 4,
         burn_in: int = 100,
         seed: int = None,
-    ) -> BaseCapacityModel:
+        compress_files: bool = False
+    ) -> UnivariateSequential:
         """Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.
-
+        
         Args:
             output_dir (str): Output directory for trace files
             n_traces (int): Total number of season traces to simulate
@@ -623,10 +627,11 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
             n_cores (int, optional): Number of cores to use.
             burn_in (int, optional): Parameter passed to acg_models.Sequential.simulate_seasons.
             seed (int, optional): Random seed passed to C backend. If not passed, output file paths are hashed to obtained it; this is because different seeds are needed for each file, otherwise traces are identical across files.
-
-        No Longer Returned:
+            compress_files (bool, optional): Whether ACG trace files should be compressed
+        
+        Returns:
             UnivariateSequential: Sequential surplus model
-
+        
         """
 
         # create dir if it doesn't exist
@@ -667,7 +672,7 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
                 "burn_in": burn_in,
                 "seed": file_seed,
             }
-            arglist.append((gen, call_kwargs, output_path))
+            arglist.append((gen, call_kwargs, output_path, compress_files))
 
         # create files in parallel
         with Pool(n_cores) as executor:
@@ -900,7 +905,8 @@ class BivariateSequential(UnivariateSequential):
         season_length: int,
         n_cores: int = 4,
         burn_in: int = 100,
-    ) -> UnivariateSequential:
+        compress_files: bool = False
+    ) -> BivariateSequential:
         """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
 
         Args:
@@ -913,6 +919,7 @@ class BivariateSequential(UnivariateSequential):
             season_length (int): Peak season length.
             n_cores (int, optional): Number of cores to use.
             burn_in (int, optional): Parameter passed to acg_models.Sequential.simulate_seasons.
+            compress_files (bool, optional): Whether ACG trace files should be compressed
 
         Returns:
             BivariateSequential: Sequential surplus model
@@ -934,6 +941,7 @@ class BivariateSequential(UnivariateSequential):
                 season_length=season_length,
                 n_cores=n_cores,
                 burn_in=burn_in,
+                compress_files=compress_files
             )
 
         return cls(
