@@ -70,6 +70,9 @@ class BivariateNSMonteCarlo(BaseBivariateMonteCarlo):
         )
 
 
+
+
+
 class BivariateNSEmpirical(BaseCapacityModel):
 
     """Bivariate Non-sequential capacity model that uses a hindcast net demand distribution to compute exact LOLE and EEU risk indices; it implements both `veto` and `share` policies"""
@@ -81,18 +84,18 @@ class BivariateNSEmpirical(BaseCapacityModel):
         self,
         demand_data: np.ndarray,
         renewables_data: np.ndarray,
-        gen_distribution: Independent,
+        gen_distributions: t.List[acg_models.NonSequential],
         season_length: int = None,
     ):
         """
-
         Args:
-          demand_data (np.ndarray): Demand data matrix with two columns
-          gen_distribution (Independent): A bivariate distribution with independent components, where each component is a univar.Binned instance representing the distribution of available conventional generation for the corresponding area
-          renewables_data (np.ndarray): Renewable generation data matrix with two columns
-          season_length (int, optional): length of peak season. If None, it is set as the length of demand data
-
+            demand_data (np.ndarray): Demand data matrix with two columns
+            renewables_data (np.ndarray): Renewable generation data matrix with two columns
+            gen_distributions (t.List[acg_models.NonSequential]): List of non-sequential ACG objects
+            season_length (int, optional): length of peak season. If None, it is set as the length of demand data
+        
         """
+        gen_distribution = Independent(x=gen_distributions[0], y=gen_distributions[1])
         warnings.warn("Coercing data to integer values.", stacklevel=2)
 
         self.demand_data = np.ascontiguousarray(demand_data, dtype=np.int32)
@@ -142,7 +145,7 @@ class BivariateNSEmpirical(BaseCapacityModel):
         )
 
     def cdf(self, x: np.ndarray, itc_cap: int = 1000, policy: str = "veto"):
-        """Evaluates the bivariate post-interconnection capacity surplus distribution's cumulative distribution function
+        """Evaluates the bivariate post-interconnection time-collapsed capacity surplus distribution's cumulative distribution function
 
         Args:
             x (np.ndarray): value at which to evaluate the cdf
@@ -323,14 +326,17 @@ class BivariateNSEmpirical(BaseCapacityModel):
 
     def get_pointwise_risk(
         self, x: np.ndarray, itc_cap: int = 1000, policy: str = "veto"
-    ):
-        """Calculates the post-interconnection shortfall probability for each one of the net demand observations
-
+    ) -> np.ndarray:
+        """Calculates the post-interconnection time-collapsed shortfall probability for each one of the net demand observations
+        
         Args:
             x (np.ndarray): point to evaluate CDF at
             itc_cap (int, optional): interconnection capacity
-            policy (str): one of 'veto' or 'share'
-
+            policy (str, optional): one of 'veto' or 'share'
+        
+        
+        Returns:
+            np.ndarray: array with post-interconnection time-collapsed shortfall probabilities
         """
         pointwise_cdfs = np.empty((len(self.demand_data),))
         for k, (demand_row, renewables_row) in enumerate(
@@ -470,7 +476,7 @@ class BivariateNSEmpirical(BaseCapacityModel):
         itc_cap: int = 1000,
         policy: str = "veto",
     ):
-        """Simulate post-interconnection surplus distribution conditioned to a value in the other area's surplus
+        """Simulate post-interconnection capacity surplus distribution conditioned to a value in the other area's surplus
 
         Args:
             size (int): Sample size
@@ -1039,7 +1045,7 @@ class BivariateSequential(UnivariateSequential):
             return mapped
 
     def cdf(self, x: np.ndarray, itc_cap: float = 1000.0, policy="veto"):
-        """Evaluates the bivariate post-interconnection capacity surplus distribution's cumulative distribution function
+        """Evaluates the bivariate post-interconnection time-collapsed capacity surplus distribution's cumulative distribution function
 
         Args:
             x (np.ndarray): value at which to evaluate the cdf

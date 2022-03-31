@@ -186,7 +186,7 @@ def test_bivariate():
     assert isotropic_dist < dist_bound
 
 
-def test_sequential_models():
+def test_capacity_models():
   season_length = 3360
   ## test for exceptions in C code for sequential generation
   gen_df = pd.DataFrame([{"availability": 0.95, "capacity": 250, "mttr": 50} for k in range(250)])
@@ -230,4 +230,11 @@ def test_sequential_models():
     season_length = season_length,
     compress_files=True).simulate_eu(itc_cap=itc_cap, policy=policy)
   assert np.all(np.logical_not(np.isnan(eu)))
+
+  model=capacity_models.BivariateNSEmpirical(
+    gen_distributions = [gen, gen2],
+    demand_data = demands,
+    renewables_data = winds,
+    season_length = season_length)
+  model.eeu(itc_cap=1000, policy="veto", area=0)
   shutil.rmtree(out_folder)

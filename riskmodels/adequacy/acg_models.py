@@ -110,7 +110,7 @@ class Sequential(NonSequential):
             df (pd.DataFrame): Generator data with columns 'availability' and 'mttr'
 
         Returns:
-            t.Tuple[np.ndarray, np.ndarray]
+            t.Tuple[np.ndarray, np.ndarray]: arrays with state values and transition matrices
         """
 
         def get_transition_matrix(generator_data):
@@ -230,12 +230,9 @@ class Sequential(NonSequential):
             output_array (np.ndarray, optional): Array where results are to be stored. If not provided, one is created.
             seed (int, optional): Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.
 
-        No Longer Returned:
+        Returns:
             np.Optional[np.ndarray]: two-dimensional array in which each row represent an individual simulated trace. If an output array is passed as input, None is returned.
 
-
-        No Longer Raises:
-            ValueError: Description
 
 
         """
@@ -354,7 +351,7 @@ class Sequential(NonSequential):
             burn_in (int, optional): burn-in period between individual peak season traces; this is needed because in order to sample them, a large sequence is generated and subsequently subdivided, thus making trace endpoints correlated if a burn-in period is not allowed.
             seed (int, optional): Random seed passed to C backend. If not given, numpy's random numbers are used to initialise it.
 
-        No Longer Returned:
+        Returns:
             np.ndarray: two-dimensional array where each row represent a sampled peak season of available conventional generation.
         """
         total_seasons = size * seasons_per_trace
