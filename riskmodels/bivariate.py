@@ -1502,6 +1502,7 @@ class Empirical(BaseDistribution):
 
 
         """
+        data = np.ascontiguousarray(data, data.dtype)
         if (
             not isinstance(data, np.ndarray)
             or len(data.shape) != 2

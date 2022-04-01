@@ -586,6 +586,11 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
 
     _worker_class = UnivariateTraces
 
+    @validator("demand", "renewables", allow_reuse=True)
+    def check_shape_and_order(cls, data):
+        # ensures passed arrays are one-dimensional and follow row-major order
+        return np.ascontiguousarray(data, np.float32).reshape(-1)
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -894,6 +899,13 @@ class BivariateSequential(UnivariateSequential):
 
     _worker_class = BivariateTraces
     _area_indices = [0, 1]
+
+    @validator("demand", "renewables", allow_reuse=True)
+    def check_shape_and_order(cls, data):
+        # ensures passed arrays are twi-dimensional and follow row-major order
+        if len(data.shape) != 2 or data.shape[1] != 2:
+            raise ValueError("passed data arrays must be two-dimensional with two columns")
+        return np.ascontiguousarray(data, np.float32)
 
     @property
     def filedirs(self):
