@@ -89,8 +89,8 @@ class BivariateNSEmpirical(BaseCapacityModel):
     ):
         """
         Args:
-            demand_data (np.ndarray): Demand data matrix with two columns
-            renewables_data (np.ndarray): Renewable generation data matrix with two columns
+            demand_data (np.ndarray): Demand data array with two columns
+            renewables_data (np.ndarray): Renewable generation data array with two columns
             gen_distributions (t.List[acg_models.NonSequential]): List of non-sequential ACG objects
             season_length (int, optional): length of peak season. If None, it is set as the length of demand data
         
@@ -571,8 +571,8 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
 
     Args:
         gen_dir (str): folder with conventional generation data
-        demand (np.ndarray): demand data
-        renewables (np.ndarray): renewables data
+        demand (np.ndarray): one-dimensionsl demand data
+        renewables (np.ndarray): one-dimensional renewables data
         season_length (int): number of timesteps per peak season
         n_cores (int, optional): number of cores to use for map-reduce operations
 
@@ -625,7 +625,7 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         seed: int = None,
         compress_files: bool = False
     ) -> UnivariateSequential:
-        """Generate and persists traces of conventional generation in files, and uses them to instantiate a surplus model. Returns a surplus model ready to perform computations with the generated files.
+        """Generate and persists traces of conventional generation in multiple files, and uses them to instantiate a capacity surplus model. Returns a surplus model ready to perform computations on the generated files.
         
         Args:
             output_dir (str): Output directory for trace files
@@ -891,8 +891,8 @@ class BivariateSequential(UnivariateSequential):
 
     Args:
         gen_dir (str): folder with conventional generation data
-        demand (np.ndarray): demand data
-        renewables (np.ndarray): renewables data
+        demand (np.ndarray): two-dimensional demand array with two columns
+        renewables (np.ndarray): two-dimensional renewables data array with two columns
         season_length (int): number of timesteps per peak season
         n_cores (int, optional): number of cores to use for map-reduce operations
     """
@@ -925,7 +925,7 @@ class BivariateSequential(UnivariateSequential):
         burn_in: int = 100,
         compress_files: bool = False
     ) -> BivariateSequential:
-        """Generate and persists traces of conventional generation in files, and use them to instantiate a surplus model.
+        """Generate and persists traces of conventional generation in multiple files, and uses them to instantiate a capacity surplus model. Returns a model ready to perform computations on the generated files.
 
         Args:
             output_dir (str): output directory for trace files

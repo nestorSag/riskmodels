@@ -1588,7 +1588,7 @@ class Empirical(BaseDistribution):
             q (t.Union[float, np.ndarray]): probability level
 
         Returns:
-            t.Union[float, np.ndarray]: Linearly interpolated quantile function
+            t.Union[float, np.ndarray]: Evaluations of the (Linearly interpolated) quantile function
 
         """
         is_scalar = isinstance(q, self._allowed_scalar_types)
@@ -1713,7 +1713,7 @@ class Empirical(BaseDistribution):
         """Returns the distribution resulting from an arbitrary transformation
 
         Args:
-            f (t.Callable): Target transformation; it should take a numpy array as input
+            f (t.Callable): function to apply; it should take a numpy array as input
 
         """
         dist_df = pd.DataFrame({"pdf": self.pdf_values, "support": f(self.support)})

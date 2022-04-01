@@ -18,12 +18,16 @@ pdf-docs: ## Generates pdf documentation
 	@$(call verify_install, pdoc3);\
   echo "for this to work, pandoc needs to be installed."
 	@pdoc3 --pdf --config='docformat="google"' -c latex_math=True -c show_source_code=False riskmodels > docs.md
+	@python utils/link_api_docs.py \
+	  --input-path docs.md \
+	  --output-path linked-docs.md
 	@pandoc --metadata=title:"riskmodels package" \
 	--from=markdown+abbreviations+tex_math_single_backslash \
 	--pdf-engine=xelatex --variable=mainfont:"DejaVu Sans" \
 	--toc \
-	--toc-depth=4 \
-	--output=docs.pdf  docs.md
+	--toc-depth=5 \
+	--output=docs.pdf  linked-docs.md
+	@rm docs.md linked-docs.md
 
 tests: ## Tests package
 	@$(call verify_install, pytest);
