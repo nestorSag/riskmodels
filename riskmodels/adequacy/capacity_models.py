@@ -264,13 +264,17 @@ class BivariateNSEmpirical(BaseCapacityModel):
             x=self.gen_distribution.y, y=self.gen_distribution.x
         )
 
-    def eeu(self, itc_cap: int = 1000, policy: str = "veto", area: int = 0):
-        """Computes the post-interconnection expected energy unserved.
-
+    def eeu(self, itc_cap: int = 1000, policy: str = "veto", area: int = 0) -> float:
+        """Computes the post-interconnection expected energy unserved (EEU).
+        
         Args:
             itc_cap (int, optional): interconnection capacity
             policy (str, optional): one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, capacity shortfalls are shared according to demand proportions across areas. Shortfalls can extend from one area to another by diverting power.
             area (int, optional): Area for which to evaluate eeu; if area=-1, systemwide eeu is returned
+        
+        Returns:
+            float: Estimated EEU
+        
         """
 
         if area == -1:
@@ -810,11 +814,11 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
             x=-1e-1
         )  # tiny offset to avoid issues with numerical rounding errors from adding millions of numbers together
 
-    def eeu(self):
-        """Computes the expected energy unserved
+    def eeu(self) -> float:
+        """Computes the expected energy unserved (EEU)
 
         Returns:
-            float: eeu estimate
+            float: estimated EEU
         """
 
         def reducer(mapped):
@@ -948,7 +952,6 @@ class BivariateSequential(UnivariateSequential):
             cls._area_indices, gens, demand.T, renewables.T
         ):
             out_dir = Path(output_dir) / str(area)
-            print(f"Creating files for area {area}..")
             UnivariateSequential.init(
                 output_dir=str(out_dir),
                 n_traces=n_traces,
@@ -1078,13 +1081,17 @@ class BivariateSequential(UnivariateSequential):
             str_map_kwargs={"x": x},
         )
 
-    def lole(self, itc_cap: float = 1000.0, policy="veto", area: int = 0):
-        """Computes the post-interconnection loss of load expectation.
-
+    def lole(self, itc_cap: float = 1000.0, policy="veto", area: int = 0) -> float:
+        """Computes the post-interconnection loss of load expectation (LOLE)
+        
         Args:
-            itc_cap (int, optional): interconnection capacity
+            itc_cap (float, optional): interconnection capacity
             policy (str, optional): one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
             area (int, optional): Area for which to evaluate LOLE; if area=-1, system-wide lole is returned
+        
+        Returns:
+            float: estimated LOLE
+        
         """
         offset = (
             -1e-1
@@ -1104,13 +1111,16 @@ class BivariateSequential(UnivariateSequential):
         else:
             raise ValueError("area must be in [-1,0,1]")
 
-    def eeu(self, itc_cap: float = 1000.0, policy="veto", area: int = 0):
-        """Computes the post-interconnection expected energy unserved.
-
+    def eeu(self, itc_cap: float = 1000.0, policy="veto", area: int = 0) -> float:
+        """Computes the post-interconnection expected energy unserved (EEU)
+        
         Args:
-            itc_cap (int, optional): interconnection capacity
+            itc_cap (float, optional): interconnection capacity
             policy (str, optional): one of 'veto' or 'share'; in a 'veto' policy, areas only export spare available capacity, while in a 'share' policy, exports are market-driven, i.e., by power scarcity at both areas. Shortfalls can extend from one area to another by diverting power.
             area (int, optional): Area for which to evaluate eeu; if area=-1, systemwide eeu is returned
+        
+        Returns:
+            float: estimated EEU
         """
 
         def reducer(mapped):

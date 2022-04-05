@@ -1637,7 +1637,9 @@ class Empirical(BaseDistribution):
 
     @classmethod
     def from_data(cls, data: np.array):
-        data = np.ascontiguousarray(data, data.dtype)
+        if len(data.shape) != 1:
+            warnings.warn("Reshaping input data to one-dimensional array")
+        data = np.ascontiguousarray(data, data.dtype).reshape(-1)
         support, unnorm_pdf = np.unique(data, return_counts=True)
         n = np.sum(unnorm_pdf)
         return cls(support=support, pdf_values=unnorm_pdf / n, data=data)
