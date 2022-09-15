@@ -209,7 +209,9 @@ def test_capacity_models():
     gen = gen,
     demand = demand,
     renewables = wind,
-    season_length = season_length).simulate_eu()
+    season_length = season_length,
+    offset = 100.0,
+    scale = 0.85).simulate_eu()
   assert np.all(np.logical_not(np.isnan(eu)))
   #
   # test two-area sequential model
@@ -228,7 +230,9 @@ def test_capacity_models():
     demand = demands,
     renewables = winds,
     season_length = season_length,
-    compress_files=True).simulate_eu(itc_cap=itc_cap, policy=policy)
+    compress_files=True,
+    offsets = [100.0, 100.0],
+    scales = [1.25, 0.85]).simulate_eu(itc_cap=itc_cap, policy=policy)
   assert np.all(np.logical_not(np.isnan(eu)))
 
   model=capacity_models.BivariateNSEmpirical(

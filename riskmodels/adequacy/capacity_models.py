@@ -579,6 +579,8 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         renewables (np.ndarray): one-dimensional renewables data
         season_length (int): number of timesteps per peak season
         n_cores (int, optional): number of cores to use for map-reduce operations
+        offset (float, optional): offset parameter added to loaded traces. Defaults to 0.0
+        scale (float, optional): multiplicative rescaling factor for loaded traces. Defaults to 1.0
 
     """
 
@@ -587,6 +589,8 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
     renewables: np.ndarray
     season_length: int
     n_cores: t.Optional[int] = 2
+    offset: float = 0.0
+    scale: float = 1.0
 
     _worker_class = UnivariateTraces
 
@@ -627,7 +631,9 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
         n_cores: int = 4,
         burn_in: int = 100,
         seed: int = None,
-        compress_files: bool = False
+        compress_files: bool = False,
+        offset: float = 0.0,
+        scale: float = 1.0
     ) -> UnivariateSequential:
         """Generate and persists traces of conventional generation in multiple files, and uses them to instantiate a capacity surplus model. Returns a surplus model ready to perform computations on the generated files.
         
@@ -643,6 +649,8 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
             burn_in (int, optional): Parameter passed to acg_models.Sequential.simulate_seasons.
             seed (int, optional): Random seed passed to C backend. If not passed, output file paths are hashed to obtained it; this is because different seeds are needed for each file, otherwise traces are identical across files.
             compress_files (bool, optional): Whether ACG trace files should be compressed
+            offset (float, optional): offset parameter added to loaded traces. Defaults to 0.0
+            scale (float, optional): multiplicative rescaling factor for loaded traces. Defaults to 1.0
         
         Returns:
             UnivariateSequential: Sequential surplus model
@@ -703,6 +711,8 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
             renewables=np.array(renewables),
             season_length=season_length,
             n_cores=n_cores,
+            offset=offset,
+            scale=scale
         )
 
     def create_mapred_arglist(
@@ -725,6 +735,8 @@ class UnivariateSequential(BaseCapacityModel, BasePydanticModel):
                 "demand": self.demand,
                 "renewables": self.renewables,
                 "season_length": self.season_length,
+                "offset": self.offset,
+                "scale": self.scale
             }
             arglist.append((kwargs, mapper, str_map_kwargs))
 
@@ -899,8 +911,11 @@ class BivariateSequential(UnivariateSequential):
         renewables (np.ndarray): two-dimensional renewables data array with two columns
         season_length (int): number of timesteps per peak season
         n_cores (int, optional): number of cores to use for map-reduce operations
+        offsets (t.Iterable, optional): offset parameters added to loaded traces for each area. Defaults to [0.0, 0.0]
+        scales (t.Iterable, optional): multiplicative rescaling factors for loaded traces in each area. Defaults to [1.0, 1.0]
     """
-
+    offsets: t.Iterable = [0.0, 0.0]
+    scales: t.Iterable = [1.0, 1.0]
     _worker_class = BivariateTraces
     _area_indices = [0, 1]
 
@@ -927,7 +942,9 @@ class BivariateSequential(UnivariateSequential):
         season_length: int,
         n_cores: int = 4,
         burn_in: int = 100,
-        compress_files: bool = False
+        compress_files: bool = False,
+        offsets: float = [0.0, 0.0],
+        scales: float = [1.0, 1.0]
     ) -> BivariateSequential:
         """Generate and persists traces of conventional generation in multiple files, and uses them to instantiate a capacity surplus model. Returns a model ready to perform computations on the generated files.
 
@@ -942,14 +959,16 @@ class BivariateSequential(UnivariateSequential):
             n_cores (int, optional): Number of cores to use.
             burn_in (int, optional): Parameter passed to acg_models.Sequential.simulate_seasons.
             compress_files (bool, optional): Whether ACG trace files should be compressed
+            offsets (t.Iterable, optional): offset parameters added to loaded traces for each area. Defaults to [0.0, 0.0]
+            scales (t.Iterable, optional): multiplicative rescaling factors for loaded traces in each area. Defaults to [1.0, 1.0]
 
         Returns:
             BivariateSequential: Sequential surplus model
 
 
         """
-        for area, gen, univar_demand, univar_renewables in zip(
-            cls._area_indices, gens, demand.T, renewables.T
+        for area, gen, univar_demand, univar_renewables, offset, scale in zip(
+            cls._area_indices, gens, demand.T, renewables.T, offsets, scales
         ):
             out_dir = Path(output_dir) / str(area)
             UnivariateSequential.init(
@@ -962,7 +981,9 @@ class BivariateSequential(UnivariateSequential):
                 season_length=season_length,
                 n_cores=n_cores,
                 burn_in=burn_in,
-                compress_files=compress_files
+                compress_files=compress_files,
+                offset=offset,
+                scale=scale
             )
 
         return cls(
@@ -971,6 +992,8 @@ class BivariateSequential(UnivariateSequential):
             renewables=np.array(renewables),
             season_length=season_length,
             n_cores=n_cores,
+            offsets=offsets,
+            scales=scales
         )
 
     def create_mapred_arglist(
@@ -990,14 +1013,16 @@ class BivariateSequential(UnivariateSequential):
 
         # use univariate class logic to build named argument lists, whose instances are then passed as arguments to bivariate models.
         univariate_trace_pairs = []
-        for filedir, demand_array, renewables_array in zip(
-            self.filedirs, self.demand.T, self.renewables.T
+        for filedir, demand_array, renewables_array, offset, scale in zip(
+            self.filedirs, self.demand.T, self.renewables.T, self.offsets, self.scales
         ):
             univar_model = UnivariateSequential(
                 gen_dir=str(filedir),
                 demand=demand_array,
                 renewables=renewables_array,
                 season_length=self.season_length,
+                offset=offset,
+                scale=scale
             )
 
             univar_arglist = univar_model.create_mapred_arglist(

@@ -61,6 +61,8 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
         demand (np.ndarray): demand data
         renewables (np.ndarray): renewables data
         season_length (int): number of timesteps per peak season
+        offset (float, optional): offset parameter added to loaded traces. Defaults to 0.0
+        scale (float, optional): multiplicative rescaling factor for loaded traces. Defaults to 1.0
 
     """
 
@@ -68,7 +70,8 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
     demand: np.ndarray
     renewables: np.ndarray
     season_length: int
-
+    offset: float = 0.0
+    scale: float = 1.0
     class Config:
         arbitrary_types_allowed = True
 
@@ -80,7 +83,7 @@ class UnivariateTraces(BaseCapacityModel, BasePydanticModel):
     @property
     def surplus_trace(self):
         # this return a 2-dimensional array where each row is a trace sample, and each column is a timestep within the trace. A trace may contain multiple concatenated peak seasons
-        return PersistedTraces.from_file(self.gen_filepath).traces - (
+        return self.scale * PersistedTraces.from_file(self.gen_filepath).traces + self.offset - (
             self.demand - self.renewables
         )
 
