@@ -37,7 +37,7 @@ with open("README.md", "r") as fh:
      setup_requires = ['cffi>=1.0.0'],
 
      install_requires=[
-        'pydantic>=1.8.2',
+        'pydantic<2.0.0',
         'emcee>=3.1.0',
         'scipy>=1.7.1',
         'numpy>=1.21.2',
