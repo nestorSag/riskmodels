@@ -69,7 +69,7 @@ The result is a semi-parametric model with an empirical distribution below the t
     <em>Diagnostic plots for GB model</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/blob/master/readme_imgs/gb_mrl.png" alt="Diagnostic plots for Great Britain's model" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
 </p>
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
