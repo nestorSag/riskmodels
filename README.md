@@ -50,7 +50,7 @@ dk_nd_dist.plot_mean_residual_life(threshold = dk_nd_dist.ppf(q_th));plt.show()
     <em>Mean residual life plot for GB at 95%</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels//readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/gb_mrl.png" alt="Mean residual life plot for GB's demand net of wind" width="640px">
 </p>
 
 Once we confirm the threshold is appropriate, univariate generalised Pareto models can be fitted using `fit_tail_model`, and fit diagnostics can be displayed afterwards.
@@ -69,7 +69,7 @@ The result is a semi-parametric model with an empirical distribution below the t
     <em>Diagnostic plots for GB model</em>
 </p>
 <p align="center" style="font-size:20px; margin:10px 10px 40px 10px">
-  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/master/readme_imgs/gb_diags.png" alt="Diagnostic plots for Great Britain's model" width="640px">
+  <img src="https://raw.githubusercontent.com/nestorsag/riskmodels/blob/master/readme_imgs/gb_mrl.png" alt="Diagnostic plots for Great Britain's model" width="640px">
 </p>
 
 <p align="center" style="font-size:20px; margin:10px 10px 0px 10px">
